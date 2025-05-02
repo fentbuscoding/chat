@@ -1,0 +1,17 @@
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("https://unpkg.com/98.css@0.1.20/dist/ms_sans_serif.woff") format("woff");
+  src: url("https://unpkg.com/98.css@0.1.20/dist/ms_sans_serif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal
+}
+
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("https://unpkg.com/98.css@0.1.20/dist/ms_sans_serif_bold.woff") format("woff");
+  src: url("https://unpkg.com/98.css@0.1.20/dist/ms_sans_serif_bold.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal
+}
+
+/* Optional: Add other fonts if needed, e.g., Segoe UI for 7.css if not relying on system fonts */
