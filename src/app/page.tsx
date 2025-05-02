@@ -6,27 +6,29 @@ import { Button } from '@/components/ui/button-themed'; // Use themed button
 import { Input } from '@/components/ui/input-themed'; // Use themed input
 import { Label } from '@/components/ui/label-themed'; // Use themed label
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card-themed'; // Use themed card
-import { useToast } from '@/hooks/use-toast';
+// Removed useToast as it's no longer needed for interest validation
+// import { useToast } from '@/hooks/use-toast';
 
 export default function SelectionLobby() {
   const [interests, setInterests] = useState('');
   const router = useRouter();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed useToast
 
   const handleStartChat = (type: 'text' | 'video') => {
-    if (!interests.trim()) {
-      toast({
-        title: "Interests Required",
-        description: "Please enter at least one interest to find a match.",
-        variant: "destructive",
-      });
-      return;
-    }
-    // Navigate to the chat/video page, passing interests and type
-    // The actual WebRTC/matching logic will happen on those pages
-    const params = new URLSearchParams({ interests, type });
+    // Removed interest validation check
+    // if (!interests.trim()) {
+    //   toast({
+    //     title: "Interests Required",
+    //     description: "Please enter at least one interest to find a match.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
+
+    // Navigate to the chat/video page, passing interests (even if empty) and type
+    const params = new URLSearchParams({ interests: interests.trim(), type }); // Trim interests before sending
     router.push(`/chat?${params.toString()}`);
-    console.log(`Starting ${type} chat with interests: ${interests}`);
+    console.log(`Starting ${type} chat with interests: ${interests || 'any'}`); // Log 'any' if interests are empty
   };
 
   return (
@@ -34,18 +36,18 @@ export default function SelectionLobby() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Welcome to ChitChatConnect!</CardTitle>
-          <CardDescription>Connect with someone new based on your interests.</CardDescription>
+          <CardDescription>Connect with someone new. Add interests to find a better match (optional).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="interests">Your Interests (comma-separated)</Label>
+            <Label htmlFor="interests">Your Interests (comma-separated, optional)</Label>
             <Input
               id="interests"
               value={interests}
               onChange={(e) => setInterests(e.target.value)}
               placeholder="e.g., programming, music, movies"
             />
-            <p className="text-xs text-gray-500">Adding interests helps us find a better match for you.</p>
+            <p className="text-xs text-gray-500">Adding interests helps find a specific match. Leave blank to connect with anyone.</p>
           </div>
         </CardContent>
          <CardFooter className="flex justify-between space-x-4">

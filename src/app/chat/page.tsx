@@ -18,7 +18,7 @@ export default function ChatPage() {
   const { toast } = useToast();
 
   const chatType = searchParams.get('type') as 'text' | 'video' | null;
-  const interests = searchParams.get('interests');
+  const interests = searchParams.get('interests') || ''; // Default to empty string if null
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -41,19 +41,23 @@ export default function ChatPage() {
 
   // Placeholder for WebRTC setup and connection logic
   const setupWebRTC = useCallback(async () => {
-      if (!chatType || !interests) {
-          toast({ title: "Error", description: "Missing chat type or interests.", variant: "destructive" });
+      if (!chatType) { // Removed interests check here, as empty is allowed
+          toast({ title: "Error", description: "Missing chat type.", variant: "destructive" });
           router.push('/');
           return;
       }
 
       setIsConnecting(true);
-      console.log(`Attempting to connect for ${chatType} chat with interests: ${interests}`);
-      toast({ title: "Connecting...", description: `Searching for a ${chatType} partner with interests: ${interests}` });
+      const connectionMessage = interests
+        ? `Searching for a ${chatType} partner with interests: ${interests}`
+        : `Searching for any available ${chatType} partner...`;
+      console.log(`Attempting to connect for ${chatType} chat with interests: ${interests || 'any'}`);
+      toast({ title: "Connecting...", description: connectionMessage });
 
       // *** Start Placeholder WebRTC/Signaling Simulation ***
        // In a real app, this involves complex signaling (e.g., WebSockets)
-       // and PeerConnection setup.
+       // and PeerConnection setup, potentially using interests for matchmaking.
+       // If interests is empty, the signaling server would match with any waiting user.
 
        try {
            // 1. Create PeerConnection
@@ -84,8 +88,8 @@ export default function ChatPage() {
             peerConnectionRef.current.onicecandidate = (event) => {
                  if (event.candidate) {
                      // Send candidate to the peer via signaling server (simulated)
+                     // The signaling server would handle matching based on interests or lack thereof.
                      console.log("Sending ICE candidate (simulated):", event.candidate);
-                     // In simulation, maybe auto-accept after a delay
                  }
             };
 
@@ -96,8 +100,8 @@ export default function ChatPage() {
             };
 
            // 5. Signaling Simulation (Offer/Answer exchange - highly simplified)
-           // In a real app, this uses a server. We simulate a connection after a delay.
-           console.log("Simulating signaling and connection...");
+           // Simulate matching based on interests (or lack thereof)
+           console.log(`Simulating signaling and connection (Interests: ${interests || 'any'})...`);
            await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate network delay
 
            // Assume connection is established
