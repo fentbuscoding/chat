@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -313,10 +314,15 @@ export default function ChatPage() {
         );
      } else { // Default to theme-7 style or any other theme
         return (
-          <div className="messages flex-grow overflow-y-auto p-2 bg-transparent"> {/* Made background transparent for glass effect */}
+          // Add subtle background for glass effect readability
+          <div className="messages flex-grow overflow-y-auto p-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
              {messages.map((msg) => (
              <div key={msg.id} className={cn('mb-2', msg.sender === 'user' ? 'text-right' : 'text-left')}>
-                 <span className={cn('inline-block p-2 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200 text-black' : 'bg-gray-200 text-black')}>
+                 {/* Use semi-transparent backgrounds for messages */}
+                 <span className={cn(
+                     'inline-block p-2 rounded max-w-[80%] break-words text-black', // Ensure text is readable
+                     msg.sender === 'user' ? 'bg-blue-200 bg-opacity-70' : 'bg-gray-200 bg-opacity-70'
+                  )}>
                  {msg.text}
                  </span>
              </div>
@@ -329,7 +335,7 @@ export default function ChatPage() {
   };
 
   return (
-    // Add 'background' class for 7.css glass effect
+    // Add 'background' class for 7.css glass effect if theme is 7
     <div className={cn("flex flex-col items-center flex-1 p-4 h-full", theme === 'theme-7' && 'background')}>
       {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
 
@@ -338,13 +344,12 @@ export default function ChatPage() {
         <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
           {/* Local Video Window */}
           <div className={cn(
-              "window w-1/3",
+              "window w-1/3", // Adjust width as needed
               theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
              )}
           >
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
-                 {/* Controls removed */}
                  <div className="title-bar-controls"></div>
             </div>
             {/* Apply window-body, remove padding for video */}
@@ -363,13 +368,12 @@ export default function ChatPage() {
           </div>
           {/* Remote Video Window */}
            <div className={cn(
-               "window w-1/3",
+               "window w-1/3", // Adjust width as needed
                theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
              )}
            >
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
-                 {/* Controls removed */}
                  <div className="title-bar-controls"></div>
             </div>
              {/* Apply window-body, remove padding for video */}
@@ -394,39 +398,39 @@ export default function ChatPage() {
       {/* Chat Container as a Window - Adjusted width and height */}
        <div className={cn(
            "window flex flex-col",
-           chatType === 'video' ? 'h-[55%] w-full max-w-xs' : 'flex-1 w-full max-w-sm', // Adjusted height/width
+           // Adjusted height/width - make chatbox taller and less wide
+           chatType === 'video' ? 'h-[60%] w-full max-w-[300px]' : 'flex-1 w-full max-w-sm',
            theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
          )}
        >
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
-              {/* Controls removed */}
               <div className="title-bar-controls"></div>
          </div>
          {/* Use window-body, add has-space based on theme */}
          <div className={cn(
-             "window-body flex flex-col flex-1 p-0 overflow-hidden",
-             theme === 'theme-7' && 'has-space' // Add spacing for Win7 style
+             "window-body flex flex-col flex-1 p-0 overflow-hidden", // Removed padding for better control
+             theme === 'theme-7' && 'has-space' // Add spacing for Win7 style only if theme is 7
            )}
-           // Add transparent background for glass effect in theme-7
+           // Conditional background for glass effect
            style={theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
          >
              {renderMessages()} {/* Render messages based on theme */}
             {/* Input Area below chat, inside window-body */}
-            <div className="input-area flex p-2 border-t bg-inherit"> {/* Use bg-inherit */}
+            <div className="input-area flex p-2 border-t bg-inherit"> {/* Use bg-inherit, ensure padding */}
                 <Input
                 type="text"
                 value={inputText}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder={isConnected ? "Type your message..." : "Connecting..."}
+                placeholder={isConnected ? "Type message..." : "Connecting..."} // Shortened placeholder
                 disabled={!isConnected || isConnecting}
-                className="flex-grow mr-2"
+                className="flex-grow mr-1" // Reduced margin
                 />
-                <Button onClick={sendMessage} disabled={!isConnected || isConnecting || !inputText.trim()} className="accent">
+                <Button onClick={sendMessage} disabled={!isConnected || isConnecting || !inputText.trim()} className="accent mr-1"> {/* Reduced margin */}
                 Send
                 </Button>
-                 <Button onClick={() => handleDisconnect()} variant="secondary" className="ml-2">
+                 <Button onClick={() => handleDisconnect()} variant="secondary" className="flex-shrink-0"> {/* Prevent button shrinking */}
                     Disconnect
                  </Button>
             </div>
@@ -435,4 +439,3 @@ export default function ChatPage() {
     </div>
   );
 }
-

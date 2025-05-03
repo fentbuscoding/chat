@@ -1,5 +1,6 @@
 
 
+
 /* Remove default tailwind base styles to prevent conflicts with 98.css/7.css */
 /* @tailwind base; */
 @tailwind components;
@@ -67,6 +68,18 @@ html, body, #__next {
 .p-2 {
     padding: 0.5rem; /* 8px */
 }
+.p-0 {
+    padding: 0;
+}
+.mr-1 {
+    margin-right: 0.25rem; /* 4px */
+}
+.mr-2 {
+    margin-right: 0.5rem; /* 8px */
+}
+.ml-2 {
+    margin-left: 0.5rem; /* 8px */
+}
 .m-4 {
     margin: 1rem; /* 16px */
 }
@@ -76,16 +89,33 @@ html, body, #__next {
 .mb-4 {
     margin-bottom: 1rem; /* 16px */
 }
+.mb-2 {
+    margin-bottom: 0.5rem; /* 8px */
+}
+.mb-1 {
+    margin-bottom: 0.25rem; /* 4px */
+}
 .space-x-4 > :not([hidden]) ~ :not([hidden]) {
     --tw-space-x-reverse: 0;
     margin-right: calc(1rem * var(--tw-space-x-reverse));
     margin-left: calc(1rem * (1 - var(--tw-space-x-reverse)));
+}
+.space-x-2 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 0;
+    margin-right: calc(0.5rem * var(--tw-space-x-reverse));
+    margin-left: calc(0.5rem * (1 - var(--tw-space-x-reverse)));
 }
 .space-y-4 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-y-reverse: 0;
   margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(1rem * var(--tw-space-y-reverse));
 }
+.space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.5rem * var(--tw-space-y-reverse));
+}
+
 
 .h-full {
   height: 100%;
@@ -93,9 +123,129 @@ html, body, #__next {
 .w-full {
   width: 100%;
 }
+.w-1\/3 {
+  width: 33.333333%;
+}
+.max-w-md {
+  max-width: 28rem; /* 448px */
+}
+.max-w-sm {
+  max-width: 24rem; /* 384px */
+}
+.max-w-xs {
+  max-width: 20rem; /* 320px */
+}
+.max-w-\[300px\] {
+  max-width: 300px;
+}
+.max-w-4xl {
+  max-width: 56rem; /* 896px */
+}
 .min-h-screen {
     min-height: 100vh;
 }
+.flex-grow {
+  flex-grow: 1;
+}
+.flex-shrink-0 {
+    flex-shrink: 0;
+}
+.overflow-y-auto {
+  overflow-y: auto;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.text-right {
+  text-align: right;
+}
+.text-left {
+  text-align: left;
+}
+.text-center {
+  text-align: center;
+}
+.text-xs {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1rem; /* 16px */
+}
+.text-white {
+    color: white;
+}
+.text-black {
+    color: black;
+}
+.text-gray-500 {
+    color: #6b7280;
+}
+.font-bold {
+    font-weight: 700;
+}
+.inline-block {
+    display: inline-block;
+}
+.rounded {
+    border-radius: 0.25rem; /* 4px */
+}
+.break-words {
+    overflow-wrap: break-word;
+}
+
+.bg-white {
+    background-color: white;
+}
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+.bg-gray-800 {
+    background-color: #1f2937;
+}
+.bg-blue-200 {
+    background-color: #bfdbfe;
+}
+.bg-black {
+    background-color: black;
+}
+.bg-opacity-50 {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+.bg-opacity-70 {
+    background-color: rgba(255, 255, 255, 0.7); /* Example, adjust as needed */
+}
+.bg-blue-200.bg-opacity-70 {
+    background-color: rgba(191, 219, 254, 0.7); /* Specific for blue */
+}
+.bg-gray-200.bg-opacity-70 {
+    background-color: rgba(229, 231, 235, 0.7); /* Specific for gray */
+}
+.bg-inherit {
+    background-color: inherit;
+}
+
+
+.border-t {
+    border-top-width: 1px;
+}
+
+.relative {
+    position: relative;
+}
+.absolute {
+    position: absolute;
+}
+.inset-0 {
+    top: 0; right: 0; bottom: 0; left: 0;
+}
+.bottom-1 {
+    bottom: 0.25rem; /* 4px */
+}
+.left-1 {
+    left: 0.25rem; /* 4px */
+}
+.right-1 {
+    right: 0.25rem; /* 4px */
+}
+
 
 /* Basic styling for the video elements */
 video {
@@ -135,7 +285,17 @@ video {
     background-size: cover; /* Cover the entire container */
     background-position: center;
     background-repeat: no-repeat;
+    /* Ensure the background covers the whole viewport */
+    min-height: 100vh; /* Ensure it covers at least the viewport height */
+    height: 100%; /* Make it cover the full body height */
 }
+
+/* Ensure window body with glass effect has a minimum contrast background for text */
+.theme-7 .window.glass .window-body {
+    /* Use a very subtle white background to improve readability over the glass */
+    /* background-color: rgba(255, 255, 255, 0.1);  Moved inline for chat specifically */
+}
+
 
 /* REMOVED Manually defined Tailwind utility classes */
 
@@ -149,3 +309,4 @@ video {
 /* .theme-7 .accent { ... } */
 /* .theme-7 .window { ... } */
 /* ... etc ... */
+
