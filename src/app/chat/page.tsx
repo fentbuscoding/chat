@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -262,47 +263,42 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 p-4 h-full">
+    <div className="flex flex-col items-center flex-1 p-4 h-full"> {/* Center content horizontally */}
       {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
 
-      {/* Video Area - Always render video elements structure if chatType is video */}
+      {/* Video Area - Conditional rendering */}
       {chatType === 'video' && (
-        <div className="flex space-x-4 mb-4 h-1/2">
-          {/* Local Video */}
-          <div className="window flex-1 flex flex-col"> {/* Use window class */}
+        <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
+          {/* Local Video - Smaller Width */}
+          <div className="window w-1/3 flex flex-col"> {/* Reduced width */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
             </div>
-            <div className="window-body flex-1 flex flex-col justify-center items-center relative"> {/* Use window-body class */}
+            <div className="window-body flex-1 flex flex-col justify-center items-center relative aspect-video"> {/* Maintain aspect ratio */}
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-                 {/* Show alert only if permission was explicitly denied */}
                  { hasCameraPermission === false && (
-                      <Alert variant="destructive" className="absolute bottom-2 left-2 right-2">
-                        <AlertTitle>Camera/Mic Access Denied</AlertTitle>
-                        <AlertDescription>
-                          Please enable permissions to share your video/audio.
-                        </AlertDescription>
+                      <Alert variant="destructive" className="absolute bottom-1 left-1 right-1 text-xs p-1">
+                        <AlertTitle className="text-xs">Cam/Mic Denied</AlertTitle>
+                        <AlertDescription className="text-xs">Enable permissions.</AlertDescription>
                      </Alert>
                   )}
-                 {/* Show placeholder if connecting or waiting for stream */}
                  { (isConnecting || (hasCameraPermission === null && !localStream)) && (
-                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">Loading camera...</div>
+                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-xs">Loading cam...</div>
                  )}
             </div>
           </div>
-          {/* Remote Video */}
-          <div className="window flex-1 flex flex-col"> {/* Use window class */}
+          {/* Remote Video - Smaller Width */}
+          <div className="window w-1/3 flex flex-col"> {/* Reduced width */}
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
             </div>
-             <div className="window-body flex-1 flex flex-col justify-center items-center relative"> {/* Use window-body class */}
-                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-gray-800"></video>
-                 {/* Show waiting message only if *we* are connected/connecting, but peer isn't fully there yet */}
+             <div className="window-body flex-1 flex flex-col justify-center items-center relative aspect-video bg-gray-800"> {/* Maintain aspect ratio & bg */}
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { (!isConnected && !isConnecting) && (
-                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">Waiting for stranger...</div>
+                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
                  )}
                  { isConnected && !remoteVideoRef.current?.srcObject && (
-                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">Connecting stream...</div>
+                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Connecting...</div>
                  )}
              </div>
           </div>
@@ -314,14 +310,13 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-
-      {/* Chat Area */}
-      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[calc(50%-1rem)]' : 'flex-1'}`}> {/* Use window class and adjust height with calc */}
+      {/* Chat Container - Centered and less wide */}
+      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[45%] w-full max-w-xl' : 'flex-1 w-full max-w-xl'}`}> {/* Taller, narrower, centered */}
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
          </div>
-         <div className="window-body flex flex-col flex-1 p-0 overflow-hidden"> {/* Use window-body and remove default padding, add overflow hidden */}
-            <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* Add bg-white for contrast inside window */}
+         <div className="window-body flex flex-col flex-1 p-0 overflow-hidden">
+            <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages */}
                 {messages.map((msg) => (
                 <div key={msg.id} className={`mb-2 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                     <span className={`inline-block p-2 rounded max-w-[80%] break-words ${msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
@@ -331,6 +326,7 @@ export default function ChatPage() {
                 ))}
                  <div ref={messagesEndRef} />
             </div>
+            {/* Input Area below chat, matches width */}
             <div className="input-area flex p-2 border-t">
                 <Input
                 type="text"
@@ -353,3 +349,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
+    
