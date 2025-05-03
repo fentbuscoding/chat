@@ -343,7 +343,7 @@ export default function ChatPage() {
                  <div className="title-bar-controls"></div>
             </div>
             {/* Apply window-body, remove padding for video */}
-            <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video p-0">
+            <div className="window-body flex flex-col justify-center items-center relative aspect-video p-0">
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
                       <Alert variant="destructive" className="absolute bottom-1 left-1 right-1 text-xs p-1">
@@ -364,7 +364,7 @@ export default function ChatPage() {
                  <div className="title-bar-controls"></div>
             </div>
              {/* Apply window-body, remove padding for video */}
-             <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
+             <div className="window-body flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
@@ -424,3 +424,4 @@ export default function ChatPage() {
     </div>
   );
 }
+
