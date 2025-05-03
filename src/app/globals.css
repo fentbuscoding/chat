@@ -1,3 +1,4 @@
+
 /* Remove default tailwind base styles to prevent conflicts with 98.css/7.css */
 /* @tailwind base; */
 @tailwind components;
@@ -37,8 +38,7 @@ html, body, #__next {
   height: 100%;
 }
 
-/* Ensure flex containers work as expected (These are Tailwind classes, but defined manually below as well - keep these structural ones for now) */
-/* It's generally better to rely on @tailwind utilities for these, but keeping them temporarily if needed for structure before Tailwind kicks in fully */
+/* Ensure flex containers work as expected */
 .flex {
   display: flex;
 }
@@ -103,47 +103,39 @@ video {
   background-color: #000; /* Placeholder background */
 }
 
-/* Basic chatbox styling */
-.chatbox {
-  border: 1px solid #ccc; /* Default border, themes will override */
-  display: flex;
-  flex-direction: column;
-  height: 200px; /* Example height */
-  overflow: hidden;
+/* Basic chatbox styling - Applied within components now */
+/* .chatbox { ... } */
+/* .messages { ... } */
+/* .input-area { ... } */
+
+/* Basic styling for 98.css tree-view used for chat */
+.theme-98 .tree-view {
+  background-color: white; /* Standard white background */
+  /* border: 1px solid var(--border-well-outer, #808080); */ /* Optional: add border if needed */
+  /* box-shadow: var(--border-well-inset); */ /* Sunken look */
+  padding: 4px; /* Padding inside the view */
+  list-style: none; /* Remove default list bullets */
+  margin: 0; /* Remove default margin */
 }
 
-.messages {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding: 8px;
-  border-bottom: 1px solid #ccc; /* Default border */
+.theme-98 .tree-view li {
+  padding: 1px 0; /* Minimal vertical padding for list items */
 }
 
-.input-area {
-  display: flex;
-  padding: 8px;
+/* Styles for 7.css window body padding helper */
+.theme-7 .window-body.has-space {
+    padding: 12px; /* Adjust padding as needed for Win7 style */
 }
 
-.input-area input {
-  flex-grow: 1;
-  margin-right: 8px;
-}
+/* REMOVED Manually defined Tailwind utility classes */
 
-/* REMOVED Manually defined Tailwind utility classes as they are provided by @tailwind utilities and were causing parsing errors. */
-/*
-.text-center { text-align: center; }
-.font-bold { font-weight: bold; }
-.cursor-pointer { cursor: pointer; }
-.shadow-md { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
-.rounded { border-radius: 0.25rem; }
-.border { border-width: 1px; }
-.w-1/2 { width: 50%; }
-.fixed { position: fixed; }
-.top-0 { top: 0; }
-.left-0 { left: 0; }
-.right-0 { right: 0; }
-.z-50 { z-index: 50; }
-.bg-white { background-color: #fff; }
-.px-4 { padding-left: 1rem; padding-right: 1rem; }
-.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-*/
+/* REMOVE local theme overrides as CSS is loaded from CDN */
+/* .theme-98 body { ... } */
+/* .theme-98 .accent { ... } */
+/* .theme-98 .window { ... } */
+/* ... etc ... */
+
+/* .theme-7 body { ... } */
+/* .theme-7 .accent { ... } */
+/* .theme-7 .window { ... } */
+/* ... etc ... */

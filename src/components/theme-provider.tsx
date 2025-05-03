@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -62,7 +63,7 @@ export function ThemeProvider({
         console.error("Error setting localStorage:", e);
       }
 
-    // Dynamically load/unload CSS files
+    // Dynamically load/unload CSS files from CDN
     const loadThemeCss = (themeToLoad: Theme) => {
       const existingLink = document.getElementById(`theme-${themeToLoad}-css`);
       if (existingLink) return; // Already loaded
@@ -70,7 +71,10 @@ export function ThemeProvider({
       const link = document.createElement('link');
       link.id = `theme-${themeToLoad}-css`;
       link.rel = 'stylesheet';
-      link.href = themeToLoad === 'theme-98' ? '/98.css' : '/7.css'; // Adjusted paths
+      // Load from unpkg CDN
+      link.href = themeToLoad === 'theme-98'
+        ? 'https://unpkg.com/98.css'
+        : 'https://unpkg.com/7.css';
       document.head.appendChild(link);
     };
 
@@ -81,17 +85,9 @@ export function ThemeProvider({
       }
     };
 
-    if (theme === 'theme-98') {
-      loadThemeCss('theme-98');
-      unloadThemeCss('theme-7');
-    } else if (theme === 'theme-7') {
-      loadThemeCss('theme-7');
-      unloadThemeCss('theme-98');
-    }
-     // Initial load based on state
-     loadThemeCss(theme);
-     unloadThemeCss(theme === 'theme-98' ? 'theme-7' : 'theme-98');
-
+    // Initial load based on state
+    loadThemeCss(theme);
+    unloadThemeCss(theme === 'theme-98' ? 'theme-7' : 'theme-98');
 
   }, [theme, storageKey]);
 
@@ -119,3 +115,4 @@ export const useTheme = () => {
 
   return context;
 };
+

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
+import { useTheme } from '@/components/theme-provider'; // Import useTheme
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 interface Message {
   id: string;
@@ -15,6 +17,7 @@ interface Message {
 }
 
 export default function ChatPage() {
+  const { theme } = useTheme(); // Get current theme
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -34,10 +37,11 @@ export default function ChatPage() {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | HTMLLIElement>(null); // Can be div or li
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Cast to HTMLElement for scrollIntoView
+    (messagesEndRef.current as HTMLElement)?.scrollIntoView({ behavior: "smooth" });
   };
 
    useEffect(scrollToBottom, [messages]);
@@ -184,7 +188,6 @@ export default function ChatPage() {
 
 
   // Effect to assign the local stream to the video element when the stream is ready
-  // This is slightly redundant with the assignment inside setupWebRTC but acts as a fallback
   useEffect(() => {
       if (localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
           console.log("Assigning local stream to video element (useEffect fallback)");
@@ -293,6 +296,38 @@ export default function ChatPage() {
     return <div className="p-4">Invalid chat type specified. <Button onClick={() => router.push('/')}>Go Home</Button></div>;
   }
 
+  const renderMessages = () => {
+     if (theme === 'theme-98') {
+        return (
+           <ul className="tree-view messages flex-grow overflow-y-auto p-2 bg-white">
+             {messages.map((msg) => (
+               <li key={msg.id} className={cn('mb-1', msg.sender === 'user' ? 'text-right' : 'text-left')}>
+                 <span className={cn('inline-block p-1 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200')}>
+                  {msg.sender === 'user' ? 'You: ' : 'Peer: '} {msg.text}
+                 </span>
+               </li>
+             ))}
+             {/* Use li for the scroll anchor in tree-view */}
+             <li ref={messagesEndRef as React.RefObject<HTMLLIElement>} className="h-0" />
+           </ul>
+        );
+     } else { // Default to theme-7 style or any other theme
+        return (
+          <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages, add padding back here */}
+             {messages.map((msg) => (
+             <div key={msg.id} className={cn('mb-2', msg.sender === 'user' ? 'text-right' : 'text-left')}>
+                 <span className={cn('inline-block p-2 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200')}>
+                 {msg.text}
+                 </span>
+             </div>
+             ))}
+              {/* Use div for the scroll anchor */}
+              <div ref={messagesEndRef as React.RefObject<HTMLDivElement>} />
+          </div>
+        );
+     }
+  };
+
   return (
     <div className="flex flex-col items-center flex-1 p-4 h-full"> {/* Center content horizontally */}
       {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
@@ -301,17 +336,13 @@ export default function ChatPage() {
       {chatType === 'video' && (
         <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
           {/* Local Video Window */}
-          <div className="window w-1/3"> {/* Apply window class, keep width */}
+          <div className="window w-1/3"> {/* Apply window class */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
                  {/* Controls removed */}
-                 <div className="title-bar-controls">
-                  {/* <button aria-label="Minimize"></button>
-                  <button aria-label="Maximize"></button>
-                  <button aria-label="Close"></button> */}
-                </div>
+                 <div className="title-bar-controls"></div>
             </div>
-            {/* Apply window-body, remove padding, maintain aspect */}
+            {/* Apply window-body */}
             <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video p-0">
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
@@ -326,17 +357,13 @@ export default function ChatPage() {
             </div>
           </div>
           {/* Remote Video Window */}
-          <div className="window w-1/3"> {/* Apply window class, keep width */}
+          <div className="window w-1/3"> {/* Apply window class */}
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
                  {/* Controls removed */}
-                 <div className="title-bar-controls">
-                    {/* <button aria-label="Minimize"></button>
-                    <button aria-label="Maximize"></button>
-                    <button aria-label="Close"></button> */}
-                 </div>
+                 <div className="title-bar-controls"></div>
             </div>
-             {/* Apply window-body, remove padding, maintain aspect & bg */}
+             {/* Apply window-body */}
              <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
@@ -355,29 +382,25 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-      {/* Chat Container as a Window - Decreased width (max-w-sm), increased height */}
-       <div className={`window flex flex-col ${chatType === 'video' ? 'h-[60%] w-full max-w-sm' : 'flex-1 w-full max-w-lg'}`}> {/* Adjusted height/width */}
+      {/* Chat Container as a Window - Adjusted width and height */}
+       <div className={cn(
+           "window flex flex-col",
+           chatType === 'video' ? 'h-[55%] w-full max-w-xs' : 'flex-1 w-full max-w-sm', // More height, less width for video chat
+           theme === 'theme-7' && 'active' // Add 'active' class for theme-7
+         )}
+       >
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
               {/* Controls removed */}
-              <div className="title-bar-controls">
-                {/* <button aria-label="Minimize"></button>
-                <button aria-label="Maximize"></button>
-                <button aria-label="Close"></button> */}
-              </div>
+              <div className="title-bar-controls"></div>
          </div>
-         {/* Use window-body, remove padding */}
-         <div className="window-body has-space flex flex-col flex-1 p-0 overflow-hidden">
-            <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages, add padding back here */}
-                {messages.map((msg) => (
-                <div key={msg.id} className={`mb-2 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
-                    <span className={`inline-block p-2 rounded max-w-[80%] break-words ${msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
-                    {msg.text}
-                    </span>
-                </div>
-                ))}
-                 <div ref={messagesEndRef} />
-            </div>
+         {/* Use window-body, add has-space based on theme */}
+         <div className={cn(
+             "window-body flex flex-col flex-1 p-0 overflow-hidden",
+             theme === 'theme-7' && 'has-space'
+           )}
+         >
+             {renderMessages()} {/* Render messages based on theme */}
             {/* Input Area below chat, inside window-body */}
             <div className="input-area flex p-2 border-t"> {/* Add padding back, add border */}
                 <Input
@@ -401,4 +424,3 @@ export default function ChatPage() {
     </div>
   );
 }
-
