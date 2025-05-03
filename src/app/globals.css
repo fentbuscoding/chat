@@ -1,4 +1,5 @@
 
+
 /* Remove default tailwind base styles to prevent conflicts with 98.css/7.css */
 /* @tailwind base; */
 @tailwind components;
@@ -99,7 +100,8 @@ html, body, #__next {
 /* Basic styling for the video elements */
 video {
   width: 100%;
-  height: auto;
+  height: 100%; /* Make video fill container */
+  object-fit: cover; /* Ensure video covers the area */
   background-color: #000; /* Placeholder background */
 }
 
@@ -125,6 +127,14 @@ video {
 /* Styles for 7.css window body padding helper */
 .theme-7 .window-body.has-space {
     padding: 12px; /* Adjust padding as needed for Win7 style */
+}
+
+/* Styles for 7.css glass effect background */
+.theme-7 .background {
+    background-image: url("https://unpkg.com/7.css/img/background.svg");
+    background-size: cover; /* Cover the entire container */
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 /* REMOVED Manually defined Tailwind utility classes */

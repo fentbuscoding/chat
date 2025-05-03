@@ -313,10 +313,10 @@ export default function ChatPage() {
         );
      } else { // Default to theme-7 style or any other theme
         return (
-          <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages, add padding back here */}
+          <div className="messages flex-grow overflow-y-auto p-2 bg-transparent"> {/* Made background transparent for glass effect */}
              {messages.map((msg) => (
              <div key={msg.id} className={cn('mb-2', msg.sender === 'user' ? 'text-right' : 'text-left')}>
-                 <span className={cn('inline-block p-2 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200')}>
+                 <span className={cn('inline-block p-2 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200 text-black' : 'bg-gray-200 text-black')}>
                  {msg.text}
                  </span>
              </div>
@@ -329,14 +329,19 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col items-center flex-1 p-4 h-full"> {/* Center content horizontally */}
+    // Add 'background' class for 7.css glass effect
+    <div className={cn("flex flex-col items-center flex-1 p-4 h-full", theme === 'theme-7' && 'background')}>
       {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
 
       {/* Video Area - Conditional rendering */}
       {chatType === 'video' && (
         <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
           {/* Local Video Window */}
-          <div className="window w-1/3"> {/* Apply window class, adjusted width */}
+          <div className={cn(
+              "window w-1/3",
+              theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
+             )}
+          >
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
                  {/* Controls removed */}
@@ -357,7 +362,11 @@ export default function ChatPage() {
             </div>
           </div>
           {/* Remote Video Window */}
-          <div className="window w-1/3"> {/* Apply window class, adjusted width */}
+           <div className={cn(
+               "window w-1/3",
+               theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
+             )}
+           >
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
                  {/* Controls removed */}
@@ -386,7 +395,7 @@ export default function ChatPage() {
        <div className={cn(
            "window flex flex-col",
            chatType === 'video' ? 'h-[55%] w-full max-w-xs' : 'flex-1 w-full max-w-sm', // Adjusted height/width
-           theme === 'theme-7' && 'active' // Add 'active' class for theme-7
+           theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
          )}
        >
          <div className="title-bar">
@@ -397,12 +406,14 @@ export default function ChatPage() {
          {/* Use window-body, add has-space based on theme */}
          <div className={cn(
              "window-body flex flex-col flex-1 p-0 overflow-hidden",
-             theme === 'theme-7' && 'has-space'
+             theme === 'theme-7' && 'has-space' // Add spacing for Win7 style
            )}
+           // Add transparent background for glass effect in theme-7
+           style={theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
          >
              {renderMessages()} {/* Render messages based on theme */}
             {/* Input Area below chat, inside window-body */}
-            <div className="input-area flex p-2 border-t"> {/* Add padding back, add border */}
+            <div className="input-area flex p-2 border-t bg-inherit"> {/* Use bg-inherit */}
                 <Input
                 type="text"
                 value={inputText}
