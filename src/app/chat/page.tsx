@@ -260,12 +260,14 @@ export default function ChatPage() {
        if (localVideoRef.current?.srcObject) {
            // console.log("Clearing local video srcObject");
             // Ensure tracks are stopped before clearing srcObject
-           (localVideoRef.current.srcObject as MediaStream)?.getTracks().forEach(track => track.stop());
+           const stream = localVideoRef.current.srcObject as MediaStream;
+           stream?.getTracks().forEach(track => track.stop());
            localVideoRef.current.srcObject = null;
        }
         if (remoteVideoRef.current?.srcObject) {
             // console.log("Clearing remote video srcObject");
-           (remoteVideoRef.current.srcObject as MediaStream)?.getTracks().forEach(track => track.stop());
+            const stream = remoteVideoRef.current.srcObject as MediaStream;
+            stream?.getTracks().forEach(track => track.stop());
            remoteVideoRef.current.srcObject = null;
         }
 
@@ -298,12 +300,19 @@ export default function ChatPage() {
       {/* Video Area - Conditional rendering */}
       {chatType === 'video' && (
         <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
-          {/* Local Video - Smaller Width */}
-          <div className="window w-1/3 flex flex-col"> {/* Reduced width */}
+          {/* Local Video Window */}
+          <div className="window w-1/3"> {/* Apply window class, keep width */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
+                {/* Optional: Add theme controls if desired
+                <div className="title-bar-controls">
+                  <button aria-label="Minimize"></button>
+                  <button aria-label="Maximize"></button>
+                  <button aria-label="Close"></button>
+                </div>
+                 */}
             </div>
-            <div className="window-body flex-1 flex flex-col justify-center items-center relative aspect-video"> {/* Maintain aspect ratio */}
+            <div className="window-body flex flex-col justify-center items-center relative aspect-video p-0"> {/* Apply window-body, remove padding, maintain aspect */}
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
                       <Alert variant="destructive" className="absolute bottom-1 left-1 right-1 text-xs p-1">
@@ -316,12 +325,13 @@ export default function ChatPage() {
                  )}
             </div>
           </div>
-          {/* Remote Video - Smaller Width */}
-          <div className="window w-1/3 flex flex-col"> {/* Reduced width */}
+          {/* Remote Video Window */}
+          <div className="window w-1/3"> {/* Apply window class, keep width */}
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
+                 {/* Optional: Add theme controls */}
             </div>
-             <div className="window-body flex-1 flex flex-col justify-center items-center relative aspect-video bg-gray-800"> {/* Maintain aspect ratio & bg */}
+             <div className="window-body flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0"> {/* Apply window-body, remove padding, maintain aspect & bg */}
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
@@ -339,13 +349,14 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-      {/* Chat Container - Further decreased width (max-w-sm), increased height (h-[80%]) */}
-      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[80%] w-full max-w-sm' : 'flex-1 w-full max-w-lg'}`}>
+      {/* Chat Container as a Window - Further decreased width (max-w-sm), increased height (h-[80%]) */}
+       <div className={`window flex flex-col ${chatType === 'video' ? 'h-[80%] w-full max-w-sm' : 'flex-1 w-full max-w-lg'}`}>
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
+              {/* Optional: Add theme controls */}
          </div>
-         <div className="window-body flex flex-col flex-1 p-0 overflow-hidden">
-            <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages */}
+         <div className="window-body flex flex-col flex-1 p-0 overflow-hidden"> {/* Use window-body, remove padding */}
+            <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages, add padding back here */}
                 {messages.map((msg) => (
                 <div key={msg.id} className={`mb-2 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                     <span className={`inline-block p-2 rounded max-w-[80%] break-words ${msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
@@ -355,8 +366,8 @@ export default function ChatPage() {
                 ))}
                  <div ref={messagesEndRef} />
             </div>
-            {/* Input Area below chat, matches width */}
-            <div className="input-area flex p-2 border-t">
+            {/* Input Area below chat, inside window-body */}
+            <div className="input-area flex p-2 border-t"> {/* Add padding back, add border */}
                 <Input
                 type="text"
                 value={inputText}
