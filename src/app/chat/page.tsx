@@ -268,7 +268,7 @@ export default function ChatPage() {
             // console.log("Clearing remote video srcObject");
             const stream = remoteVideoRef.current.srcObject as MediaStream;
             stream?.getTracks().forEach(track => track.stop());
-           remoteVideoRef.current.srcObject = null;
+            remoteVideoRef.current.srcObject = null;
         }
 
        setMessages([]); // Clear messages on disconnect
@@ -304,11 +304,11 @@ export default function ChatPage() {
           <div className="window w-1/3"> {/* Apply window class, keep width */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
-                 {/* Optional: Add theme controls if desired */}
+                 {/* Controls removed */}
                  <div className="title-bar-controls">
-                  <button aria-label="Minimize"></button>
+                  {/* <button aria-label="Minimize"></button>
                   <button aria-label="Maximize"></button>
-                  <button aria-label="Close"></button>
+                  <button aria-label="Close"></button> */}
                 </div>
             </div>
             {/* Apply window-body, remove padding, maintain aspect */}
@@ -329,11 +329,11 @@ export default function ChatPage() {
           <div className="window w-1/3"> {/* Apply window class, keep width */}
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
-                 {/* Optional: Add theme controls */}
+                 {/* Controls removed */}
                  <div className="title-bar-controls">
-                    <button aria-label="Minimize"></button>
+                    {/* <button aria-label="Minimize"></button>
                     <button aria-label="Maximize"></button>
-                    <button aria-label="Close"></button>
+                    <button aria-label="Close"></button> */}
                  </div>
             </div>
              {/* Apply window-body, remove padding, maintain aspect & bg */}
@@ -355,15 +355,15 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-      {/* Chat Container as a Window - Further decreased width (max-w-sm), increased height (h-[80%]) */}
-       <div className={`window flex flex-col ${chatType === 'video' ? 'h-[80%] w-full max-w-sm' : 'flex-1 w-full max-w-lg'}`}>
+      {/* Chat Container as a Window - Decreased width (max-w-sm), increased height */}
+       <div className={`window flex flex-col ${chatType === 'video' ? 'h-[60%] w-full max-w-sm' : 'flex-1 w-full max-w-lg'}`}> {/* Adjusted height/width */}
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
-              {/* Optional: Add theme controls */}
+              {/* Controls removed */}
               <div className="title-bar-controls">
-                <button aria-label="Minimize"></button>
+                {/* <button aria-label="Minimize"></button>
                 <button aria-label="Maximize"></button>
-                <button aria-label="Close"></button>
+                <button aria-label="Close"></button> */}
               </div>
          </div>
          {/* Use window-body, remove padding */}
