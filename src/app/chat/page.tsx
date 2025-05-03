@@ -336,13 +336,13 @@ export default function ChatPage() {
       {chatType === 'video' && (
         <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
           {/* Local Video Window */}
-          <div className="window w-1/3"> {/* Apply window class */}
+          <div className="window w-1/3"> {/* Apply window class, adjusted width */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
                  {/* Controls removed */}
                  <div className="title-bar-controls"></div>
             </div>
-            {/* Apply window-body */}
+            {/* Apply window-body, remove padding for video */}
             <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video p-0">
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
@@ -357,13 +357,13 @@ export default function ChatPage() {
             </div>
           </div>
           {/* Remote Video Window */}
-          <div className="window w-1/3"> {/* Apply window class */}
+          <div className="window w-1/3"> {/* Apply window class, adjusted width */}
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
                  {/* Controls removed */}
                  <div className="title-bar-controls"></div>
             </div>
-             {/* Apply window-body */}
+             {/* Apply window-body, remove padding for video */}
              <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
@@ -385,7 +385,7 @@ export default function ChatPage() {
       {/* Chat Container as a Window - Adjusted width and height */}
        <div className={cn(
            "window flex flex-col",
-           chatType === 'video' ? 'h-[55%] w-full max-w-xs' : 'flex-1 w-full max-w-sm', // More height, less width for video chat
+           chatType === 'video' ? 'h-[55%] w-full max-w-xs' : 'flex-1 w-full max-w-sm', // Adjusted height/width
            theme === 'theme-7' && 'active' // Add 'active' class for theme-7
          )}
        >
