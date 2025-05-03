@@ -44,101 +44,107 @@ export default function ChatPage() {
 
 
   // Placeholder for WebRTC setup and connection logic
-  const setupWebRTC = useCallback(async () => {
-      if (!chatType) {
-          toast({ title: "Error", description: "Missing chat type.", variant: "destructive" });
-          router.push('/');
-          return;
-      }
+   const setupWebRTC = useCallback(async () => {
+     if (!chatType) {
+       toast({ title: "Error", description: "Missing chat type.", variant: "destructive" });
+       router.push('/');
+       return;
+     }
 
-      setIsConnecting(true);
-      const connectionMessage = interests
-        ? `Searching for a ${chatType} partner with interests: ${interests}`
-        : `Searching for any available ${chatType} partner...`;
-      console.log(`Attempting to connect for ${chatType} chat with interests: ${interests || 'any'}`);
-      toast({ title: "Connecting...", description: connectionMessage });
+     setIsConnecting(true);
+     const connectionMessage = interests
+       ? `Searching for a ${chatType} partner with interests: ${interests}`
+       : `Searching for any available ${chatType} partner...`;
+     console.log(`Attempting to connect for ${chatType} chat with interests: ${interests || 'any'}`);
+     toast({ title: "Connecting...", description: connectionMessage });
 
-       try {
-           // 1. Create PeerConnection
-            peerConnectionRef.current = new RTCPeerConnection({
-              // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Example STUN server
-            });
+     try {
+       // 1. Create PeerConnection
+       peerConnectionRef.current = new RTCPeerConnection({
+         // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Example STUN server
+       });
 
-           // 2. Setup Data Channel (for text chat)
-           dataChannelRef.current = peerConnectionRef.current.createDataChannel('chat');
-           setupDataChannelListeners(dataChannelRef.current);
+       // 2. Setup Data Channel (for text chat)
+       dataChannelRef.current = peerConnectionRef.current.createDataChannel('chat');
+       setupDataChannelListeners(dataChannelRef.current);
 
-           peerConnectionRef.current.ondatachannel = (event) => {
-             dataChannelRef.current = event.channel;
-             setupDataChannelListeners(dataChannelRef.current);
-           };
+       peerConnectionRef.current.ondatachannel = (event) => {
+         dataChannelRef.current = event.channel;
+         setupDataChannelListeners(dataChannelRef.current);
+       };
 
+       // 3. Get Media Stream (if video chat) - Request permission here
+       if (chatType === 'video') {
+         if (!navigator.mediaDevices?.getUserMedia) {
+           throw new Error("Media devices API not available.");
+         }
+         try {
+           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+           setLocalStream(stream); // Store stream in state
+           setHasCameraPermission(true);
+           // Add tracks to the peer connection *after* stream is obtained
+           stream.getTracks().forEach(track => peerConnectionRef.current?.addTrack(track, stream));
+            // Assign stream to local video element immediately after getting it
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = stream;
+            } else {
+               console.warn("Local video ref not available when stream was obtained.");
+            }
 
-           // 3. Get Media Stream (if video chat) - Request permission here
-           if (chatType === 'video') {
-               if (!navigator.mediaDevices?.getUserMedia) {
-                   throw new Error("Media devices API not available.");
-               }
-               try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                    setLocalStream(stream); // Store stream in state
-                    setHasCameraPermission(true);
-                    // Add tracks to the peer connection *after* stream is obtained
-                    stream.getTracks().forEach(track => peerConnectionRef.current?.addTrack(track, stream));
-               } catch (mediaError) {
-                    console.error('Error accessing camera/microphone:', mediaError);
-                    setHasCameraPermission(false);
-                    toast({
-                      variant: 'destructive',
-                      title: 'Media Access Denied',
-                      description: 'Please enable camera and microphone permissions in your browser settings.',
-                    });
-                    // Optionally stop connection attempt or proceed without video/audio
-                    // For now, we'll let the connection proceed but show an error state for video
-               }
-           } else {
-               setHasCameraPermission(null); // Not applicable for text chat
-           }
-
-
-           // 4. Setup ICE Candidate and Track Listeners
-            peerConnectionRef.current.onicecandidate = (event) => {
-                 if (event.candidate) {
-                     console.log("Sending ICE candidate (simulated):", event.candidate);
-                 }
-            };
-
-            peerConnectionRef.current.ontrack = (event) => {
-                // Assign remote stream to the remote video element
-                if (remoteVideoRef.current && event.streams[0]) {
-                     remoteVideoRef.current.srcObject = event.streams[0];
-                } else {
-                     console.warn("Remote video ref not available or no stream in event");
-                }
-            };
-
-           // 5. Signaling Simulation (Offer/Answer exchange - highly simplified)
-           console.log(`Simulating signaling and connection (Interests: ${interests || 'any'})...`);
-           // Create offer (in a real app, initiator creates offer)
-           // const offer = await peerConnectionRef.current.createOffer();
-           // await peerConnectionRef.current.setLocalDescription(offer);
-           // Send offer via signaling server... receive answer... setRemoteDescription...
-
-           await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
-
-           // Assume connection is established
-           setIsConnected(true);
-           toast({ title: "Connected!", description: "You are now connected." });
-
-
-       } catch (error) {
-           console.error("WebRTC setup failed:", error);
-           toast({ title: "Connection Failed", description: `Could not start ${chatType} chat. Please check permissions or try again. Error: ${error instanceof Error ? error.message : String(error)}`, variant: "destructive" });
-           handleDisconnect(false); // Clean up without redirecting immediately
-       } finally {
-            setIsConnecting(false);
+         } catch (mediaError) {
+           console.error('Error accessing camera/microphone:', mediaError);
+           setHasCameraPermission(false);
+           toast({
+             variant: 'destructive',
+             title: 'Media Access Denied',
+             description: 'Please enable camera and microphone permissions in your browser settings.',
+           });
+           // Optionally stop connection attempt or proceed without video/audio
+           // For now, we'll let the connection proceed but show an error state for video
+         }
+       } else {
+         setHasCameraPermission(null); // Not applicable for text chat
        }
-  }, [chatType, interests, router, toast]);
+
+
+       // 4. Setup ICE Candidate and Track Listeners
+       peerConnectionRef.current.onicecandidate = (event) => {
+         if (event.candidate) {
+           console.log("Sending ICE candidate (simulated):", event.candidate);
+           // Send candidate via signaling server
+         }
+       };
+
+       peerConnectionRef.current.ontrack = (event) => {
+         // Assign remote stream to the remote video element
+         if (remoteVideoRef.current && event.streams[0]) {
+           remoteVideoRef.current.srcObject = event.streams[0];
+         } else {
+           console.warn("Remote video ref not available or no stream in event");
+         }
+       };
+
+       // 5. Signaling Simulation (Offer/Answer exchange - highly simplified)
+       console.log(`Simulating signaling and connection (Interests: ${interests || 'any'})...`);
+       // Create offer (in a real app, initiator creates offer)
+       // const offer = await peerConnectionRef.current.createOffer();
+       // await peerConnectionRef.current.setLocalDescription(offer);
+       // Send offer via signaling server... receive answer... setRemoteDescription...
+
+       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
+
+       // Assume connection is established
+       setIsConnected(true);
+       toast({ title: "Connected!", description: "You are now connected." });
+
+     } catch (error) {
+       console.error("WebRTC setup failed:", error);
+       toast({ title: "Connection Failed", description: `Could not start ${chatType} chat. Please check permissions or try again. Error: ${error instanceof Error ? error.message : String(error)}`, variant: "destructive" });
+       handleDisconnect(false); // Clean up without redirecting immediately
+     } finally {
+       setIsConnecting(false);
+     }
+   }, [chatType, interests, router, toast]); // Added handleDisconnect to dependency array if it uses state/props not listed
 
    // Setup Data Channel Listeners
    const setupDataChannelListeners = (channel: RTCDataChannel | null) => {
@@ -146,7 +152,7 @@ export default function ChatPage() {
        channel.onopen = () => {
            console.log("Data channel opened");
            // Consider if connection state depends solely on data channel or media too
-           // setIsConnected(true);
+           // setIsConnected(true); // Might already be set by signaling simulation
        };
        channel.onmessage = (event) => {
            const receivedText = event.data;
@@ -177,13 +183,15 @@ export default function ChatPage() {
   }, []); // Run only once on mount
 
 
-  // Effect to assign the local stream to the video element when both are ready
+  // Effect to assign the local stream to the video element when the stream is ready
+  // This is slightly redundant with the assignment inside setupWebRTC but acts as a fallback
   useEffect(() => {
-      if (localStream && localVideoRef.current) {
-          console.log("Assigning local stream to video element");
+      if (localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
+          console.log("Assigning local stream to video element (useEffect fallback)");
           localVideoRef.current.srcObject = localStream;
       }
   }, [localStream]); // Run whenever localStream changes
+
 
   const sendMessage = () => {
     if (inputText.trim() && dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
@@ -211,50 +219,71 @@ export default function ChatPage() {
        }
      };
 
-   const handleDisconnect = (redirect = true) => {
-       if (!peerConnectionRef.current && !localStream) {
-           // Already disconnected or cleaned up
-           if (redirect && router) { // Check if router is available
+   const handleDisconnect = useCallback((redirect = true) => {
+       // Check if cleanup is already done or unnecessary
+       if (!peerConnectionRef.current && !localStream && !isConnected) {
+           console.log("Disconnect called but already disconnected/cleaned up.");
+           if (redirect && router) { // Redirect if requested and router is available
                router.push('/');
            }
            return;
        }
-       console.log("Disconnecting...");
-       setIsConnected(false); // Update state immediately
+        console.log("Disconnecting...");
+
+        const wasConnected = isConnected; // Store previous connection state
+
+        // Update state immediately
+       setIsConnected(false);
+       setIsConnecting(false); // Ensure connecting state is also reset
 
        // Close PeerConnection
-       peerConnectionRef.current?.close();
-       peerConnectionRef.current = null;
+       if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+        }
 
        // Close DataChannel
-       dataChannelRef.current?.close();
-       dataChannelRef.current = null;
+        if (dataChannelRef.current) {
+            dataChannelRef.current.close();
+            dataChannelRef.current = null;
+        }
 
-       // Stop media tracks from the state stream
-       localStream?.getTracks().forEach(track => track.stop());
-       setLocalStream(null); // Clear the stream state
 
-       // Also attempt to clear srcObject just in case
+       // Stop media tracks and clear stream state
+       localStream?.getTracks().forEach(track => {
+          // console.log(`Stopping track: ${track.kind}`);
+          track.stop();
+        });
+       setLocalStream(null);
+
+       // Clear video element sources explicitly
        if (localVideoRef.current?.srcObject) {
+           // console.log("Clearing local video srcObject");
+            // Ensure tracks are stopped before clearing srcObject
+           (localVideoRef.current.srcObject as MediaStream)?.getTracks().forEach(track => track.stop());
            localVideoRef.current.srcObject = null;
        }
         if (remoteVideoRef.current?.srcObject) {
+            // console.log("Clearing remote video srcObject");
+           (remoteVideoRef.current.srcObject as MediaStream)?.getTracks().forEach(track => track.stop());
            remoteVideoRef.current.srcObject = null;
-       }
-
+        }
 
        setMessages([]); // Clear messages on disconnect
        setHasCameraPermission(null); // Reset permission status
 
-       // Avoid showing toast if we were never connected or during initial setup failures handled elsewhere
-       if (isConnected) {
-            toast({ title: "Disconnected", description: "You have left the chat." });
-       }
+        // Show disconnect toast only if we were actually connected before this call
+        if (wasConnected) {
+             toast({ title: "Disconnected", description: "You have left the chat." });
+        }
+
 
        if (redirect && router) { // Check if router is available
+            // console.log("Redirecting to home page.");
            router.push('/'); // Redirect to home page
        }
-   };
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [isConnected, localStream, router, toast]); // Added router and toast
 
 
   if (!chatType) {
@@ -282,7 +311,7 @@ export default function ChatPage() {
                         <AlertDescription className="text-xs">Enable permissions.</AlertDescription>
                      </Alert>
                   )}
-                 { (isConnecting || (hasCameraPermission === null && !localStream)) && (
+                 { (isConnecting || (hasCameraPermission === null && !localStream && chatType === 'video')) && ( // Show loading only for video chat
                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-xs">Loading cam...</div>
                  )}
             </div>
@@ -294,11 +323,11 @@ export default function ChatPage() {
             </div>
              <div className="window-body flex-1 flex flex-col justify-center items-center relative aspect-video bg-gray-800"> {/* Maintain aspect ratio & bg */}
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
-                 { (!isConnected && !isConnecting) && (
+                 { !isConnected && !isConnecting && (
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
                  )}
                  { isConnected && !remoteVideoRef.current?.srcObject && (
-                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Connecting...</div>
+                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Connecting video...</div>
                  )}
              </div>
           </div>
@@ -310,8 +339,8 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-      {/* Chat Container - Centered and less wide */}
-      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[45%] w-full max-w-xl' : 'flex-1 w-full max-w-xl'}`}> {/* Taller, narrower, centered */}
+      {/* Chat Container - Adjusted dimensions */}
+      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[55%] w-full max-w-lg' : 'flex-1 w-full max-w-lg'}`}> {/* Taller (55%), less wide (lg) */}
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
          </div>
