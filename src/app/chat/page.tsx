@@ -339,8 +339,8 @@ export default function ChatPage() {
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
-      {/* Chat Container - Adjusted dimensions */}
-      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[55%] w-full max-w-lg' : 'flex-1 w-full max-w-lg'}`}> {/* Taller (55%), less wide (lg) */}
+      {/* Chat Container - Adjusted dimensions: Taller (70%), Less Wide (md) */}
+      <div className={`window flex flex-col ${chatType === 'video' ? 'h-[70%] w-full max-w-md' : 'flex-1 w-full max-w-lg'}`}>
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
          </div>
