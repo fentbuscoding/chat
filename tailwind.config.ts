@@ -10,13 +10,15 @@ export default {
   theme: {
   	extend: {
   		colors: {
-            // Remove ShadCN specific HSL variables
-            // background: 'hsl(var(--background))',
-            // foreground: 'hsl(var(--foreground))',
-            // ... remove others ...
-
             // Add the accent color using the CSS variable defined in globals.css
             accent: 'var(--accent-purple)',
+            // Add destructive color for alerts (can be themed later)
+             destructive: {
+                DEFAULT: 'hsl(0 100% 50%)', // Example: Red
+                foreground: 'hsl(0 0% 100%)', // Example: White text on red
+            },
+            background: 'var(--surface, #fff)', // Use theme surface or fallback
+            foreground: 'var(--text-color, #000)', // Use theme text color or fallback
   		},
   		borderRadius: {
              // Keep or remove if not needed - 98/7 might dictate border radius
