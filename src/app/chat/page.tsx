@@ -304,15 +304,15 @@ export default function ChatPage() {
           <div className="window w-1/3"> {/* Apply window class, keep width */}
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
-                {/* Optional: Add theme controls if desired
-                <div className="title-bar-controls">
+                 {/* Optional: Add theme controls if desired */}
+                 <div className="title-bar-controls">
                   <button aria-label="Minimize"></button>
                   <button aria-label="Maximize"></button>
                   <button aria-label="Close"></button>
                 </div>
-                 */}
             </div>
-            <div className="window-body flex flex-col justify-center items-center relative aspect-video p-0"> {/* Apply window-body, remove padding, maintain aspect */}
+            {/* Apply window-body, remove padding, maintain aspect */}
+            <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video p-0">
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
                       <Alert variant="destructive" className="absolute bottom-1 left-1 right-1 text-xs p-1">
@@ -330,8 +330,14 @@ export default function ChatPage() {
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
                  {/* Optional: Add theme controls */}
+                 <div className="title-bar-controls">
+                    <button aria-label="Minimize"></button>
+                    <button aria-label="Maximize"></button>
+                    <button aria-label="Close"></button>
+                 </div>
             </div>
-             <div className="window-body flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0"> {/* Apply window-body, remove padding, maintain aspect & bg */}
+             {/* Apply window-body, remove padding, maintain aspect & bg */}
+             <div className="window-body has-space flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
@@ -354,8 +360,14 @@ export default function ChatPage() {
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
               {/* Optional: Add theme controls */}
+              <div className="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+              </div>
          </div>
-         <div className="window-body flex flex-col flex-1 p-0 overflow-hidden"> {/* Use window-body, remove padding */}
+         {/* Use window-body, remove padding */}
+         <div className="window-body has-space flex flex-col flex-1 p-0 overflow-hidden">
             <div className="messages flex-grow overflow-y-auto p-2 bg-white"> {/* White bg for messages, add padding back here */}
                 {messages.map((msg) => (
                 <div key={msg.id} className={`mb-2 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
@@ -389,3 +401,4 @@ export default function ChatPage() {
     </div>
   );
 }
+
