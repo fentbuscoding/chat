@@ -20,17 +20,25 @@ const SelectTrigger = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
 >(({ className, children, ...props }, ref) => {
    const { theme } = useTheme(); // Get current theme
+   const [isMounted, setIsMounted] = React.useState(false); // State to track mount
+
+   // Set mounted state after initial render
+   React.useEffect(() => {
+        setIsMounted(true);
+   }, []);
+
   return (
   <SelectPrimitive.Trigger
     ref={ref}
     // Apply button-like classes, rely on global theme
     className={cn(
-      // Base structure
-      'flex items-center justify-between w-full border',
-      // Theme-specific button styles
-      theme === 'theme-98' ? 'p-0.5 button' : '', // 98.css button style with padding adjustment
-      theme === 'theme-7' ? 'px-2 py-1 button' : '', // 7.css button style
-      'themed-select-trigger', // Keep a generic class
+      // Base structure - Ensure these match server render initially
+      'flex items-center justify-between w-full border themed-select-trigger',
+      // Apply theme-specific classes only after mounting on the client
+      isMounted && theme === 'theme-98' ? 'p-0.5 button' : '',
+      isMounted && theme === 'theme-7' ? 'px-2 py-1 button' : '',
+      // Fallback/default styling before mount (optional, should match server)
+      !isMounted ? 'p-1' : '', // Example fallback padding, adjust if needed to match server
       className
     )}
     {...props}
@@ -50,6 +58,13 @@ const SelectContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
 >(({ className, children, position = 'popper', ...props }, ref) => {
    const { theme } = useTheme(); // Get current theme
+   const [isMounted, setIsMounted] = React.useState(false); // State to track mount
+
+    // Set mounted state after initial render
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
   return (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
@@ -57,9 +72,11 @@ const SelectContent = React.forwardRef<
       // Apply classes that might correspond to menu/list styles in 98/7.css
       className={cn(
         'select-content themed-select-content relative z-50 min-w-[8rem] overflow-hidden rounded-none border p-0 shadow-md', // Basic dropdown styles, themes will override border-radius, padding etc.
-        // Theme-specific menu/window styles
-        theme === 'theme-98' ? 'bg-silver border-raised menu' : '', // 98.css menu style
-        theme === 'theme-7' ? 'bg-white border border-gray-400 window shadow-lg' : '', // 7.css window/menu style
+        // Theme-specific menu/window styles - Apply after mount
+        isMounted && theme === 'theme-98' ? 'bg-silver border-raised menu' : '', // 98.css menu style
+        isMounted && theme === 'theme-7' ? 'bg-white border border-gray-400 window shadow-lg' : '', // 7.css window/menu style
+        // Fallback style before mount (should match server)
+        !isMounted ? 'bg-white border' : '', // Simple fallback
         // Keep animations for now
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         position === 'popper' &&
@@ -88,15 +105,22 @@ const SelectLabel = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
 >(({ className, ...props }, ref) => {
    const { theme } = useTheme(); // Get current theme
+    const [isMounted, setIsMounted] = React.useState(false); // State to track mount
+
+    // Set mounted state after initial render
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
    return (
   <SelectPrimitive.Label
     ref={ref}
     // Rely on theme for styling, add basic padding/font
     className={cn(
-        'py-1 px-2 text-sm font-semibold',
-        theme === 'theme-98' ? 'text-black' : '', // 98.css default text
-        theme === 'theme-7' ? 'text-gray-700' : '', // 7.css default text
-        'themed-select-label',
+        'py-1 px-2 text-sm font-semibold themed-select-label',
+        // Apply theme styles after mount
+        isMounted && theme === 'theme-98' ? 'text-black' : '', // 98.css default text
+        isMounted && theme === 'theme-7' ? 'text-gray-700' : '', // 7.css default text
+        !isMounted ? 'text-black' : '', // Fallback text color
         className)}
     {...props}
   />
@@ -109,15 +133,23 @@ const SelectItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, ...props }, ref) => {
    const { theme } = useTheme(); // Get current theme
+   const [isMounted, setIsMounted] = React.useState(false); // State to track mount
+
+    // Set mounted state after initial render
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
    return (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
       // Base item structure
       'select-item themed-select-item relative flex w-full cursor-default select-none items-center rounded-none py-0.5 px-2 text-sm outline-none',
-      // Theme specific hover/focus styles
-      theme === 'theme-98' ? 'focus:bg-navy focus:text-white data-[highlighted]:bg-navy data-[highlighted]:text-white' : '', // 98.css menu highlight
-      theme === 'theme-7' ? 'focus:bg-blue-500 focus:text-white data-[highlighted]:bg-blue-100 data-[highlighted]:text-black' : '', // 7.css menu highlight
+      // Theme specific hover/focus styles - Apply after mount
+      isMounted && theme === 'theme-98' ? 'focus:bg-navy focus:text-white data-[highlighted]:bg-navy data-[highlighted]:text-white' : '', // 98.css menu highlight
+      isMounted && theme === 'theme-7' ? 'focus:bg-blue-500 focus:text-white data-[highlighted]:bg-blue-100 data-[highlighted]:text-black' : '', // 7.css menu highlight
+      // Default focus/highlight before mount (optional)
+      !isMounted ? 'focus:bg-gray-100 data-[highlighted]:bg-gray-100' : '',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}
@@ -130,7 +162,8 @@ const SelectItem = React.forwardRef<
       </SelectPrimitive.ItemIndicator>
     </span>
     {/* Adjust padding for text based on theme */}
-    <SelectPrimitive.ItemText className={cn(theme === 'theme-98' ? 'pl-6' : 'pl-6')}>
+    {/* Apply theme-specific padding only after mount */}
+    <SelectPrimitive.ItemText className={cn(isMounted && (theme === 'theme-98' || theme === 'theme-7') ? 'pl-6' : 'pl-6' )}>
       {children}
     </SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
@@ -142,15 +175,21 @@ const SelectSeparator = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
 >(({ className, ...props }, ref) => {
     const { theme } = useTheme(); // Get current theme
+    const [isMounted, setIsMounted] = React.useState(false); // State to track mount
+
+    // Set mounted state after initial render
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
     return (
   <SelectPrimitive.Separator
     ref={ref}
-    // Apply theme-specific separator styles
+    // Apply theme-specific separator styles - Apply after mount
     className={cn(
-        '-mx-1 my-1 h-px', // Basic separator sizing
-        theme === 'theme-98' ? 'bg-silver border-b border-gray' : '', // 98.css separator (menu-style)
-        theme === 'theme-7' ? 'bg-gray-200' : '', // 7.css separator
-        'themed-select-separator',
+        '-mx-1 my-1 h-px themed-select-separator', // Basic separator sizing
+        isMounted && theme === 'theme-98' ? 'bg-silver border-b border-gray' : '', // 98.css separator (menu-style)
+        isMounted && theme === 'theme-7' ? 'bg-gray-200' : '', // 7.css separator
+        !isMounted ? 'bg-gray-200' : '', // Fallback separator color
         className)}
     {...props}
   />
@@ -168,3 +207,4 @@ export {
   SelectItem,
   SelectSeparator,
 };
+
