@@ -27,6 +27,8 @@ interface User {
 }
 
 let waitingUsers: User[] = [];
+// Keep track of rooms to ensure users are in the correct one for signaling
+const activeRooms = new Map<string, Set<string>>(); // roomName -> Set of socket IDs
 
 io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
     console.log('A user connected:', socket.id);
@@ -43,7 +45,7 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, 
         if (currentUser.interests.length > 0) {
             partnerIndex = waitingUsers.findIndex(user =>
                 user.chatType === currentUser.chatType &&
-                user.id !== currentUser.id && // Don't match with self
+                user.id !== currentUser.id && 
                 user.interests.some(interest => currentUser.interests.includes(interest))
             );
         }
@@ -52,7 +54,7 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, 
         if (partnerIndex === -1) {
             partnerIndex = waitingUsers.findIndex(user =>
                 user.chatType === currentUser.chatType &&
-                user.id !== currentUser.id // Don't match with self
+                user.id !== currentUser.id 
             );
         }
         
@@ -63,9 +65,11 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, 
 
             const roomName = `room-${currentUser.id}-${partner.id}`;
             socket.join(roomName);
-            io.sockets.sockets.get(partner.id)?.join(roomName); // Make partner join the room
+            io.sockets.sockets.get(partner.id)?.join(roomName);
 
-            // Notify both users
+            activeRooms.set(roomName, new Set([currentUser.id, partner.id]));
+
+            // Notify both users, including the room name
             io.to(currentUser.id).emit('partnerFound', { peerId: partner.id, room: roomName, initiator: true });
             io.to(partner.id).emit('partnerFound', { peerId: currentUser.id, room: roomName, initiator: false });
         } else {
@@ -76,43 +80,57 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents, 
     });
 
     socket.on('webrtcSignal', (data) => {
-        console.log('Signal from', socket.id, 'to', data.to, 'type:', data.signal.type || 'message');
-        io.to(data.to).emit('webrtcSignal', { from: socket.id, signal: data.signal });
+        // Ensure signal is sent to the correct peer within the specified room
+        console.log('Signal from', socket.id, 'to', data.to, 'in room', data.room, 'type:', data.signal.type || 'message');
+        if (data.room && activeRooms.has(data.room) && activeRooms.get(data.room)?.has(data.to)) {
+            io.to(data.to).emit('webrtcSignal', { from: socket.id, signal: data.signal, room: data.room });
+        } else {
+            console.warn(`Room ${data.room} not found or target ${data.to} not in room for webrtcSignal from ${socket.id}`);
+        }
     });
 
     socket.on('sendMessage', (data) => {
         console.log('Message from', socket.id, 'to room', data.room, ':', data.message);
-        // Broadcast to the room, excluding the sender (or include, depends on how client handles it)
-        socket.to(data.room).emit('receiveMessage', { from: socket.id, message: data.message });
+        // Broadcast to the room, excluding the sender
+        if (data.room && activeRooms.has(data.room)) {
+             socket.to(data.room).emit('receiveMessage', { from: socket.id, message: data.message });
+        } else {
+             console.warn(`Room ${data.room} not found for sendMessage from ${socket.id}`);
+        }
     });
     
     socket.on('leaveChat', (room) => {
         console.log('User leaving chat:', socket.id, 'from room:', room);
         if (room) {
-            socket.to(room).emit('peerDisconnected'); // Notify other user in the room
+            socket.to(room).emit('peerDisconnected'); 
             socket.leave(room);
+            const roomUsers = activeRooms.get(room);
+            if (roomUsers) {
+                roomUsers.delete(socket.id);
+                if (roomUsers.size === 0) {
+                    activeRooms.delete(room);
+                }
+            }
         }
-        // Remove from waiting list if present
         waitingUsers = waitingUsers.filter(user => user.id !== socket.id);
     });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Remove from waiting list
         waitingUsers = waitingUsers.filter(user => user.id !== socket.id);
         
-        // If the user was in a room, notify the other participant
-        // This requires knowing which room the user was in.
-        // For simplicity, we can emit a generic 'peerDisconnected' if we don't track rooms per user
-        // Or, the client can handle 'leaveChat' on window unload/component unmount.
-        // The 'leaveChat' event is more explicit.
-        // Consider finding rooms the socket is in and notifying others.
         socket.rooms.forEach(room => {
-            if (room !== socket.id) { // Don't emit to the socket itself
+            if (room !== socket.id) { 
                 io.to(room).emit('peerDisconnected');
+                const roomUsers = activeRooms.get(room);
+                if (roomUsers) {
+                    roomUsers.delete(socket.id);
+                    if (roomUsers.size === 0) {
+                        activeRooms.delete(room);
+                    }
+                }
             }
         });
-
     });
 });
 
@@ -120,7 +138,6 @@ server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 });
 
-// Graceful shutdown
 process.on('SIGINT', () => {
     console.log('Shutting down server...');
     io.close(() => {

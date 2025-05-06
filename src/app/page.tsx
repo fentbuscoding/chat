@@ -1,5 +1,5 @@
+'use client'
 
-'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -46,14 +46,14 @@ export default function SelectionLobby() {
       e.preventDefault();
       addInterest(value);
     } else if (key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
-      e.preventDefault(); 
+      e.preventDefault();
       setSelectedInterests(selectedInterests.slice(0, -1));
     }
   };
 
 
   const handleRemoveInterest = (interestToRemove: string, event: React.MouseEvent) => {
-    event.stopPropagation(); 
+    event.stopPropagation();
     setSelectedInterests(selectedInterests.filter(interest => interest !== interestToRemove));
   };
 

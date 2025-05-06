@@ -59,6 +59,19 @@ export function DraggableWindow({
 
   const windowRef = useRef<HTMLDivElement>(null);
 
+  // Simple debounce function
+  const debounce = useCallback((func: (...args: any[]) => void, delay: number) => {
+    return (...args: any[]) => {
+      if (moveTimerRef.current) {
+        clearTimeout(moveTimerRef.current);
+      }
+      moveTimerRef.current = setTimeout(() => {
+        func(...args);
+      }, delay);
+    };
+  }, []);
+
+  // Debounced version of handleMove
   const clampPosition = useCallback(
     (x: number, y: number, width: number, height: number) => {
       if (!boundaryRef.current) return { x, y };
@@ -186,13 +199,6 @@ export function DraggableWindow({
   );
 
   const onTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (isDragging || isResizing) {
-        // e.preventDefault(); // Prevent scroll only when actively dragging/resizing
-        const touch = e.touches[0];
-        handleMove(touch.clientX, touch.clientY);
-      }
-    },
     [isDragging, isResizing, handleMove]
   );
 
@@ -219,8 +225,9 @@ export function DraggableWindow({
       document.addEventListener('touchend', handleOperationEnd);
     }
     return () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', handleOperationEnd);
+      if (moveTimerRef.current) {
+        clearTimeout(moveTimerRef.current);
+      }
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', handleOperationEnd);
     };
@@ -235,7 +242,7 @@ export function DraggableWindow({
     width: `${dimensions.width}px`,
     height: `${dimensions.height}px`,
     touchAction: 'none', // Prevents default touch behaviors like scrolling when interacting with the window
-    ...style,
+ ...style,
   };
 
   const isGlassTheme = theme === 'theme-7' && windowClassName?.includes('glass');

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -45,21 +44,32 @@ const ChatPage: React.FC = () => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
+  const chatMessagesRef = useRef<HTMLUListElement>(null);
 
-  const addMessage = (text: string, sender: Message['sender']) => {
+  const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => [
       ...prevMessages,
       { id: Date.now().toString(), text, sender, timestamp: new Date() },
     ]);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const cleanupConnections = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -67,6 +77,7 @@ const ChatPage: React.FC = () => {
     setIsConnected(false);
     setPartnerId(null);
     setRoom(null);
+    // Do not add "Not connected..." message here as per user request
   }, []);
 
   const setupWebRTC = useCallback(async () => {
@@ -87,7 +98,7 @@ const ChatPage: React.FC = () => {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
-    
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setHasCameraPermission(true);
@@ -96,8 +107,8 @@ const ChatPage: React.FC = () => {
         localVideoRef.current.srcObject = stream;
       }
       stream.getTracks().forEach(track => {
-        if (localStreamRef.current) {
-           peerConnectionRef.current?.addTrack(track, localStreamRef.current)
+        if (localStreamRef.current && peerConnectionRef.current) {
+           peerConnectionRef.current.addTrack(track, localStreamRef.current)
         }
       });
     } catch (error) {
@@ -108,8 +119,6 @@ const ChatPage: React.FC = () => {
         title: 'Camera Access Denied',
         description: 'Please enable camera permissions to use video chat.',
       });
-      // If camera is essential and denied, perhaps force leave or switch to text?
-      // For now, user can continue without video if they deny.
     }
   }, [chatType, socket, partnerId, room, toast]);
 
@@ -137,7 +146,7 @@ const ChatPage: React.FC = () => {
 
       if (chatType === 'video') {
         await setupWebRTC();
-        if (data.initiator && peerConnectionRef.current && socket) {
+        if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) { // Ensure newSocket and room/peerId are available
           const offer = await peerConnectionRef.current.createOffer();
           await peerConnectionRef.current.setLocalDescription(offer);
           newSocket.emit('webrtcSignal', { to: data.peerId, signal: { sdp: offer }, room: data.room });
@@ -146,11 +155,11 @@ const ChatPage: React.FC = () => {
     });
 
     newSocket.on('webrtcSignal', async (data) => {
-      if (!peerConnectionRef.current || !data.signal || !socket || !room) return;
-      
+      if (!peerConnectionRef.current || !data.signal || !socket || !room) return; // Ensure socket is the state socket
+
       if (data.signal.sdp) {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-        if (data.signal.sdp.type === 'offer') {
+        if (data.signal.sdp.type === 'offer' && data.from && room) { // Ensure data.from and room are available
           const answer = await peerConnectionRef.current.createAnswer();
           await peerConnectionRef.current.setLocalDescription(answer);
           socket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
@@ -171,9 +180,8 @@ const ChatPage: React.FC = () => {
     newSocket.on('peerDisconnected', () => {
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
-      // Optionally, auto-trigger findPartner again or provide UI to do so
     });
-    
+
     newSocket.on('connect_error', (err) => {
         console.error("Socket connection error:", err);
         toast({
@@ -190,12 +198,12 @@ const ChatPage: React.FC = () => {
       newSocket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatType, setupWebRTC, cleanupConnections]); // interests are used in handleFindPartner, not directly in useEffect
+  }, [chatType, addMessage, cleanupConnections, setupWebRTC]); // Removed interests from here, setupWebRTC, addMessage, cleanupConnections
 
   const handleFindPartner = (currentSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = socket) => {
     if (currentSocket) {
-      cleanupConnections(); // Clean up before finding new partner
-      setMessages([]); // Clear old messages
+      cleanupConnections();
+      setMessages([]);
       addMessage('Looking for a partner...', 'system');
       setIsFindingPartner(true);
       currentSocket.emit('findPartner', { chatType, interests });
@@ -205,7 +213,10 @@ const ChatPage: React.FC = () => {
   const handleSendMessage = () => {
     if (newMessage.trim() && socket && room && partnerId && isConnected) {
       addMessage(newMessage, 'me');
-      socket.emit('sendMessage', { room, message: newMessage, to: partnerId });
+      // The server's `sendMessage` handler broadcasts to the room.
+      // Sending `to: partnerId` is not strictly necessary for the current server implementation
+      // but kept for potential future server-side logic.
+      socket.emit('sendMessage', { room, message: newMessage });
       setNewMessage('');
     }
   };
@@ -218,13 +229,11 @@ const ChatPage: React.FC = () => {
     router.push('/');
   };
 
-  const localVideoInitialSize = { width: 320, height: 240 }; // Aspect ratio 4:3
-  const remoteVideoInitialSize = { width: 320, height: 240 };
-  const chatWindowInitialSize = chatType === 'video' ? { width: 450, height: 350 } : { width: 500, height: 450 };
-  const inputAreaHeight = 100; // Approximate height for input + button
+  const localVideoInitialSize = { width: 240, height: 180 };
+  const remoteVideoInitialSize = { width: 240, height: 180 };
+  const chatWindowInitialSize = chatType === 'video' ? { width: 350, height: 400 } : { width: 450, height: 500 };
+  const inputAreaHeight = 100;
 
-
-  // Define boundary for draggable windows
   const boundaryRef = useRef<HTMLDivElement>(null);
 
 
@@ -234,7 +243,6 @@ const ChatPage: React.FC = () => {
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="p-4 bg-background rounded-md shadow-lg">
             <p className="text-lg">Finding a partner...</p>
-            {/* Add a spinner or loading animation here if desired */}
           </div>
         </div>
       )}
@@ -249,16 +257,16 @@ const ChatPage: React.FC = () => {
               minSize={{ width: 160, height: 120 }}
               boundaryRef={boundaryRef}
               theme={theme}
-              windowClassName={theme === 'theme-7' ? 'glass' : ''}
+              windowClassName={cn(theme === 'theme-7' ? 'glass' : '', theme === 'theme-98' ? 'no-padding-window-body' : '')}
               titleBarClassName="text-sm"
-              bodyClassName={cn(theme === 'theme-98' ? 'p-0.5' : 'p-0')}
+              bodyClassName={cn(theme === 'theme-98' ? 'p-0' : 'p-0')} // Ensure no padding for video
             >
                 <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
                 {hasCameraPermission === false && (
-                     <Alert variant="destructive" className="m-2">
+                     <Alert variant="destructive" className="m-2 absolute bottom-0 left-0 right-0">
                         <AlertTitle>Camera Access Denied</AlertTitle>
                         <AlertDescription>
-                            Please enable camera permissions in your browser settings.
+                            Please enable camera permissions.
                         </AlertDescription>
                     </Alert>
                 )}
@@ -266,19 +274,19 @@ const ChatPage: React.FC = () => {
 
             <DraggableWindow
               title="Partner's Video"
-              initialPosition={{ x: 400, y: 50 }}
+              initialPosition={{ x: 350, y: 50 }} // Adjusted initial position
               initialSize={remoteVideoInitialSize}
               minSize={{ width: 160, height: 120 }}
               boundaryRef={boundaryRef}
               theme={theme}
-              windowClassName={theme === 'theme-7' ? 'glass' : ''}
+              windowClassName={cn(theme === 'theme-7' ? 'glass' : '', theme === 'theme-98' ? 'no-padding-window-body' : '')}
               titleBarClassName="text-sm"
-              bodyClassName={cn(theme === 'theme-98' ? 'p-0.5' : 'p-0')}
+              bodyClassName={cn(theme === 'theme-98' ? 'p-0' : 'p-0')} // Ensure no padding for video
             >
                <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
                {!isConnected && !isFindingPartner && (
                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                   <p className="text-white text-center p-2">Waiting for partner to connect video...</p>
+                   <p className="text-white text-center p-2">Waiting for partner...</p>
                  </div>
                )}
             </DraggableWindow>
@@ -287,56 +295,61 @@ const ChatPage: React.FC = () => {
 
         <DraggableWindow
           title="Chat"
-          initialPosition={chatType === 'video' ? { x: 200, y: 320 } : { x: 100, y: 100 }}
+          initialPosition={chatType === 'video' ? { x: 125, y: 250 } : { x: 100, y: 100 }} // Adjusted for centering
           initialSize={chatWindowInitialSize}
           minSize={{ width: 250, height: 200 }}
           boundaryRef={boundaryRef}
           theme={theme}
           windowClassName={theme === 'theme-7' ? 'glass' : ''}
           bodyClassName={cn(
-            'flex flex-col', // Ensure flex column layout for chat content
+            'flex flex-col window-body-content', // Use specific class for flex content
             theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? 'has-space' : '')
           )}
         >
-          <div className="flex flex-col flex-grow h-full overflow-hidden"> {/* This div will contain scroll and input */}
-            <ScrollArea className={cn(
-                "flex-grow",
+          {/* This inner div will handle the flex distribution of scroll area and input area */}
+          <div className="flex flex-col flex-grow h-full overflow-hidden">
+            <ScrollArea
+              className={cn(
+                "flex-grow", // Takes available space
                 theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80'
               )}
-              style={{height: `calc(100% - ${inputAreaHeight}px)`}} // Adjusted height
+              style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
             >
-              <ul className={cn(
-                theme === 'theme-98' ? '' : 'space-y-1'
-              )}>
+              <ul ref={chatMessagesRef} className={cn('h-full overflow-y-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
                 {messages.map((msg) => (
                   <li
                     key={msg.id}
                     className={cn(
-                      'text-sm break-words',
-                      msg.sender === 'me' ? 'text-right' : '',
-                      msg.sender === 'system' ? 'text-center italic text-gray-500' : '',
-                      theme === 'theme-98' ? 'p-0.5' : 'p-1 rounded' // Basic padding for 7.css items
+                      "flex mb-1",
+                      msg.sender === "me" ? "justify-end" : "justify-start"
                     )}
                   >
-                    <span
+                    <div
                       className={cn(
-                        msg.sender === 'me' ? (theme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 px-2 py-1 inline-block rounded-md') : '',
-                        msg.sender === 'partner' ? (theme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 px-2 py-1 inline-block rounded-md') : ''
+                        "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
+                        msg.sender === "me"
+                          ? theme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800'
+                          : theme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800',
+                        msg.sender === 'system' ? 'text-center w-full text-gray-500 italic' : ''
                       )}
                     >
                       {msg.text}
-                    </span>
-                     {msg.sender !== 'system' && <span className="text-xs text-gray-400 ml-1">{new Date(msg.timestamp).toLocaleTimeString()}</span>}
+                    </div>
+                    {msg.sender !== "system" && (
+                      <span className={cn("text-xxs ml-1 self-end", theme === 'theme-98' ? 'text-gray-700' : 'text-gray-400')}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
             </ScrollArea>
-
-            <div className={cn(
+            <div
+              className={cn(
                 "p-2",
                 theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t' : '')
-                )}
-                style={{height: `${inputAreaHeight}px`}} // Fixed height for input area
+              )}
+              style={{ height: `${inputAreaHeight}px`, flexShrink: 0 }} // Fixed height for input area
             >
               <div className="flex items-center gap-2 mb-2">
                 <Input
@@ -369,5 +382,3 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
-
-    

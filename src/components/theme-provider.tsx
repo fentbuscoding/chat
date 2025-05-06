@@ -47,6 +47,29 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
+  // Preload theme CSS files on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const preloadLink98 = document.createElement('link');
+      preloadLink98.rel = 'preload';
+      preloadLink98.as = 'style';
+      preloadLink98.href = 'https://unpkg.com/98.css';
+      document.head.appendChild(preloadLink98);
+
+      const preloadLink7 = document.createElement('link');
+      preloadLink7.rel = 'preload';
+      preloadLink7.as = 'style';
+      preloadLink7.href = 'https://unpkg.com/7.css';
+      document.head.appendChild(preloadLink7);
+
+      return () => {
+        // Clean up preload links if the component unmounts
+        preloadLink98.remove();
+        preloadLink7.remove();
+      };
+    }
+  }, []); // Empty dependency array means this effect runs only once on mount
+
   useEffect(() => {
     const root = window.document.documentElement; // Target the HTML element
 
