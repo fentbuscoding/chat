@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
@@ -31,22 +32,28 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
     if (windowRef.current) {
       let startX = initialPosition.x;
       let startY = initialPosition.y;
+      const windowRect = windowRef.current.getBoundingClientRect();
+      const parentElement = windowRef.current.parentElement;
 
-      if (startX === 'center' || startY === 'center') {
-        const parentRect = windowRef.current.parentElement?.getBoundingClientRect();
-        const windowRect = windowRef.current.getBoundingClientRect();
-        if (parentRect) {
-          if (startX === 'center') {
-            startX = (parentRect.width - windowRect.width) / 2;
-          }
-          if (startY === 'center') {
-            startY = (parentRect.height - windowRect.height) / 2;
-          }
-        } else {
-            // Fallback if parentRect is not available (e.g., during initial render)
-            startX = typeof startX === 'number' ? startX : window.innerWidth / 2 - windowRect.width / 2;
-            startY = typeof startY === 'number' ? startY : window.innerHeight / 2 - windowRect.height / 2;
+      if (parentElement) {
+        const parentRect = parentElement.getBoundingClientRect();
+        if (startX === 'center') {
+          startX = (parentRect.width - windowRect.width) / 2;
         }
+        if (startY === 'center') {
+          startY = (parentRect.height - windowRect.height) / 2;
+        }
+        // Ensure initial position is within bounds
+        startX = Math.max(0, Math.min(Number(startX), parentRect.width - windowRect.width));
+        startY = Math.max(0, Math.min(Number(startY), parentRect.height - windowRect.height));
+
+      } else {
+          // Fallback if parentRect is not available (e.g., during initial render)
+          startX = typeof startX === 'number' ? startX : window.innerWidth / 2 - windowRect.width / 2;
+          startY = typeof startY === 'number' ? startY : window.innerHeight / 2 - windowRect.height / 2;
+          // Ensure initial position is within viewport bounds as a fallback
+          startX = Math.max(0, Math.min(Number(startX), window.innerWidth - windowRect.width));
+          startY = Math.max(0, Math.min(Number(startY), window.innerHeight - windowRect.height));
       }
       setPosition({ x: Number(startX), y: Number(startY) });
     }
@@ -61,11 +68,12 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
       if (!target) return;
 
       const pos = target.getBoundingClientRect();
-      setIsDragging(true);
+      // Calculate relative position from page coordinates to element's top-left
       setRel({
         x: e.pageX - pos.left,
         y: e.pageY - pos.top,
       });
+      setIsDragging(true);
       e.stopPropagation();
       e.preventDefault();
     }
@@ -77,11 +85,11 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
       if (!target) return;
       const touch = e.touches[0];
       const pos = target.getBoundingClientRect();
-      setIsDragging(true);
       setRel({
         x: touch.pageX - pos.left,
         y: touch.pageY - pos.top,
       });
+      setIsDragging(true);
       e.stopPropagation();
     }
   };
@@ -89,12 +97,16 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
 
   const onMouseUp = useCallback((e: MouseEvent) => {
     setIsDragging(false);
+    document.body.style.cursor = 'default';
+    if (windowRef.current) windowRef.current.style.cursor = 'grab';
     e.stopPropagation();
     e.preventDefault();
   }, []);
   
   const onTouchEnd = useCallback((e: globalThis.TouchEvent) => {
     setIsDragging(false);
+    document.body.style.cursor = 'default';
+     if (windowRef.current) windowRef.current.style.cursor = 'grab';
     e.stopPropagation();
   }, []);
 
@@ -104,13 +116,20 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
     let newX = e.pageX - rel.x;
     let newY = e.pageY - rel.y;
 
-    // Boundary checks (optional, keeps window within viewport)
     const parent = windowRef.current.parentElement;
     if (parent) {
         const parentRect = parent.getBoundingClientRect();
         const windowRect = windowRef.current.getBoundingClientRect();
+        
+        // Constrain X within parent boundaries
         newX = Math.max(0, Math.min(newX, parentRect.width - windowRect.width));
+        // Constrain Y within parent boundaries
         newY = Math.max(0, Math.min(newY, parentRect.height - windowRect.height));
+    } else {
+        // Fallback: constrain within viewport if no parent or parent has no dimensions
+        const windowRect = windowRef.current.getBoundingClientRect();
+        newX = Math.max(0, Math.min(newX, window.innerWidth - windowRect.width));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - windowRect.height));
     }
     
     setPosition({
@@ -133,6 +152,10 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
         const windowRect = windowRef.current.getBoundingClientRect();
         newX = Math.max(0, Math.min(newX, parentRect.width - windowRect.width));
         newY = Math.max(0, Math.min(newY, parentRect.height - windowRect.height));
+    } else {
+        const windowRect = windowRef.current.getBoundingClientRect();
+        newX = Math.max(0, Math.min(newX, window.innerWidth - windowRect.width));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - windowRect.height));
     }
 
     setPosition({
@@ -144,25 +167,33 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
 
 
   useEffect(() => {
+    const currentWindowRef = windowRef.current;
     if (isDragging) {
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
-      document.addEventListener('touchmove', onTouchMove);
+      document.addEventListener('touchmove', onTouchMove, { passive: false }); // passive: false for preventDefault
       document.addEventListener('touchend', onTouchEnd);
+      document.body.style.userSelect = 'none'; // Prevent text selection during drag
       document.body.style.cursor = 'grabbing';
+      if (currentWindowRef) currentWindowRef.style.cursor = 'grabbing';
+
     } else {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', onTouchEnd);
+      document.body.style.userSelect = '';
       document.body.style.cursor = 'default';
+      if (currentWindowRef) currentWindowRef.style.cursor = 'grab';
     }
     return () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', onTouchEnd);
+      document.body.style.userSelect = '';
       document.body.style.cursor = 'default';
+       if (currentWindowRef) currentWindowRef.style.cursor = 'grab';
     };
   }, [isDragging, onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
 
@@ -170,22 +201,22 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
     <div
       ref={windowRef}
       className={cn(
-        'window absolute', // Ensure window class is applied for theme styles
-        theme === 'theme-7' && 'glass active', // Apply glass effect for theme-7
-        isDragging && 'dragging-outline', // Apply dragging outline
+        'window absolute', 
+        theme === 'theme-7' && 'glass active', 
+        isDragging && 'dragging-outline', 
         className
       )}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        cursor: isDragging ? 'grabbing' : 'grab',
-        touchAction: 'none', // Prevent default touch actions like scrolling
+        // cursor is handled by useEffect for title-bar and body
+        touchAction: 'none', 
          ...(theme === 'theme-7' ? { '--window-background-color': 'rgba(128, 91, 165, 0.5)' } : {})
       }}
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}
     >
-      <div className="title-bar">
+      <div className="title-bar"> {/* Apply grab cursor specifically to title bar */}
         <div className="title-bar-text">{title}</div>
         <div className="title-bar-controls">
           {/* No controls for simplicity */}
@@ -193,18 +224,14 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
       </div>
       <div className={cn(
         "window-body",
-        theme === 'theme-98' ? 'p-0' : 'p-0', // Ensure no padding from window-body itself for video
-        theme === 'theme-7' && !isChatWindow && 'p-0', // theme-7 no padding for video
-        theme === 'theme-7' && isChatWindow && 'has-space', // theme-7 padding for chat window
-         // Special class for the content area if it's a chat window, to manage flex grow
-        isChatWindow ? 'flex flex-col flex-1 overflow-hidden' : '' 
+        theme === 'theme-98' && !isChatWindow && 'p-0', 
+        theme === 'theme-98' && isChatWindow && 'p-0.5', // specific padding for 98 chat
+        theme === 'theme-7' && !isChatWindow && 'p-0', 
+        theme === 'theme-7' && isChatWindow && 'has-space', 
+        isChatWindow ? 'flex flex-col flex-1 overflow-hidden window-body-content' : 'window-body-content' // ensure window-body-content for flex/overflow
         )}
         style={isChatWindow && theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
       >
-        {/* 
-          For chat window, children are now wrapped, so this div applies flex for internal layout.
-          For non-chat (video) windows, children are directly rendered.
-        */}
         {children}
       </div>
     </div>
@@ -212,3 +239,4 @@ const DraggableWindow: React.FC<DraggableWindowProps> = ({
 };
 
 export default DraggableWindow;
+
