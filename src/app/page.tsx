@@ -9,42 +9,49 @@ import { Label } from '@/components/ui/label-themed';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card-themed';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// import { useToast } from '@/hooks/use-toast'; // Uncomment if toast notifications are desired
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  // const { toast } = useToast(); // Uncomment if toast notifications are desired
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    // Allow multiple words with spaces before comma
-    if (value.includes(',')) {
-      const parts = value.split(',');
-      const newInterest = parts[0].trim(); // Take the part before the first comma
-      if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
-        setSelectedInterests([...selectedInterests, newInterest]);
-      }
-      // Keep the rest of the input after the first comma, or clear if only one interest was added
-      setCurrentInterest(parts.slice(1).join(',').trimStart());
-    } else {
-      setCurrentInterest(value);
+    // Just update the current interest state. Logic for adding tags is in KeyDown.
+    setCurrentInterest(e.target.value);
+  };
+
+  const addInterest = (interestToAdd: string) => {
+    const newInterest = interestToAdd.trim();
+    if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
+      setSelectedInterests([...selectedInterests, newInterest]);
+      setCurrentInterest(''); // Clear input after adding
+    } else if (newInterest && selectedInterests.includes(newInterest)) {
+      // Optional: Notify user about duplicate interest
+      // toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
+      setCurrentInterest(''); // Clear input even if duplicate
+    } else if (selectedInterests.length >= 5) {
+      // Optional: Notify user about max interests
+      // toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
+      setCurrentInterest(''); // Clear input
     }
   };
 
   const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && currentInterest.trim()) {
-      const newInterest = currentInterest.trim();
-      if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) { // Limit to 5 interests
-        setSelectedInterests([...selectedInterests, newInterest]);
-        setCurrentInterest('');
-      }
-      e.preventDefault();
-    } else if (e.key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
-      // Remove the last interest if backspace is pressed on an empty input
+    const key = e.key;
+    const value = currentInterest.trim();
+
+    if ((key === ',' || key === ' ' || key === 'Enter') && value) {
+      e.preventDefault(); // Prevent comma/space from being typed, and form submission on Enter
+      addInterest(value);
+    } else if (key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
+      e.preventDefault(); // Prevent default backspace behavior (e.g., navigating back)
       setSelectedInterests(selectedInterests.slice(0, -1));
     }
   };
+
 
   const handleRemoveInterest = (interestToRemove: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent focusing input when removing tag
@@ -70,26 +77,25 @@ export default function SelectionLobby() {
         <CardHeader>
           <CardTitle>Welcome to ChitChatConnect!</CardTitle>
           <CardDescription>
-            Connect with someone new. Add interests (optional) by typing them and pressing comma or Enter. Max 5 interests.
+            Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="interests-input-field">Your Interests</Label> {/* Changed htmlFor to match the new input ID */}
-            {/* Container that looks like an input field */}
+            <Label htmlFor="interests-input-field">Your Interests</Label>
             <div
-              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input" // Use themed-input for consistent styling
-              onClick={focusInput} // Focus input on click
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjust min-height to fit text and padding
+              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input"
+              onClick={focusInput}
+              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
             >
               {selectedInterests.map((interest) => (
                 <div
                   key={interest}
-                  className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit" // Smaller padding and text
+                  className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
                 >
                   <span>{interest}</span>
                   <X
-                    size={14} // Slightly larger for easier clicking
+                    size={14}
                     className="ml-1 text-white hover:text-gray-300 cursor-pointer"
                     onClick={(e) => handleRemoveInterest(interest, e)}
                     aria-label={`Remove ${interest}`}
@@ -97,20 +103,19 @@ export default function SelectionLobby() {
                 </div>
               ))}
               <Input
-                id="interests-input-field" // Changed ID to be unique
+                id="interests-input-field"
                 ref={inputRef}
                 value={currentInterest}
                 onChange={handleInterestInputChange}
                 onKeyDown={handleInterestInputKeyDown}
                 placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                // Remove input-specific styling that conflicts with the container
                 className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                style={{ minWidth: '80px' }} // Ensure input has some base width
-                disabled={selectedInterests.length >= 5 && !currentInterest.endsWith(',')}
+                style={{ minWidth: '80px' }}
+                disabled={selectedInterests.length >= 5 && !currentInterest}
               />
             </div>
             <p className="text-xs text-gray-500">
-              Type an interest and press comma or Enter. Backspace to remove last. Leave blank to connect with anyone.
+              Type an interest and press Comma, Space, or Enter. Backspace on empty input to remove last. Leave blank for random match.
             </p>
           </div>
         </CardContent>
