@@ -18,7 +18,7 @@ const ScrollArea = React.forwardRef<
     if (!isMounted) {
       setIsMounted(true);
     }
-  }, [isMounted]); // Only re-run if isMounted changes, though it should stabilize quickly
+  }, []); // Changed dependency array from [isMounted] to []
 
   return (
     <ScrollAreaPrimitive.Root
@@ -51,7 +51,7 @@ const ScrollBar = React.forwardRef<
     if(!isMounted) {
       setIsMounted(true);
     }
-  }, [isMounted]);
+  }, []); // Changed dependency array from [isMounted] to []
 
   const currentTheme = isMounted ? (themeProp || contextTheme) : undefined;
 
