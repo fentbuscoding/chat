@@ -1,7 +1,6 @@
-
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/components/theme-provider';
 // Button is not used, can be removed if not planned for future use.
 // import { Button } from '@/components/ui/button-themed'; 
@@ -10,12 +9,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleThemeChange = (newTheme: string) => {
     if (newTheme === 'theme-98' || newTheme === 'theme-7') {
       setTheme(newTheme as 'theme-98' | 'theme-7');
     }
   };
+
+  if (!mounted) {
+    // Render a placeholder or null during server-side rendering and initial client-side hydration
+    // This ensures the initial render matches the server output before client-side logic takes over.
+    // You can also render a consistent version of the select, e.g., the ShadCN one if that's preferred as a base.
+    // For simplicity, returning a basic label and a non-interactive placeholder.
+    return (
+      <div className="window-body" style={{margin:0}}>
+        <div className="title-bar">
+          <div className="title-bar-text">Ballscord</div>
+            <div className="title-bar-controls">
+            </div>
+        </div>
+         <div className="flex items-center justify-end p-2 space-x-2 bg-inherit">
+           <Label htmlFor="theme-select-placeholder">Theme:</Label>
+           <div id="theme-select-placeholder" className="w-[120px] h-[21px] border field-row bg-gray-200"></div> {/* Placeholder */}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="window-body" style={{margin:0}}> {/* Use window-body for theme consistency */}
