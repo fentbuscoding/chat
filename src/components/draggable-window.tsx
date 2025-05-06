@@ -58,6 +58,7 @@ export function DraggableWindow({
   } | null>(null);
 
   const windowRef = useRef<HTMLDivElement>(null);
+  const moveTimerRef = useRef<NodeJS.Timeout | null>(null); // Initialize moveTimerRef
 
   // Simple debounce function
   const debounce = useCallback((func: (...args: any[]) => void, delay: number) => {
@@ -199,6 +200,13 @@ export function DraggableWindow({
   );
 
   const onTouchMove = useCallback(
+    (e: TouchEvent) => { // Added e: TouchEvent parameter
+      if (isDragging || isResizing) {
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY);
+        e.preventDefault(); // Prevent default scroll behavior
+      }
+    },
     [isDragging, isResizing, handleMove]
   );
 
@@ -228,6 +236,8 @@ export function DraggableWindow({
       if (moveTimerRef.current) {
         clearTimeout(moveTimerRef.current);
       }
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', handleOperationEnd);
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', handleOperationEnd);
     };
