@@ -42,7 +42,8 @@ export default function SelectionLobby() {
     }
   };
 
-  const handleRemoveInterest = (interestToRemove: string) => {
+  const handleRemoveInterest = (interestToRemove: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent focusing input when removing tag
     setSelectedInterests(selectedInterests.filter(interest => interest !== interestToRemove));
   };
 
@@ -83,16 +84,12 @@ export default function SelectionLobby() {
                   className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit" // Smaller padding and text
                 >
                   <span>{interest}</span>
-                  <button
-                    onClick={(e) => {
-                        e.stopPropagation(); // Prevent focusing input when removing tag
-                        handleRemoveInterest(interest);
-                    }}
-                    className="ml-1 text-white hover:text-gray-300 focus:outline-none"
+                  <X
+                    size={14} // Slightly larger for easier clicking
+                    className="ml-1 text-white hover:text-gray-300 cursor-pointer"
+                    onClick={(e) => handleRemoveInterest(interest, e)}
                     aria-label={`Remove ${interest}`}
-                  >
-                    <X size={12} /> {/* Smaller X icon */}
-                  </button>
+                  />
                 </div>
               ))}
               <Input
