@@ -23,7 +23,7 @@ body {
   background-image: url('https://github.com/ekansh28/files/blob/main/stars.gif?raw=true');
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
-  background-size: auto; /* Tile the GIF at its natural size */
+  background-size: 200px; /* Make the GIF smaller to repeat more */
 }
 
 *, *::before, *::after {
@@ -431,6 +431,7 @@ video {
 /* .theme-7 .accent { ... } */
 /* .theme-7 .window { ... } */
 /* ... etc ... */
+
 
 
 
