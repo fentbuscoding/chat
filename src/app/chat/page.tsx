@@ -1,7 +1,6 @@
-
 'use client';
 
-import type { ChangeEvent, KeyboardEvent, RefObject } from 'react';
+import type { ChangeEvent, KeyboardEvent, RefObject, MouseEvent as ReactMouseEvent } from 'react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
@@ -12,6 +11,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';
 import type { ServerToClientEvents, ClientToServerEvents } from '../../lib/socket-types';
+import DraggableWindow from '@/components/draggable-window';
 
 
 interface Message {
@@ -341,28 +341,23 @@ export default function ChatPage() {
         );
      }
   };
+  
 
   return (
-    <div className={cn("flex flex-col items-center flex-1 p-4 h-full")}>
-      {(isFindingPartner && !isConnectedToPeer && messages.filter(m=>m.sender === 'system').length < 2) && 
-        <div className="text-center p-4">Connecting... Please wait.</div>
-      }
-
+    <div className={cn("relative flex-1 p-4 h-full w-full overflow-hidden")}> {/* Changed to relative for absolute positioned children */}
+      {/* Removed the top message "Not connected..." */}
 
       {chatType === 'video' && (
-        <div className="flex justify-center space-x-2 mb-2 w-full max-w-xl">
-          <div className={cn(
-              "window w-[240px]", 
-              theme === 'theme-7' && 'active glass'
-             )}
+        <>
+          <DraggableWindow
+            initialPosition={{ x: 50, y: 50 }}
+            title="You"
+            theme={theme}
+            className="w-[240px]"
           >
-            <div className="title-bar">
-                <div className="title-bar-text">You</div>
-                 <div className="title-bar-controls"></div>
-            </div>
             <div className={cn(
-                "window-body flex flex-col justify-center items-center relative aspect-[4/3] p-0",
-                theme === 'theme-98' && 'm-0' 
+                "flex flex-col justify-center items-center relative aspect-[4/3]",
+                theme === 'theme-98' ? 'm-0 p-0' : 'p-0'
                 )}
              >
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
@@ -376,19 +371,17 @@ export default function ChatPage() {
                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-xs">Loading cam...</div>
                  )}
             </div>
-          </div>
-           <div className={cn(
-               "window w-[240px]", 
-               theme === 'theme-7' && 'active glass'
-             )}
-           >
-            <div className="title-bar">
-                <div className="title-bar-text">Stranger</div>
-                 <div className="title-bar-controls"></div>
-            </div>
+          </DraggableWindow>
+
+          <DraggableWindow
+             initialPosition={{ x: 350, y: 50 }}
+             title="Stranger"
+             theme={theme}
+             className="w-[240px]"
+          >
              <div className={cn(
-                "window-body flex flex-col justify-center items-center relative aspect-[4/3] bg-gray-800 p-0",
-                 theme === 'theme-98' && 'm-0'
+                "flex flex-col justify-center items-center relative aspect-[4/3] bg-gray-800",
+                 theme === 'theme-98' ? 'm-0 p-0' : 'p-0'
                 )}
               >
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
@@ -399,49 +392,51 @@ export default function ChatPage() {
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Connecting video...</div>
                  )}
              </div>
-          </div>
-        </div>
+          </DraggableWindow>
+        </>
       )}
 
-       <div className={cn(
-           "window flex flex-col",
-           chatType === 'video' ? 'h-[calc(100vh-300px)] w-full max-w-[400px] mt-2' : 'flex-1 w-full max-w-sm',
-           theme === 'theme-7' && 'active glass'
+      <DraggableWindow
+         initialPosition={chatType === 'video' ? { x: 50, y: 300 } : { x: 'center', y: 'center' }}
+         title="Chat"
+         theme={theme}
+         className={cn(
+             "flex flex-col",
+             chatType === 'video' ? 'h-[300px] w-[400px]' : 'h-[400px] w-[350px]'
          )}
-         style={chatType === 'video' ? { minHeight: '200px' } : {}}
+         isChatWindow={true} // Flag to center if not video
        >
-         <div className="title-bar">
-             <div className="title-bar-text">Chat</div>
-              <div className="title-bar-controls"></div>
-         </div>
          <div className={cn(
-             "window-body flex flex-col flex-1 p-0 overflow-hidden",
-             theme === 'theme-7' && 'has-space'
+             "window-body-content flex flex-col flex-1 overflow-hidden", // Use new class for content
+             theme === 'theme-7' ? 'has-space' : '',
+             theme === 'theme-98' && chatType === 'text' ? 'p-0.5' : '' // Small padding for 98 text chat
            )}
            style={theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
          >
-           
              {renderMessages()}
-            <div className="input-area flex p-2 border-t bg-inherit">
-                <Input
-                type="text"
-                value={inputText}
-                onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
-                placeholder={isConnectedToPeer ? "Type message..." : isFindingPartner ? "Finding partner..." : "Disconnected"}
-                disabled={!isConnectedToPeer || isFindingPartner}
-                className="flex-grow mr-1"
-                />
-                <Button onClick={sendMessage} disabled={!isConnectedToPeer || isFindingPartner || !inputText.trim()} className="accent mr-1">
-                Send
-                </Button>
-                 <Button onClick={handleDisconnectButtonClick} variant="secondary" className="flex-shrink-0">
-                    {isFindingPartner ? "Cancel" : "Disconnect"}
-                 </Button>
-            </div>
          </div>
-      </div>
+         <div className={cn(
+            "input-area flex p-2 border-t bg-inherit",
+            theme === 'theme-98' ? 'status-bar' : '', // 98.css status bar for input area
+            theme === 'theme-7' ? 'border-t border-gray-300' : ''
+          )}>
+            <Input
+            type="text"
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder={isConnectedToPeer ? "Type message..." : isFindingPartner ? "Finding partner..." : "Disconnected"}
+            disabled={!isConnectedToPeer || isFindingPartner}
+            className="flex-grow mr-1"
+            />
+            <Button onClick={sendMessage} disabled={!isConnectedToPeer || isFindingPartner || !inputText.trim()} className="accent mr-1">
+            Send
+            </Button>
+             <Button onClick={handleDisconnectButtonClick} variant="secondary" className="flex-shrink-0">
+                {isFindingPartner ? "Cancel" : "Disconnect"}
+             </Button>
+        </div>
+      </DraggableWindow>
     </div>
   );
 }
-

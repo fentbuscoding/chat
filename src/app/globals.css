@@ -1,6 +1,3 @@
-
-
-
 /* Remove default tailwind base styles to prevent conflicts with 98.css/7.css */
 /* @tailwind base; */
 @tailwind components;
@@ -24,6 +21,7 @@ body {
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
+  overflow: hidden; /* Prevent scrollbars due to absolute positioning */
 }
 
 *, *::before, *::after {
@@ -43,6 +41,7 @@ button.accent:hover, a.accent:hover {
 /* Ensure layout containers fill height */
 html, body, #__next {
   height: 100%;
+  width: 100%; /* Ensure full width */
 }
 
 /* Styles for 7.css glass effect background - Applied globally to html when theme-7 is active */
@@ -63,23 +62,17 @@ video {
   background-color: #000; /* Placeholder background */
 }
 
-/* Basic chatbox styling - Applied within components now */
-/* .chatbox { ... } */
-/* .messages { ... } */
-/* .input-area { ... } */
 
 /* Basic styling for 98.css tree-view used for chat */
 .theme-98 .tree-view {
-  background-color: white; /* Standard white background */
-  /* border: 1px solid var(--border-well-outer, #808080); */ /* Optional: add border if needed */
-  /* box-shadow: var(--border-well-inset); */ /* Sunken look */
-  padding: 4px; /* Padding inside the view */
-  list-style: none; /* Remove default list bullets */
-  margin: 0; /* Remove default margin */
+  background-color: white; 
+  padding: 4px; 
+  list-style: none; 
+  margin: 0; 
 }
 
 .theme-98 .tree-view li {
-  padding: 1px 0; /* Minimal vertical padding for list items */
+  padding: 1px 0; 
 }
 
 /* Styles for 7.css window body padding helper */
@@ -87,89 +80,104 @@ video {
     padding: 12px; /* Adjust padding as needed for Win7 style */
 }
 
-/* Styles for 7.css glass effect background -- REMOVED as it's applied to html.theme-7 now */
-/*
-.theme-7 .background {
-    background-image: url("https://unpkg.com/7.css/img/background.svg");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    min-height: 100vh;
-    height: 100%;
-}
-*/
-
 /* Ensure window body with glass effect has a minimum contrast background for text */
-.theme-7 .window.glass .window-body {
-    /* Use a very subtle white background to improve readability over the glass */
-    /* background-color: rgba(255, 255, 255, 0.1);  Moved inline for chat specifically */
+.theme-7 .window.glass .window-body.has-space { /* target only chat window body */
+    background-color: rgba(255, 255, 255, 0.1); 
+}
+.theme-98 .window-body.p-0 {
+    padding: 0 !important;
 }
 
 /* Styles for themed input with tags */
 .themed-input {
     /* This class is applied to the container div */
-    /* It should mimic the appearance of an input field based on the theme */
 }
 
 .theme-98 .themed-input {
     background-color: white;
-    border: 1px solid #808080; /* Or use 98.css variables if available */
-    box-shadow: inset 1px 1px #000, inset -1px -1px #dfdfdf, inset 2px 2px #808080, inset -2px -2px #fff; /* Example 98.css input shadow */
-    /* padding: 2px 3px; */ /* Adjust padding as needed to match 98.css inputs */
+    border: 1px solid #808080; 
+    box-shadow: inset 1px 1px #000, inset -1px -1px #dfdfdf, inset 2px 2px #808080, inset -2px -2px #fff; 
 }
 
 .theme-7 .themed-input {
     background-color: white;
-    border: 1px solid #a3a3a3; /* Example 7.css input border */
-    /* padding: 3px 5px; */ /* Adjust padding as needed to match 7.css inputs */
+    border: 1px solid #a3a3a3; 
 }
 
 .themed-input-inner {
-    /* This class is applied to the actual <input> element inside the container */
-    /* It should have no border or background to blend with the container */
     border: none !important;
     box-shadow: none !important;
     background-color: transparent !important;
     padding: 0 !important;
     outline: none !important;
     flex-grow: 1;
-    min-width: 60px; /* Ensure it has some space to type */
+    min-width: 60px; 
 }
 
 
-/* REMOVED Manually defined Tailwind utility classes */
-/* All utility classes like .flex, .p-4, .text-center, etc., are removed from here. */
-/* Tailwind will generate them based on usage in your components. */
-
-
-/* REMOVE local theme overrides as CSS is loaded from CDN */
-/* .theme-98 body { ... } */
-/* .theme-98 .accent { ... } */
-/* .theme-98 .window { ... } */
-/* ... etc ... */
-
-/* .theme-7 body { ... } */
-/* .theme-7 .accent { ... } */
-/* .theme-7 .window { ... } */
-/* ... etc ... */
-
 @keyframes rainbow-text-animation {
-  0% { color: hsl(0, 100%, 50%); } /* Red */
-  16.66% { color: hsl(60, 100%, 50%); } /* Yellow */
-  33.33% { color: hsl(120, 100%, 50%); } /* Green */
-  50% { color: hsl(180, 100%, 50%); } /* Cyan */
-  66.66% { color: hsl(240, 100%, 50%); } /* Blue */
-  83.33% { color: hsl(300, 100%, 50%); } /* Magenta */
-  100% { color: hsl(0, 100%, 50%); } /* Red (to loop smoothly) */
+  0% { color: hsl(0, 100%, 50%); } 
+  16.66% { color: hsl(60, 100%, 50%); } 
+  33.33% { color: hsl(120, 100%, 50%); } 
+  50% { color: hsl(180, 100%, 50%); } 
+  66.66% { color: hsl(240, 100%, 50%); } 
+  83.33% { color: hsl(300, 100%, 50%); } 
+  100% { color: hsl(0, 100%, 50%); } 
 }
 
 .animate-rainbow-text {
   animation: rainbow-text-animation 10s linear infinite;
-  /* Important: for buttons, theme styles might override color.
-     We might need to apply this to a span inside the button. */
 }
 
 .animate-rainbow-text-alt {
   animation: rainbow-text-animation 10s linear infinite;
-  animation-delay: 5s; /* Delay to make it out of sync with the other button */
+  animation-delay: 5s; 
+}
+
+/* Draggable Window Styles */
+.dragging-outline {
+  outline: 2px dashed red;
+  animation: dash-dance 0.5s linear infinite;
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); /* Optional: add a red glow */
+  z-index: 1000; /* Ensure dragging window is on top */
+}
+
+@keyframes dash-dance {
+  to {
+    stroke-dashoffset: -20; /* Adjust based on dash array for smooth animation */
+  }
+}
+
+/* Custom cursor for title bar */
+.title-bar {
+  cursor: grab;
+}
+
+/* Window body content class to handle flex layout within draggable window */
+.window-body-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* Allows messages area to take up available space */
+  overflow: hidden; /* Prevents content from overflowing the window body */
+}
+
+/* Ensure that for 98.css, the window-body of the chat window itself has minimal padding */
+.theme-98 .window-body.flex.flex-col.flex-1.overflow-hidden {
+  padding: 0.5px !important; 
+}
+/* Ensure that for 7.css, video window bodies have no padding */
+.theme-7 .window-body.p-0 {
+  padding: 0 !important;
+}
+
+/* Style for the input area in 98.css theme */
+.theme-98 .input-area.status-bar {
+  /* This will apply status-bar styling from 98.css */
+  padding: 2px 3px; /* Typical 98.css status bar padding */
+  border-top: 1px solid #808080; /* Separator line */
+}
+
+.theme-7 .input-area {
+  border-top: 1px solid #adb5bd; /* A typical border color for 7.css */
+  background-color: rgba(240, 240, 240, 0.7); /* Slightly transparent background for 7.css input area */
 }
