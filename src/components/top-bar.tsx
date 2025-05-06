@@ -25,7 +25,7 @@ export function TopBar() {
     // This ensures the initial render matches the server output before client-side logic takes over.
     return (
       <div className="window-body" style={{margin:0}}>
-        <div className="title-bar"> {/* Ensure title-bar structure matches the mounted version */}
+        <div className="title-bar"> 
           <div className="title-bar-text">Ballscord</div>
             <div className="title-bar-controls">
             </div>
