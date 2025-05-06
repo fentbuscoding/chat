@@ -216,10 +216,9 @@ export default function ChatPage() {
     socket.on('peerDisconnected', () => {
         addSystemMessage("Your partner has disconnected.");
         toast({ title: "Partner Disconnected", description: "The other user left the chat.", variant: "destructive" });
-        resetStateForNewChat(); // Reset and prepare for new chat
-        // Optionally, automatically try to find a new partner
+        resetStateForNewChat(); 
         addSystemMessage("Automatically searching for a new partner...");
-        setTimeout(() => handleNewChat(), 2000); // Delay before searching again
+        setTimeout(() => handleNewChat(), 2000); 
     });
 
 
@@ -234,8 +233,7 @@ export default function ChatPage() {
         }
         resetStateForNewChat();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatType, interestsQuery, router, toast, addSystemMessage, resetStateForNewChat, handleNewChat]); // handleNewChat is now memoized
+  }, [chatType, interestsQuery, router, toast, addSystemMessage, resetStateForNewChat, handleNewChat]); 
   
 
   useEffect(() => {
@@ -274,10 +272,9 @@ export default function ChatPage() {
                  socketRef.current.emit('leaveChat', currentRoom);
             }
         }
-        // resetStateForNewChat(); // This will be called by peerDisconnected or cleanup
         addSystemMessage("You have disconnected. Redirecting to home page...");
         toast({ title: "Disconnected", description: "You have left the chat." });
-        setTimeout(() => router.push('/'), 1500); // Give time for message to show
+        setTimeout(() => router.push('/'), 1500); 
    };
 
 
@@ -286,7 +283,7 @@ export default function ChatPage() {
   }
 
   const renderMessages = () => {
-     const showWaitingMessage = chatType === 'text' && !isConnectedToPeer && isFindingPartner && messages.filter(m => m.sender === 'system').length <= 2; // Show if only initial system messages exist
+     const showWaitingMessage = chatType === 'text' && !isConnectedToPeer && isFindingPartner && messages.filter(m => m.sender === 'system').length <= 2; 
 
 
      if (theme === 'theme-98') {
@@ -363,7 +360,11 @@ export default function ChatPage() {
                 <div className="title-bar-text">You</div>
                  <div className="title-bar-controls"></div>
             </div>
-            <div className="window-body flex flex-col justify-center items-center relative aspect-[4/3] p-0">
+            <div className={cn(
+                "window-body flex flex-col justify-center items-center relative aspect-[4/3] p-0",
+                theme === 'theme-98' && 'm-0' 
+                )}
+             >
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
                       <Alert variant="destructive" className="absolute bottom-1 left-1 right-1 text-xs p-1">
@@ -385,7 +386,11 @@ export default function ChatPage() {
                 <div className="title-bar-text">Stranger</div>
                  <div className="title-bar-controls"></div>
             </div>
-             <div className="window-body flex flex-col justify-center items-center relative aspect-[4/3] bg-gray-800 p-0">
+             <div className={cn(
+                "window-body flex flex-col justify-center items-center relative aspect-[4/3] bg-gray-800 p-0",
+                 theme === 'theme-98' && 'm-0'
+                )}
+              >
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnectedToPeer && !isFindingPartner && (
                      <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50 text-xs">Waiting...</div>
@@ -400,10 +405,10 @@ export default function ChatPage() {
 
        <div className={cn(
            "window flex flex-col",
-           chatType === 'video' ? 'h-[calc(80vh-220px)] w-full max-w-[280px] mt-2' : 'flex-1 w-full max-w-sm',
+           chatType === 'video' ? 'h-[calc(100vh-300px)] w-full max-w-[400px] mt-2' : 'flex-1 w-full max-w-sm',
            theme === 'theme-7' && 'active glass'
          )}
-         style={chatType === 'video' ? { minHeight: '250px' } : {}}
+         style={chatType === 'video' ? { minHeight: '200px' } : {}}
        >
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
@@ -415,14 +420,7 @@ export default function ChatPage() {
            )}
            style={theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
          >
-            {(!isConnectedToPeer && isFindingPartner) && !messages.some(msg => msg.text.toLowerCase().includes("looking for") || msg.text.toLowerCase().includes("waiting for")) &&
-                <div className="p-2 text-center italic text-xs">Looking for a partner...</div>
-            }
-            {isConnectedToPeer && !messages.some(msg => msg.text.toLowerCase().includes("partner found") || msg.text.toLowerCase().includes("you are now connected")) &&
-                <div className="p-2 text-center italic text-xs text-green-600">Connected!</div>
-            }
            
-
              {renderMessages()}
             <div className="input-area flex p-2 border-t bg-inherit">
                 <Input
@@ -446,3 +444,4 @@ export default function ChatPage() {
     </div>
   );
 }
+
