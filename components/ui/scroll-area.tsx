@@ -45,15 +45,12 @@ const ScrollBar = React.forwardRef<
 >(({ className, orientation = 'vertical', theme: themeProp, ...props }, ref) => {
   // Use the theme from props if provided, otherwise useTheme hook if mounted
   const { theme: contextTheme } = useTheme();
-  const [isMounted, setIsMounted] = React.useState(typeof window !== 'undefined');
-  
+  const [isMounted, setIsMounted] = React.useState(false);
+
   React.useEffect(() => {
-    if(!isMounted) { // Only set if it hasn't been set yet
-      setIsMounted(true);
-    }
-  }, 
-  [] // Changed from [isMounted]
-  );
+    setIsMounted(true);
+  }, []);
+  
 
   const currentTheme = isMounted ? (themeProp || contextTheme) : undefined;
 

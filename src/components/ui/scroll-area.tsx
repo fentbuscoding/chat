@@ -15,10 +15,12 @@ const ScrollArea = React.forwardRef<
 
   React.useEffect(() => {
     // If not already mounted (e.g. during SSR or initial client render before effect), set to true
+    // This ensures that if the initial useState resolved to false (e.g. during SSR),
+    // it gets updated to true on the client after mount.
     if (!isMounted) {
       setIsMounted(true);
     }
-  }, []); // Changed dependency array from [isMounted] to []
+  }, []); // Empty dependency array ensures this runs once on mount
 
   return (
     <ScrollAreaPrimitive.Root
@@ -48,10 +50,11 @@ const ScrollBar = React.forwardRef<
   const [isMounted, setIsMounted] = React.useState(typeof window !== 'undefined');
   
   React.useEffect(() => {
+    // If not already mounted (e.g. during SSR or initial client render before effect), set to true
     if(!isMounted) {
       setIsMounted(true);
     }
-  }, []); // Changed dependency array from [isMounted] to []
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const currentTheme = isMounted ? (themeProp || contextTheme) : undefined;
 
@@ -115,3 +118,4 @@ export { ScrollArea, ScrollBar };
     background-color: #808080;
 }
 */
+
