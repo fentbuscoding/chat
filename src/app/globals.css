@@ -59,6 +59,12 @@ html, body, #__next {
 .justify-between {
   justify-content: space-between;
 }
+.gap-1 {
+  gap: 0.25rem; /* 4px */
+}
+.gap-2 {
+  gap: 0.5rem; /* 8px */
+}
 .gap-4 {
   gap: 1rem; /* 16px */
 }
@@ -68,14 +74,33 @@ html, body, #__next {
 .p-2 {
     padding: 0.5rem; /* 8px */
 }
+.p-1 {
+    padding: 0.25rem; /* 4px */
+}
+.p-1\.5 { /* For p-1.5 utility */
+    padding: 0.375rem; /* 6px */
+}
 .p-0 {
     padding: 0;
+}
+.pl-2 {
+    padding-left: 0.5rem; /* 8px */
+}
+.pr-1 {
+    padding-right: 0.25rem; /* 4px */
+}
+.py-0\.5 { /* For py-0.5 utility */
+    padding-top: 0.125rem; /* 2px */
+    padding-bottom: 0.125rem; /* 2px */
 }
 .mr-1 {
     margin-right: 0.25rem; /* 4px */
 }
 .mr-2 {
     margin-right: 0.5rem; /* 8px */
+}
+.ml-1 {
+    margin-left: 0.25rem; /* 4px */
 }
 .ml-2 {
     margin-left: 0.5rem; /* 8px */
@@ -120,6 +145,9 @@ html, body, #__next {
 .h-full {
   height: 100%;
 }
+.h-fit {
+  height: fit-content;
+}
 .w-full {
   width: 100%;
 }
@@ -144,11 +172,17 @@ html, body, #__next {
 .min-h-screen {
     min-height: 100vh;
 }
+.min-h-\[2\.5rem\] { /* For min-h-[2.5rem] utility */
+    min-height: 2.5rem; /* 40px */
+}
 .flex-grow {
   flex-grow: 1;
 }
 .flex-shrink-0 {
     flex-shrink: 0;
+}
+.flex-wrap {
+    flex-wrap: wrap;
 }
 .overflow-y-auto {
   overflow-y: auto;
@@ -169,11 +203,18 @@ html, body, #__next {
   font-size: 0.75rem; /* 12px */
   line-height: 1rem; /* 16px */
 }
+.text-sm {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem; /* 20px */
+}
 .text-white {
     color: white;
 }
 .text-black {
     color: black;
+}
+.text-gray-300 {
+    color: #d1d5db;
 }
 .text-gray-500 {
     color: #6b7280;
@@ -186,6 +227,12 @@ html, body, #__next {
 }
 .rounded {
     border-radius: 0.25rem; /* 4px */
+}
+.rounded-md { /* For rounded-md utility */
+    border-radius: 0.375rem; /* 6px */
+}
+.rounded-sm { /* For rounded-sm utility */
+    border-radius: 0.125rem; /* 2px */
 }
 .break-words {
     overflow-wrap: break-word;
@@ -221,10 +268,27 @@ html, body, #__next {
 .bg-inherit {
     background-color: inherit;
 }
+.bg-transparent {
+    background-color: transparent;
+}
 
 
+.border {
+    border-width: 1px;
+}
 .border-t {
     border-top-width: 1px;
+}
+.border-none {
+    border-style: none;
+}
+
+.outline-none {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+.shadow-none {
+    box-shadow: none;
 }
 
 .relative {
@@ -244,6 +308,14 @@ html, body, #__next {
 }
 .right-1 {
     right: 0.25rem; /* 4px */
+}
+
+.focus\:outline-none:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+.hover\:text-gray-300:hover {
+    color: #d1d5db;
 }
 
 
@@ -296,6 +368,37 @@ video {
     /* background-color: rgba(255, 255, 255, 0.1);  Moved inline for chat specifically */
 }
 
+/* Styles for themed input with tags */
+.themed-input {
+    /* This class is applied to the container div */
+    /* It should mimic the appearance of an input field based on the theme */
+}
+
+.theme-98 .themed-input {
+    background-color: white;
+    border: 1px solid #808080; /* Or use 98.css variables if available */
+    box-shadow: inset 1px 1px #000, inset -1px -1px #dfdfdf, inset 2px 2px #808080, inset -2px -2px #fff; /* Example 98.css input shadow */
+    /* padding: 2px 3px; */ /* Adjust padding as needed to match 98.css inputs */
+}
+
+.theme-7 .themed-input {
+    background-color: white;
+    border: 1px solid #a3a3a3; /* Example 7.css input border */
+    /* padding: 3px 5px; */ /* Adjust padding as needed to match 7.css inputs */
+}
+
+.themed-input-inner {
+    /* This class is applied to the actual <input> element inside the container */
+    /* It should have no border or background to blend with the container */
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    outline: none !important;
+    flex-grow: 1;
+    min-width: 60px; /* Ensure it has some space to type */
+}
+
 
 /* REMOVED Manually defined Tailwind utility classes */
 
@@ -309,4 +412,5 @@ video {
 /* .theme-7 .accent { ... } */
 /* .theme-7 .window { ... } */
 /* ... etc ... */
+
 
