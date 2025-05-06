@@ -20,7 +20,7 @@ body {
   background-color: #fff;
   color: #000;
   /* Added GIF background */
-  background-image: url('https://i.gifer.com/origin/f1/f1983acd52833511949f0LL02333769_w200.gif');
+  background-image: url('https://github.com/ekansh28/files/blob/main/stars.gif?raw=true');
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: auto; /* Tile the GIF at its natural size */
@@ -431,6 +431,7 @@ video {
 /* .theme-7 .accent { ... } */
 /* .theme-7 .window { ... } */
 /* ... etc ... */
+
 
 
 
