@@ -40,6 +40,16 @@ html, body, #__next {
   height: 100%;
 }
 
+/* Styles for 7.css glass effect background - Applied globally to html when theme-7 is active */
+html.theme-7 {
+    background-image: url("https://unpkg.com/7.css/img/background.svg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* Ensures background stays fixed during scroll */
+}
+
+
 /* Ensure flex containers work as expected */
 .flex {
   display: flex;
@@ -351,16 +361,17 @@ video {
     padding: 12px; /* Adjust padding as needed for Win7 style */
 }
 
-/* Styles for 7.css glass effect background */
+/* Styles for 7.css glass effect background -- REMOVED as it's applied to html.theme-7 now */
+/*
 .theme-7 .background {
     background-image: url("https://unpkg.com/7.css/img/background.svg");
-    background-size: cover; /* Cover the entire container */
+    background-size: cover; 
     background-position: center;
     background-repeat: no-repeat;
-    /* Ensure the background covers the whole viewport */
-    min-height: 100vh; /* Ensure it covers at least the viewport height */
-    height: 100%; /* Make it cover the full body height */
+    min-height: 100vh; 
+    height: 100%; 
 }
+*/
 
 /* Ensure window body with glass effect has a minimum contrast background for text */
 .theme-7 .window.glass .window-body {

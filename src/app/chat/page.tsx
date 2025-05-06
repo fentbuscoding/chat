@@ -335,8 +335,8 @@ export default function ChatPage() {
   };
 
   return (
-    // Add 'background' class for 7.css glass effect if theme is 7
-    <div className={cn("flex flex-col items-center flex-1 p-4 h-full", theme === 'theme-7' && 'background')}>
+    // Remove 'background' class here as it's handled globally by html.theme-7
+    <div className={cn("flex flex-col items-center flex-1 p-4 h-full")}>
       {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
 
       {/* Video Area - Conditional rendering */}

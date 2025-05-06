@@ -48,13 +48,16 @@ export function ThemeProvider({
   });
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = window.document.documentElement; // Target the HTML element
 
-    // Remove previous theme classes
+    // Remove previous theme classes from HTML element
     root.classList.remove('theme-98', 'theme-7');
 
-    // Add current theme class
-    root.classList.add(theme);
+    // Add current theme class to HTML element
+    if (theme) { // Ensure theme is not null/undefined
+        root.classList.add(theme);
+    }
+
 
     // Save theme to localStorage
      try {
