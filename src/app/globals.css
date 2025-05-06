@@ -19,6 +19,11 @@ body {
   /* Default background/foreground, will be overridden by themes */
   background-color: #fff;
   color: #000;
+  /* Added GIF background */
+  background-image: url('https://i.gifer.com/origin/f1/f1983acd52833511949f0LL02333769_w200.gif');
+  background-repeat: repeat; /* Ensure the GIF tiles/repeats */
+  background-attachment: fixed; /* Keep the background fixed during scroll */
+  background-size: auto; /* Tile the GIF at its natural size */
 }
 
 *, *::before, *::after {
@@ -157,6 +162,9 @@ html.theme-7 {
 }
 .h-fit {
   height: fit-content;
+}
+.h-\[60\%\] {
+    height: 60%;
 }
 .w-full {
   width: 100%;
@@ -423,5 +431,6 @@ video {
 /* .theme-7 .accent { ... } */
 /* .theme-7 .window { ... } */
 /* ... etc ... */
+
 
 
