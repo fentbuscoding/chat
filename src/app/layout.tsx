@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import './(fonts)/fonts.css'; // Import the font CSS
@@ -6,7 +7,7 @@ import { TopBar } from '@/components/top-bar';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'ChitChatConnect',
+  title: 'Ballscord',
   description: 'Connect with people through text or video chat.',
 };
 
@@ -33,3 +34,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -12,7 +13,7 @@ export function TopBar() {
   return (
     <div className="window-body" style={{margin:0}}> {/* Use window-body for theme consistency */}
       <div className="title-bar">
-        <div className="title-bar-text">ChitChatConnect</div>
+        <div className="title-bar-text">Ballscord</div>
           <div className="title-bar-controls">
             {/* Optional: Add window controls if needed by the theme */}
             {/* <button aria-label="Minimize"></button>
@@ -38,3 +39,4 @@ export function TopBar() {
     </div>
   );
 }
+

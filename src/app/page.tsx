@@ -19,7 +19,6 @@ export default function SelectionLobby() {
   // const { toast } = useToast(); // Uncomment if toast notifications are desired
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Just update the current interest state. Logic for adding tags is in KeyDown.
     setCurrentInterest(e.target.value);
   };
 
@@ -44,17 +43,17 @@ export default function SelectionLobby() {
     const value = currentInterest.trim();
 
     if ((key === ',' || key === ' ' || key === 'Enter') && value) {
-      e.preventDefault(); // Prevent comma/space from being typed, and form submission on Enter
+      e.preventDefault();
       addInterest(value);
     } else if (key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
-      e.preventDefault(); // Prevent default backspace behavior (e.g., navigating back)
+      e.preventDefault(); 
       setSelectedInterests(selectedInterests.slice(0, -1));
     }
   };
 
 
   const handleRemoveInterest = (interestToRemove: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent focusing input when removing tag
+    event.stopPropagation(); 
     setSelectedInterests(selectedInterests.filter(interest => interest !== interestToRemove));
   };
 
@@ -65,7 +64,6 @@ export default function SelectionLobby() {
     console.log(`Starting ${type} chat with interests: ${interestsString || 'any'}`);
   };
 
-  // Focus input when the container is clicked
   const focusInput = () => {
     inputRef.current?.focus();
   };
@@ -75,7 +73,7 @@ export default function SelectionLobby() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome to ChitChatConnect!</CardTitle>
+          <CardTitle>Welcome to Ballscord!</CardTitle>
           <CardDescription>
             Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
           </CardDescription>
