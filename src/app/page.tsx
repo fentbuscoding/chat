@@ -18,12 +18,15 @@ export default function SelectionLobby() {
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-    if (value.endsWith(',')) {
-      const newInterest = value.slice(0, -1).trim();
-      if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) { // Limit to 5 interests
+    // Allow multiple words with spaces before comma
+    if (value.includes(',')) {
+      const parts = value.split(',');
+      const newInterest = parts[0].trim(); // Take the part before the first comma
+      if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
         setSelectedInterests([...selectedInterests, newInterest]);
       }
-      setCurrentInterest(''); // Clear input after adding interest
+      // Keep the rest of the input after the first comma, or clear if only one interest was added
+      setCurrentInterest(parts.slice(1).join(',').trimStart());
     } else {
       setCurrentInterest(value);
     }
@@ -36,7 +39,7 @@ export default function SelectionLobby() {
         setSelectedInterests([...selectedInterests, newInterest]);
         setCurrentInterest('');
       }
-      e.preventDefault(); 
+      e.preventDefault();
     } else if (e.key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
       // Remove the last interest if backspace is pressed on an empty input
       setSelectedInterests(selectedInterests.slice(0, -1));
@@ -72,9 +75,9 @@ export default function SelectionLobby() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="interests-input">Your Interests</Label>
+            <Label htmlFor="interests-input-field">Your Interests</Label> {/* Changed htmlFor to match the new input ID */}
             {/* Container that looks like an input field */}
-            <div 
+            <div
               className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input" // Use themed-input for consistent styling
               onClick={focusInput} // Focus input on click
               style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjust min-height to fit text and padding
@@ -94,16 +97,16 @@ export default function SelectionLobby() {
                 </div>
               ))}
               <Input
-                id="interests-input" // Changed ID to avoid conflict if Label uses it
+                id="interests-input-field" // Changed ID to be unique
                 ref={inputRef}
                 value={currentInterest}
                 onChange={handleInterestInputChange}
                 onKeyDown={handleInterestInputKeyDown}
                 placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                 // Remove input-specific styling that conflicts with the container
-                className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" 
+                className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
                 style={{ minWidth: '80px' }} // Ensure input has some base width
-                disabled={selectedInterests.length >= 5 && !currentInterest}
+                disabled={selectedInterests.length >= 5 && !currentInterest.endsWith(',')}
               />
             </div>
             <p className="text-xs text-gray-500">
@@ -116,7 +119,7 @@ export default function SelectionLobby() {
              <span className="animate-rainbow-text">Start Text Chat</span>
            </Button>
            <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
-             <span className="animate-rainbow-text">Start Video Chat</span>
+             <span className="animate-rainbow-text-alt">Start Video Chat</span>
            </Button>
          </CardFooter>
       </Card>

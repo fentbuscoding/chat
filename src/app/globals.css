@@ -91,11 +91,11 @@ video {
 /*
 .theme-7 .background {
     background-image: url("https://unpkg.com/7.css/img/background.svg");
-    background-size: cover; 
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    min-height: 100vh; 
-    height: 100%; 
+    min-height: 100vh;
+    height: 100%;
 }
 */
 
@@ -165,6 +165,11 @@ video {
 
 .animate-rainbow-text {
   animation: rainbow-text-animation 10s linear infinite;
-  /* Important: for buttons, theme styles might override color. 
+  /* Important: for buttons, theme styles might override color.
      We might need to apply this to a span inside the button. */
+}
+
+.animate-rainbow-text-alt {
+  animation: rainbow-text-animation 10s linear infinite;
+  animation-delay: 5s; /* Delay to make it out of sync with the other button */
 }
