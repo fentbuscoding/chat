@@ -84,9 +84,18 @@ video {
 .theme-7 .window.glass .window-body.has-space { /* target only chat window body */
     background-color: rgba(255, 255, 255, 0.1); 
 }
+.theme-7 .window.glass .window-body.glass-body-padding {
+    padding: 8px; /* Example padding, adjust as needed for glass windows */
+    background-color: rgba(255, 255, 255, 0.1); /* Ensure some background for readability */
+}
+
 .theme-98 .window-body.p-0 {
     padding: 0 !important;
 }
+.theme-98 .window-body.p-0\.5 { 
+  padding: 0.5px !important; 
+}
+
 
 /* Styles for themed input with tags */
 .themed-input {
@@ -165,10 +174,6 @@ video {
   overflow: hidden; /* Prevents content from overflowing the window body */
 }
 
-/* Ensure that for 98.css, the window-body of the chat window itself has minimal padding */
-.theme-98 .window-body.p-0\.5 { /* More specific selector for 98 chat window body */
-  padding: 0.5px !important; 
-}
 /* Ensure that for 7.css, video window bodies have no padding */
 .theme-7 .window-body.p-0 {
   padding: 0 !important;
@@ -186,3 +191,14 @@ video {
   background-color: rgba(240, 240, 240, 0.7); /* Slightly transparent background for 7.css input area */
 }
 
+/* Custom utility for very small text */
+.text-xxs {
+  font-size: 0.625rem; /* 10px if base is 16px */
+  line-height: 0.875rem; /* Adjust line height accordingly */
+}
+
+/* Additional style for scroll area if needed */
+.scroll-area-viewport {
+  width: 100%;
+  height: 100%;
+}

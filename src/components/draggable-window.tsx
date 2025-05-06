@@ -1,242 +1,290 @@
 
 'use client';
 
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from './theme-provider'; // Assuming useTheme is in the same directory or adjust path
 
 interface DraggableWindowProps {
   children: React.ReactNode;
   title: string;
-  initialPosition?: { x: number | 'center'; y: number | 'center' };
-  className?: string;
-  theme: 'theme-98' | 'theme-7';
-  isChatWindow?: boolean; // To help with initial centering for text chat
+  initialPosition?: { x: number; y: number };
+  initialSize?: { width: number; height: number };
+  minSize?: { width: number; height: number };
+  boundaryRef: React.RefObject<HTMLDivElement>; // Parent boundary
+  theme: 'theme-98' | 'theme-7'; // Explicitly pass theme
+  windowClassName?: string;
+  titleBarClassName?: string;
+  bodyClassName?: string;
+  style?: CSSProperties;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onResizeStart?: () => void;
+  onResizeEnd?: () => void;
 }
 
-const DraggableWindow: React.FC<DraggableWindowProps> = ({
+const MIN_WIDTH = 150;
+const MIN_HEIGHT = 100;
+const TITLE_BAR_HEIGHT = 20; // Approximate height of the title bar for collision adjustments
+
+export function DraggableWindow({
   children,
   title,
   initialPosition = { x: 0, y: 0 },
-  className,
+  initialSize = { width: 300, height: 200 },
+  minSize = { width: MIN_WIDTH, height: MIN_HEIGHT },
+  boundaryRef,
   theme,
-  isChatWindow = false,
-}) => {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  windowClassName,
+  titleBarClassName,
+  bodyClassName,
+  style,
+  onDragStart,
+  onDragEnd,
+  onResizeStart,
+  onResizeEnd,
+}: DraggableWindowProps) {
+  const [position, setPosition] = useState(initialPosition);
+  const [dimensions, setDimensions] = useState(initialSize);
   const [isDragging, setIsDragging] = useState(false);
-  const [rel, setRel] = useState<{ x: number; y: number } | null>(null); // Position of mouse relative to top-left of item
+  const [isResizing, setIsResizing] = useState(false);
+  const [operationStart, setOperationStart] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+
   const windowRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (windowRef.current) {
-      let startX = initialPosition.x;
-      let startY = initialPosition.y;
-      const windowRect = windowRef.current.getBoundingClientRect();
-      const parentElement = windowRef.current.parentElement;
+  const clampPosition = useCallback(
+    (x: number, y: number, width: number, height: number) => {
+      if (!boundaryRef.current) return { x, y };
+      const boundaryRect = boundaryRef.current.getBoundingClientRect();
+      const newX = Math.max(0, Math.min(x, boundaryRect.width - width));
+      const newY = Math.max(0, Math.min(y, boundaryRect.height - height));
+      return { x: newX, y: newY };
+    },
+    [boundaryRef]
+  );
 
-      if (parentElement) {
-        const parentRect = parentElement.getBoundingClientRect();
-        if (startX === 'center') {
-          startX = (parentRect.width - windowRect.width) / 2;
-        }
-        if (startY === 'center') {
-          startY = (parentRect.height - windowRect.height) / 2;
-        }
-        // Ensure initial position is within bounds
-        startX = Math.max(0, Math.min(Number(startX), parentRect.width - windowRect.width));
-        startY = Math.max(0, Math.min(Number(startY), parentRect.height - windowRect.height));
+  const clampDimensions = useCallback(
+    (newWidth: number, newHeight: number, currentX: number, currentY: number) => {
+      let clampedWidth = Math.max(minSize.width, newWidth);
+      let clampedHeight = Math.max(minSize.height, newHeight);
 
-      } else {
-          // Fallback if parentRect is not available (e.g., during initial render)
-          startX = typeof startX === 'number' ? startX : window.innerWidth / 2 - windowRect.width / 2;
-          startY = typeof startY === 'number' ? startY : window.innerHeight / 2 - windowRect.height / 2;
-          // Ensure initial position is within viewport bounds as a fallback
-          startX = Math.max(0, Math.min(Number(startX), window.innerWidth - windowRect.width));
-          startY = Math.max(0, Math.min(Number(startY), window.innerHeight - windowRect.height));
+      if (boundaryRef.current) {
+        const boundaryRect = boundaryRef.current.getBoundingClientRect();
+        if (currentX + clampedWidth > boundaryRect.width) {
+          clampedWidth = boundaryRect.width - currentX;
+        }
+        if (currentY + clampedHeight > boundaryRect.height) {
+          clampedHeight = boundaryRect.height - currentY;
+        }
       }
-      setPosition({ x: Number(startX), y: Number(startY) });
-    }
-  }, [initialPosition, isChatWindow]);
+      return { width: Math.max(minSize.width, clampedWidth), height: Math.max(minSize.height, clampedHeight) };
+    },
+    [minSize, boundaryRef]
+  );
 
 
-  const onMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-    // Only drag by title bar
-    if ((e.target as HTMLElement).closest('.title-bar')) {
-      if (e.button !== 0) return; // Only left mouse button
-      const target = windowRef.current;
-      if (!target) return;
-
-      const pos = target.getBoundingClientRect();
-      // Calculate relative position from page coordinates to element's top-left
-      setRel({
-        x: e.pageX - pos.left,
-        y: e.pageY - pos.top,
-      });
-      setIsDragging(true);
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  };
-  
-  const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.title-bar')) {
-      const target = windowRef.current;
-      if (!target) return;
-      const touch = e.touches[0];
-      const pos = target.getBoundingClientRect();
-      setRel({
-        x: touch.pageX - pos.left,
-        y: touch.pageY - pos.top,
-      });
-      setIsDragging(true);
-      e.stopPropagation();
-    }
-  };
-
-
-  const onMouseUp = useCallback((e: MouseEvent) => {
-    setIsDragging(false);
-    document.body.style.cursor = 'default';
-    if (windowRef.current) windowRef.current.style.cursor = 'grab';
-    e.stopPropagation();
+  // Drag Handlers
+  const onDragMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-  }, []);
-  
-  const onTouchEnd = useCallback((e: globalThis.TouchEvent) => {
-    setIsDragging(false);
-    document.body.style.cursor = 'default';
-     if (windowRef.current) windowRef.current.style.cursor = 'grab';
     e.stopPropagation();
-  }, []);
-
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !rel || !windowRef.current) return;
-    
-    let newX = e.pageX - rel.x;
-    let newY = e.pageY - rel.y;
-
-    const parent = windowRef.current.parentElement;
-    if (parent) {
-        const parentRect = parent.getBoundingClientRect();
-        const windowRect = windowRef.current.getBoundingClientRect();
-        
-        // Constrain X within parent boundaries
-        newX = Math.max(0, Math.min(newX, parentRect.width - windowRect.width));
-        // Constrain Y within parent boundaries
-        newY = Math.max(0, Math.min(newY, parentRect.height - windowRect.height));
-    } else {
-        // Fallback: constrain within viewport if no parent or parent has no dimensions
-        const windowRect = windowRef.current.getBoundingClientRect();
-        newX = Math.max(0, Math.min(newX, window.innerWidth - windowRect.width));
-        newY = Math.max(0, Math.min(newY, window.innerHeight - windowRect.height));
-    }
-    
-    setPosition({
-      x: newX,
-      y: newY,
+    setIsDragging(true);
+    onDragStart?.();
+    setOperationStart({
+      x: position.x,
+      y: position.y,
+      width: dimensions.width,
+      height: dimensions.height,
+      offsetX: e.clientX - position.x,
+      offsetY: e.clientY - position.y,
     });
-    e.stopPropagation();
-    e.preventDefault();
-  }, [isDragging, rel]);
+  };
 
-  const onTouchMove = useCallback((e: globalThis.TouchEvent) => {
-    if (!isDragging || !rel || !windowRef.current) return;
+  const onDragTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent page scroll
     const touch = e.touches[0];
-    let newX = touch.pageX - rel.x;
-    let newY = touch.pageY - rel.y;
-
-    const parent = windowRef.current.parentElement;
-    if (parent) {
-        const parentRect = parent.getBoundingClientRect();
-        const windowRect = windowRef.current.getBoundingClientRect();
-        newX = Math.max(0, Math.min(newX, parentRect.width - windowRect.width));
-        newY = Math.max(0, Math.min(newY, parentRect.height - windowRect.height));
-    } else {
-        const windowRect = windowRef.current.getBoundingClientRect();
-        newX = Math.max(0, Math.min(newX, window.innerWidth - windowRect.width));
-        newY = Math.max(0, Math.min(newY, window.innerHeight - windowRect.height));
-    }
-
-    setPosition({
-      x: newX,
-      y: newY,
+    setIsDragging(true);
+    onDragStart?.();
+    setOperationStart({
+      x: position.x,
+      y: position.y,
+      width: dimensions.width,
+      height: dimensions.height,
+      offsetX: touch.clientX - position.x,
+      offsetY: touch.clientY - position.y,
     });
+  };
+
+  // Resize Handlers
+  const onResizeHandleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
     e.stopPropagation();
-  }, [isDragging, rel]);
+    setIsResizing(true);
+    onResizeStart?.();
+    setOperationStart({
+      x: position.x,
+      y: position.y,
+      width: dimensions.width,
+      height: dimensions.height,
+      offsetX: e.clientX, // Store initial mouse X for calculating delta
+      offsetY: e.clientY, // Store initial mouse Y for calculating delta
+    });
+  };
+
+    const onResizeHandleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent page scroll
+    const touch = e.touches[0];
+    setIsResizing(true);
+    onResizeStart?.();
+    setOperationStart({
+      x: position.x,
+      y: position.y,
+      width: dimensions.width,
+      height: dimensions.height,
+      offsetX: touch.clientX,
+      offsetY: touch.clientY,
+    });
+  };
+
+
+  // Mouse/Touch Move Handler
+  const handleMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!operationStart) return;
+
+      if (isDragging) {
+        const newX = clientX - operationStart.offsetX;
+        const newY = clientY - operationStart.offsetY;
+        const clamped = clampPosition(newX, newY, dimensions.width, dimensions.height);
+        setPosition(clamped);
+      } else if (isResizing) {
+        const deltaX = clientX - operationStart.offsetX;
+        const deltaY = clientY - operationStart.offsetY;
+        const newWidth = operationStart.width + deltaX;
+        const newHeight = operationStart.height + deltaY;
+
+        const clamped = clampDimensions(newWidth, newHeight, operationStart.x, operationStart.y);
+        setDimensions(clamped);
+      }
+    },
+    [isDragging, isResizing, operationStart, dimensions, clampPosition, clampDimensions]
+  );
+
+  const onMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging || isResizing) {
+        handleMove(e.clientX, e.clientY);
+      }
+    },
+    [isDragging, isResizing, handleMove]
+  );
+
+  const onTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (isDragging || isResizing) {
+        // e.preventDefault(); // Prevent scroll only when actively dragging/resizing
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY);
+      }
+    },
+    [isDragging, isResizing, handleMove]
+  );
+
+
+  // Mouse/Touch Up Handler
+  const handleOperationEnd = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      onDragEnd?.();
+    }
+    if (isResizing) {
+      setIsResizing(false);
+      onResizeEnd?.();
+    }
+    setOperationStart(null);
+  }, [isDragging, isResizing, onDragEnd, onResizeEnd]);
 
 
   useEffect(() => {
-    const currentWindowRef = windowRef.current;
-    if (isDragging) {
+    if (isDragging || isResizing) {
       document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-      document.addEventListener('touchmove', onTouchMove, { passive: false }); // passive: false for preventDefault
-      document.addEventListener('touchend', onTouchEnd);
-      document.body.style.userSelect = 'none'; // Prevent text selection during drag
-      document.body.style.cursor = 'grabbing';
-      if (currentWindowRef) currentWindowRef.style.cursor = 'grabbing';
-
-    } else {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = 'default';
-      if (currentWindowRef) currentWindowRef.style.cursor = 'grab';
+      document.addEventListener('mouseup', handleOperationEnd);
+      document.addEventListener('touchmove', onTouchMove, { passive: false }); // passive: false to allow preventDefault
+      document.addEventListener('touchend', handleOperationEnd);
     }
     return () => {
       document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('mouseup', handleOperationEnd);
       document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = 'default';
-       if (currentWindowRef) currentWindowRef.style.cursor = 'grab';
+      document.removeEventListener('touchend', handleOperationEnd);
     };
-  }, [isDragging, onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
+  }, [isDragging, isResizing, onMouseMove, handleOperationEnd, onTouchMove]);
+
+
+  // Style for the window
+  const windowStyle: CSSProperties = {
+    position: 'absolute',
+    left: `${position.x}px`,
+    top: `${position.y}px`,
+    width: `${dimensions.width}px`,
+    height: `${dimensions.height}px`,
+    touchAction: 'none', // Prevents default touch behaviors like scrolling when interacting with the window
+    ...style,
+  };
+
+  const isGlassTheme = theme === 'theme-7' && windowClassName?.includes('glass');
 
   return (
     <div
       ref={windowRef}
       className={cn(
-        'window absolute', 
-        theme === 'theme-7' && 'glass active', 
-        isDragging && 'dragging-outline', 
-        className
+        'window',
+        theme === 'theme-7' && 'active', // 7.css needs 'active' for proper styling
+        (isDragging || isResizing) && 'dragging-outline',
+        windowClassName
       )}
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        // cursor is handled by useEffect for title-bar and body
-        touchAction: 'none', 
-         ...(theme === 'theme-7' ? { '--window-background-color': 'rgba(128, 91, 165, 0.5)' } : {})
-      }}
-      onMouseDown={onMouseDown}
-      onTouchStart={onTouchStart}
+      style={windowStyle}
+      data-testid="draggable-window"
     >
-      <div className="title-bar"> {/* Apply grab cursor specifically to title bar */}
+      <div
+        className={cn('title-bar', titleBarClassName)}
+        onMouseDown={onDragMouseDown}
+        onTouchStart={onDragTouchStart}
+        data-testid="draggable-window-title-bar"
+      >
         <div className="title-bar-text">{title}</div>
-        <div className="title-bar-controls">
-          {/* No controls for simplicity */}
-        </div>
+        {/* No controls for minimize, maximize, close as per previous request */}
       </div>
-      <div className={cn(
-        "window-body",
-        theme === 'theme-98' && !isChatWindow && 'p-0', 
-        theme === 'theme-98' && isChatWindow && 'p-0.5', // specific padding for 98 chat
-        theme === 'theme-7' && !isChatWindow && 'p-0', 
-        theme === 'theme-7' && isChatWindow && 'has-space', 
-        isChatWindow ? 'flex flex-col flex-1 overflow-hidden window-body-content' : 'window-body-content' // ensure window-body-content for flex/overflow
+      <div
+        className={cn(
+            'window-body',
+            {'has-space': theme === 'theme-7' && !isGlassTheme && !bodyClassName?.includes('p-0')}, // Add padding for 7.css non-glass if not overridden
+            {'has-space glass-body-padding': isGlassTheme && !bodyClassName?.includes('p-0')}, // Special padding for glass
+            bodyClassName,
+            'flex flex-col overflow-hidden' // Ensure body allows flex content and hides overflow
         )}
-        style={isChatWindow && theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
+        style={{ height: `calc(100% - ${TITLE_BAR_HEIGHT}px)`}} // Ensure body fills remaining space
+        data-testid="draggable-window-body"
       >
         {children}
       </div>
+      <div // Resize Handle
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
+        onMouseDown={onResizeHandleMouseDown}
+        onTouchStart={onResizeHandleTouchStart}
+        data-testid="draggable-window-resize-handle"
+      />
     </div>
   );
-};
+}
 
-export default DraggableWindow;
-
+// Helper class in globals.css for glass body padding if needed:
+// .theme-7 .window.glass .window-body.glass-body-padding {
+//   padding: 8px; /* Example padding */
+//
