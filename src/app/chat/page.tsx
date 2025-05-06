@@ -2,53 +2,56 @@
 
 'use client';
 
+import type { ChangeEvent, KeyboardEvent, RefObject } from 'react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
-import { useTheme } from '@/components/theme-provider'; // Import useTheme
-import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useTheme } from '@/components/theme-provider';
+import { cn } from '@/lib/utils';
 
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'peer' | 'system'; // Added 'system' sender type
+  sender: 'user' | 'peer' | 'system';
 }
 
 export default function ChatPage() {
-  const { theme } = useTheme(); // Get current theme
+  const { theme } = useTheme();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
 
   const chatType = searchParams.get('type') as 'text' | 'video' | null;
-  const interests = searchParams.get('interests') || ''; // Default to empty string if null
+  const interests = searchParams.get('interests') || '';
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isConnected, setIsConnected] = useState(false); // Simulates connection status
-  const [isConnecting, setIsConnecting] = useState(false); // Simulates connection attempt
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null); // State for local media stream
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null); // Track camera permission status
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement | HTMLLIElement>(null); // Can be div or li
+  const messagesEndRef = useRef<HTMLDivElement | HTMLLIElement>(null);
 
   const scrollToBottom = () => {
-    // Cast to HTMLElement for scrollIntoView
     (messagesEndRef.current as HTMLElement)?.scrollIntoView({ behavior: "smooth" });
   };
 
    useEffect(scrollToBottom, [messages]);
 
+   const addSystemMessage = useCallback((text: string) => {
+    setMessages(prev => [...prev, { id: `system-${Date.now()}`, text, sender: 'system' }]);
+   }, []);
 
-  // Placeholder for WebRTC setup and connection logic
+
    const setupWebRTC = useCallback(async () => {
      if (!chatType) {
        toast({ title: "Error", description: "Missing chat type.", variant: "destructive" });
@@ -60,16 +63,12 @@ export default function ChatPage() {
      const connectionMessage = interests
        ? `Searching for a ${chatType} partner with interests: ${interests}`
        : `Searching for any available ${chatType} partner...`;
-     console.log(`Attempting to connect for ${chatType} chat with interests: ${interests || 'any'}`);
+     addSystemMessage(connectionMessage);
      toast({ title: "Connecting...", description: connectionMessage });
 
      try {
-       // 1. Create PeerConnection
-       peerConnectionRef.current = new RTCPeerConnection({
-         // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Example STUN server
-       });
+       peerConnectionRef.current = new RTCPeerConnection({});
 
-       // 2. Setup Data Channel (for text chat)
        dataChannelRef.current = peerConnectionRef.current.createDataChannel('chat');
        setupDataChannelListeners(dataChannelRef.current);
 
@@ -78,94 +77,72 @@ export default function ChatPage() {
          setupDataChannelListeners(dataChannelRef.current);
        };
 
-       // 3. Get Media Stream (if video chat) - Request permission here
        if (chatType === 'video') {
          if (!navigator.mediaDevices?.getUserMedia) {
+            addSystemMessage("Media devices API not available.");
            throw new Error("Media devices API not available.");
          }
          try {
            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-           setLocalStream(stream); // Store stream in state
+           setLocalStream(stream);
            setHasCameraPermission(true);
-           // Add tracks to the peer connection *after* stream is obtained
            stream.getTracks().forEach(track => peerConnectionRef.current?.addTrack(track, stream));
-            // Assign stream to local video element immediately after getting it
             if (localVideoRef.current) {
               localVideoRef.current.srcObject = stream;
-            } else {
-               console.warn("Local video ref not available when stream was obtained.");
             }
-
          } catch (mediaError) {
            console.error('Error accessing camera/microphone:', mediaError);
            setHasCameraPermission(false);
+           addSystemMessage("Camera/Microphone access denied. Please enable permissions.");
            toast({
              variant: 'destructive',
              title: 'Media Access Denied',
              description: 'Please enable camera and microphone permissions in your browser settings.',
            });
-           // Optionally stop connection attempt or proceed without video/audio
-           // For now, we'll let the connection proceed but show an error state for video
          }
        } else {
-         setHasCameraPermission(null); // Not applicable for text chat
+         setHasCameraPermission(null);
        }
 
-
-       // 4. Setup ICE Candidate and Track Listeners
        peerConnectionRef.current.onicecandidate = (event) => {
          if (event.candidate) {
            console.log("Sending ICE candidate (simulated):", event.candidate);
-           // Send candidate via signaling server
          }
        };
 
        peerConnectionRef.current.ontrack = (event) => {
-         // Assign remote stream to the remote video element
          if (remoteVideoRef.current && event.streams[0]) {
            remoteVideoRef.current.srcObject = event.streams[0];
-         } else {
-           console.warn("Remote video ref not available or no stream in event");
          }
        };
 
-       // 5. Signaling Simulation (Offer/Answer exchange - highly simplified)
        console.log(`Simulating signaling and connection (Interests: ${interests || 'any'})...`);
-       // Create offer (in a real app, initiator creates offer)
-       // const offer = await peerConnectionRef.current.createOffer();
-       // await peerConnectionRef.current.setLocalDescription(offer);
-       // Send offer via signaling server... receive answer... setRemoteDescription...
+       await new Promise(resolve => setTimeout(resolve, 2000));
 
-       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
-
-       // Assume connection is established
        setIsConnected(true);
+       addSystemMessage("You are now connected.");
        toast({ title: "Connected!", description: "You are now connected." });
-       // Add system message to chat
-       setMessages(prev => [...prev, { id: Date.now().toString(), text: "You are now connected.", sender: 'system' }]);
-
 
      } catch (error) {
        console.error("WebRTC setup failed:", error);
-       toast({ title: "Connection Failed", description: `Could not start ${chatType} chat. Please check permissions or try again. Error: ${error instanceof Error ? error.message : String(error)}`, variant: "destructive" });
-       handleDisconnect(false); // Clean up without redirecting immediately
+       const errorMessage = error instanceof Error ? error.message : String(error);
+       addSystemMessage(`Connection Failed: ${errorMessage}`);
+       toast({ title: "Connection Failed", description: `Could not start ${chatType} chat. Error: ${errorMessage}`, variant: "destructive" });
+       // eslint-disable-next-line @typescript-eslint/no-use-before-define
+       handleDisconnect(false);
      } finally {
        setIsConnecting(false);
      }
-   }, [chatType, interests, router, toast]); // Added handleDisconnect to dependency array if it uses state/props not listed
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [chatType, interests, router, toast, addSystemMessage]);
 
-   // Setup Data Channel Listeners
+
    const setupDataChannelListeners = (channel: RTCDataChannel | null) => {
        if (!channel) return;
        channel.onopen = () => {
            console.log("Data channel opened");
-           // Consider if connection state depends solely on data channel or media too
-           // setIsConnected(true); // Might already be set by signaling simulation
-           if (!isConnected && !isConnecting) { // Only add connection message if not already connected or connecting
-            // This might be redundant if set in setupWebRTC success, but good as a fallback for data channel specifically.
-            // toast({ title: "Chat Ready", description: "Text chat channel is open." });
-            // setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Text chat ready.", sender: 'system' }]);
-           }
+           // System message for connection is handled in setupWebRTC success
+           // to avoid duplicate messages if connection is already considered established.
        };
        channel.onmessage = (event) => {
            const receivedText = event.data;
@@ -173,38 +150,36 @@ export default function ChatPage() {
        };
        channel.onclose = () => {
            console.log("Data channel closed");
-           if (isConnected) { // Only trigger disconnect if we were previously connected
+           if (isConnected) {
+               addSystemMessage("Peer disconnected.");
                toast({ title: "Peer Disconnected", description: "The other user left the chat.", variant: "destructive" });
-               setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Peer disconnected.", sender: 'system' }]);
-               handleDisconnect(); // Trigger disconnect if channel closes unexpectedly
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+               handleDisconnect();
            }
        };
        channel.onerror = (error) => {
            console.error("Data channel error:", error);
+           addSystemMessage("Chat error occurred.");
            toast({title: "Chat Error", description: "An error occurred in the text chat.", variant:"destructive"});
-            setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Chat error.", sender: 'system' }]);
        };
    };
 
 
   useEffect(() => {
     setupWebRTC();
-
-    // Cleanup function
     return () => {
-      handleDisconnect(false); // Don't redirect on component unmount cleanup
+       // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      handleDisconnect(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
+  }, []);
 
 
-  // Effect to assign the local stream to the video element when the stream is ready
   useEffect(() => {
       if (localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
-          console.log("Assigning local stream to video element (useEffect fallback)");
           localVideoRef.current.srcObject = localStream;
       }
-  }, [localStream]); // Run whenever localStream changes
+  }, [localStream]);
 
 
   const sendMessage = () => {
@@ -215,170 +190,164 @@ export default function ChatPage() {
              dataChannelRef.current.send(inputText);
         } catch (error) {
             console.error("Failed to send message:", error);
+            addSystemMessage("Failed to send message.");
              toast({title: "Send Error", description: "Could not send message.", variant:"destructive"});
         }
         setInputText('');
     } else if (!isConnected || !dataChannelRef.current || dataChannelRef.current.readyState !== 'open') {
+         addSystemMessage("Cannot send message: Not connected.");
          toast({title: "Not Connected", description: "You must be connected to send messages.", variant:"destructive"});
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
   };
 
-   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
        if (e.key === 'Enter') {
          sendMessage();
        }
      };
 
    const handleDisconnect = useCallback((redirect = true) => {
-       // Check if cleanup is already done or unnecessary
-       if (!peerConnectionRef.current && !localStream && !isConnected) {
-           console.log("Disconnect called but already disconnected/cleaned up.");
-           if (redirect && router) { // Redirect if requested and router is available
+       if (!peerConnectionRef.current && !localStream && !isConnected && !isConnecting) {
+           if (redirect && router) {
                router.push('/');
            }
            return;
        }
         console.log("Disconnecting...");
 
-        const wasConnected = isConnected; // Store previous connection state
+        const wasConnected = isConnected;
 
-        // Update state immediately
        setIsConnected(false);
-       setIsConnecting(false); // Ensure connecting state is also reset
+       setIsConnecting(false);
 
-       // Close PeerConnection
        if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
 
-       // Close DataChannel
         if (dataChannelRef.current) {
             dataChannelRef.current.close();
             dataChannelRef.current = null;
         }
 
-
-       // Stop media tracks and clear stream state
-       localStream?.getTracks().forEach(track => {
-          // console.log(`Stopping track: ${track.kind}`);
-          track.stop();
-        });
+       localStream?.getTracks().forEach(track => track.stop());
        setLocalStream(null);
 
-       // Clear video element sources explicitly
        if (localVideoRef.current?.srcObject) {
-           // console.log("Clearing local video srcObject");
-            // Ensure tracks are stopped before clearing srcObject
            const stream = localVideoRef.current.srcObject as MediaStream;
            stream?.getTracks().forEach(track => track.stop());
            localVideoRef.current.srcObject = null;
        }
         if (remoteVideoRef.current?.srcObject) {
-            // console.log("Clearing remote video srcObject");
             const stream = remoteVideoRef.current.srcObject as MediaStream;
             stream?.getTracks().forEach(track => track.stop());
             remoteVideoRef.current.srcObject = null;
         }
 
-       setMessages([]); // Clear messages on disconnect
-       setHasCameraPermission(null); // Reset permission status
+       // Clear messages on disconnect only if redirecting, or if we want to start fresh.
+       // If not redirecting, user might want to see the history.
+       // For now, let's clear them to avoid confusion if they try to reconnect.
+       setMessages([]);
+       setHasCameraPermission(null);
 
-        // Show disconnect toast only if we were actually connected before this call
         if (wasConnected) {
+             addSystemMessage("You have disconnected.");
              toast({ title: "Disconnected", description: "You have left the chat." });
-             // Add system message for disconnect
-             setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "You have disconnected.", sender: 'system' }]);
+        } else if (!isConnecting) { // If not connecting and not previously connected, means manual disconnect or error before connection
+            addSystemMessage("Disconnected."); // Generic disconnect message
         }
 
 
-       if (redirect && router) { // Check if router is available
-            // console.log("Redirecting to home page.");
-           router.push('/'); // Redirect to home page
+       if (redirect && router) {
+           router.push('/');
        }
-   // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [isConnected, localStream, router, toast]); // Added router and toast
+   }, [isConnected, isConnecting, localStream, router, toast, addSystemMessage]);
 
 
   if (!chatType) {
-    // Should ideally not happen if routed correctly, but good fallback
     return <div className="p-4">Invalid chat type specified. <Button onClick={() => router.push('/')}>Go Home</Button></div>;
   }
 
   const renderMessages = () => {
+     // Add a check for initial "Waiting for partner" message
+     // Only show "Waiting for partner..." if no other system messages exist (like connection attempts)
+     const showWaitingMessage = chatType === 'text' && !isConnected && !isConnecting && messages.length === 0;
+
      if (theme === 'theme-98') {
         return (
            <ul className="tree-view messages flex-grow overflow-y-auto p-2 bg-white">
+            {showWaitingMessage && (
+                 <li className="text-center italic text-gray-500 text-xs mb-1">
+                    Waiting for a chat partner...
+                 </li>
+            )}
              {messages.map((msg) => (
                <li key={msg.id} className={cn(
                    'mb-1',
-                   msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-500 text-xs' // System message style
+                   msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-500 text-xs'
                    )}>
                  <span className={cn(
                      'inline-block p-1 rounded max-w-[80%] break-words',
                       msg.sender === 'user' ? 'bg-blue-200' :
                       msg.sender === 'peer' ? 'bg-gray-200' :
-                      'bg-transparent' // System message background
+                      'bg-transparent'
                      )}>
                   {msg.sender === 'user' ? 'You: ' : msg.sender === 'peer' ? 'Peer: ' : ''} {msg.text}
                  </span>
                </li>
              ))}
-             {/* Use li for the scroll anchor in tree-view */}
-             <li ref={messagesEndRef as React.RefObject<HTMLLIElement>} className="h-0" />
+             <li ref={messagesEndRef as RefObject<HTMLLIElement>} className="h-0" />
            </ul>
         );
-     } else { // Default to theme-7 style or any other theme
+     } else {
         return (
-          // Add subtle background for glass effect readability
           <div className="messages flex-grow overflow-y-auto p-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
+            {showWaitingMessage && (
+                <div className="text-center italic text-gray-400 text-xs mb-2">
+                    Waiting for a chat partner...
+                </div>
+            )}
              {messages.map((msg) => (
              <div key={msg.id} className={cn(
                  'mb-2',
-                  msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-400 text-xs' // System message style for theme-7
+                  msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-400 text-xs'
                  )}>
-                 {/* Use semi-transparent backgrounds for messages */}
                  <span className={cn(
-                     'inline-block p-2 rounded max-w-[80%] break-words', 
-                     msg.sender === 'system' ? 'text-gray-300 bg-transparent' : 'text-black', // System message text color for theme-7
+                     'inline-block p-2 rounded max-w-[80%] break-words',
+                     msg.sender === 'system' ? 'text-gray-300 bg-transparent' : 'text-black',
                      msg.sender === 'user' ? 'bg-blue-200 bg-opacity-70' :
                      msg.sender === 'peer' ? 'bg-gray-200 bg-opacity-70' :
-                     'bg-transparent' // System message background
+                     'bg-transparent'
                   )}>
                  {msg.text}
                  </span>
              </div>
              ))}
-              {/* Use div for the scroll anchor */}
-              <div ref={messagesEndRef as React.RefObject<HTMLDivElement>} />
+              <div ref={messagesEndRef as RefObject<HTMLDivElement>} />
           </div>
         );
      }
   };
 
   return (
-    // Remove 'background' class here as it's handled globally by html.theme-7
     <div className={cn("flex flex-col items-center flex-1 p-4 h-full")}>
-      {isConnecting && <div className="text-center p-4">Connecting... Please wait.</div>}
+      {isConnecting && messages.length === 0 && <div className="text-center p-4">Connecting... Please wait.</div>}
 
-      {/* Video Area - Conditional rendering */}
       {chatType === 'video' && (
-        <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl"> {/* Centered video row */}
-          {/* Local Video Window */}
+        <div className="flex justify-center space-x-4 mb-4 w-full max-w-4xl">
           <div className={cn(
-              "window w-1/3", // Adjust width as needed
-              theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
+              "window w-1/3",
+              theme === 'theme-7' && 'active glass'
              )}
           >
             <div className="title-bar">
                 <div className="title-bar-text">You</div>
                  <div className="title-bar-controls"></div>
             </div>
-            {/* Apply window-body, remove padding for video */}
             <div className="window-body flex flex-col justify-center items-center relative aspect-video p-0">
                  <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                  { hasCameraPermission === false && (
@@ -387,22 +356,20 @@ export default function ChatPage() {
                         <AlertDescription className="text-xs">Enable permissions.</AlertDescription>
                      </Alert>
                   )}
-                 { (isConnecting || (hasCameraPermission === null && !localStream && chatType === 'video')) && ( // Show loading only for video chat
+                 { (isConnecting || (hasCameraPermission === null && !localStream && chatType === 'video')) && (
                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-xs">Loading cam...</div>
                  )}
             </div>
           </div>
-          {/* Remote Video Window */}
            <div className={cn(
-               "window w-1/3", // Adjust width as needed
-               theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
+               "window w-1/3",
+               theme === 'theme-7' && 'active glass'
              )}
            >
             <div className="title-bar">
                 <div className="title-bar-text">Stranger</div>
                  <div className="title-bar-controls"></div>
             </div>
-             {/* Apply window-body, remove padding for video */}
              <div className="window-body flex flex-col justify-center items-center relative aspect-video bg-gray-800 p-0">
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
                  { !isConnected && !isConnecting && (
@@ -416,47 +383,37 @@ export default function ChatPage() {
         </div>
       )}
 
-       {/* Status Message for Text Chat */}
-       {chatType === 'text' && !isConnected && !isConnecting && messages.length === 0 && ( // Only show if no messages yet
-            <div className="text-center p-4">Waiting for a chat partner...</div>
-        )}
-
-      {/* Chat Container as a Window - Adjusted width and height */}
        <div className={cn(
            "window flex flex-col",
-           // Adjusted height/width - make chatbox taller and less wide
            chatType === 'video' ? 'h-[60%] w-full max-w-[300px]' : 'flex-1 w-full max-w-sm',
-           theme === 'theme-7' && 'active glass' // Add active and glass for theme-7
+           theme === 'theme-7' && 'active glass'
          )}
        >
          <div className="title-bar">
              <div className="title-bar-text">Chat</div>
               <div className="title-bar-controls"></div>
          </div>
-         {/* Use window-body, add has-space based on theme */}
          <div className={cn(
-             "window-body flex flex-col flex-1 p-0 overflow-hidden", // Removed padding for better control
-             theme === 'theme-7' && 'has-space' // Add spacing for Win7 style only if theme is 7
+             "window-body flex flex-col flex-1 p-0 overflow-hidden",
+             theme === 'theme-7' && 'has-space'
            )}
-           // Conditional background for glass effect
            style={theme === 'theme-7' ? { backgroundColor: 'transparent' } : {}}
          >
-             {renderMessages()} {/* Render messages based on theme */}
-            {/* Input Area below chat, inside window-body */}
-            <div className="input-area flex p-2 border-t bg-inherit"> {/* Use bg-inherit, ensure padding */}
+             {renderMessages()}
+            <div className="input-area flex p-2 border-t bg-inherit">
                 <Input
                 type="text"
                 value={inputText}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder={isConnected ? "Type message..." : "Connecting..."} // Shortened placeholder
+                placeholder={isConnected ? "Type message..." : isConnecting ? "Connecting..." : "Disconnected"}
                 disabled={!isConnected || isConnecting}
-                className="flex-grow mr-1" // Reduced margin
+                className="flex-grow mr-1"
                 />
-                <Button onClick={sendMessage} disabled={!isConnected || isConnecting || !inputText.trim()} className="accent mr-1"> {/* Reduced margin */}
+                <Button onClick={sendMessage} disabled={!isConnected || isConnecting || !inputText.trim()} className="accent mr-1">
                 Send
                 </Button>
-                 <Button onClick={() => handleDisconnect()} variant="secondary" className="flex-shrink-0"> {/* Prevent button shrinking */}
+                 <Button onClick={() => handleDisconnect()} variant="secondary" className="flex-shrink-0">
                     Disconnect
                  </Button>
             </div>
@@ -465,3 +422,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
+    
