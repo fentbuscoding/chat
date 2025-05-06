@@ -355,7 +355,7 @@ export default function ChatPage() {
       {chatType === 'video' && (
         <div className="flex justify-center space-x-2 mb-2 w-full max-w-xl">
           <div className={cn(
-              "window w-[240px]", // Reduced width
+              "window w-[240px]", 
               theme === 'theme-7' && 'active glass'
              )}
           >
@@ -377,7 +377,7 @@ export default function ChatPage() {
             </div>
           </div>
            <div className={cn(
-               "window w-[240px]", // Reduced width
+               "window w-[240px]", 
                theme === 'theme-7' && 'active glass'
              )}
            >
@@ -400,7 +400,6 @@ export default function ChatPage() {
 
        <div className={cn(
            "window flex flex-col",
-           // chatType === 'video' ? 'h-[calc(100%-200px)] w-full max-w-[280px] mt-2' : 'flex-1 w-full max-w-sm', // Adjusted for video
            chatType === 'video' ? 'h-[calc(80vh-220px)] w-full max-w-[280px] mt-2' : 'flex-1 w-full max-w-sm',
            theme === 'theme-7' && 'active glass'
          )}
@@ -422,9 +421,7 @@ export default function ChatPage() {
             {isConnectedToPeer && !messages.some(msg => msg.text.toLowerCase().includes("partner found") || msg.text.toLowerCase().includes("you are now connected")) &&
                 <div className="p-2 text-center italic text-xs text-green-600">Connected!</div>
             }
-            {(!isConnectedToPeer && !isFindingPartner && !messages.some(msg=>msg.text.toLowerCase().includes('disconnected'))) &&
-                 <div className="p-2 text-center italic text-xs text-red-600">Not Connected. Try finding a new partner.</div>
-            }
+           
 
              {renderMessages()}
             <div className="input-area flex p-2 border-t bg-inherit">
