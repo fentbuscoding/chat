@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -112,10 +113,10 @@ export default function SelectionLobby() {
         </CardContent>
          <CardFooter className="flex justify-between space-x-4">
            <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
-             Start Text Chat
+             <span className="animate-rainbow-text">Start Text Chat</span>
            </Button>
            <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
-             Start Video Chat
+             <span className="animate-rainbow-text">Start Video Chat</span>
            </Button>
          </CardFooter>
       </Card>
