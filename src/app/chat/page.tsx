@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'; // Import cn for conditional classes
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'peer';
+  sender: 'user' | 'peer' | 'system'; // Added 'system' sender type
 }
 
 export default function ChatPage() {
@@ -141,6 +141,9 @@ export default function ChatPage() {
        // Assume connection is established
        setIsConnected(true);
        toast({ title: "Connected!", description: "You are now connected." });
+       // Add system message to chat
+       setMessages(prev => [...prev, { id: Date.now().toString(), text: "You are now connected.", sender: 'system' }]);
+
 
      } catch (error) {
        console.error("WebRTC setup failed:", error);
@@ -158,6 +161,11 @@ export default function ChatPage() {
            console.log("Data channel opened");
            // Consider if connection state depends solely on data channel or media too
            // setIsConnected(true); // Might already be set by signaling simulation
+           if (!isConnected && !isConnecting) { // Only add connection message if not already connected or connecting
+            // This might be redundant if set in setupWebRTC success, but good as a fallback for data channel specifically.
+            // toast({ title: "Chat Ready", description: "Text chat channel is open." });
+            // setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Text chat ready.", sender: 'system' }]);
+           }
        };
        channel.onmessage = (event) => {
            const receivedText = event.data;
@@ -167,12 +175,14 @@ export default function ChatPage() {
            console.log("Data channel closed");
            if (isConnected) { // Only trigger disconnect if we were previously connected
                toast({ title: "Peer Disconnected", description: "The other user left the chat.", variant: "destructive" });
+               setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Peer disconnected.", sender: 'system' }]);
                handleDisconnect(); // Trigger disconnect if channel closes unexpectedly
            }
        };
        channel.onerror = (error) => {
            console.error("Data channel error:", error);
            toast({title: "Chat Error", description: "An error occurred in the text chat.", variant:"destructive"});
+            setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "Chat error.", sender: 'system' }]);
        };
    };
 
@@ -281,6 +291,8 @@ export default function ChatPage() {
         // Show disconnect toast only if we were actually connected before this call
         if (wasConnected) {
              toast({ title: "Disconnected", description: "You have left the chat." });
+             // Add system message for disconnect
+             setMessages(prev => [...prev, { id: `system-${Date.now()}`, text: "You have disconnected.", sender: 'system' }]);
         }
 
 
@@ -302,9 +314,17 @@ export default function ChatPage() {
         return (
            <ul className="tree-view messages flex-grow overflow-y-auto p-2 bg-white">
              {messages.map((msg) => (
-               <li key={msg.id} className={cn('mb-1', msg.sender === 'user' ? 'text-right' : 'text-left')}>
-                 <span className={cn('inline-block p-1 rounded max-w-[80%] break-words', msg.sender === 'user' ? 'bg-blue-200' : 'bg-gray-200')}>
-                  {msg.sender === 'user' ? 'You: ' : 'Peer: '} {msg.text}
+               <li key={msg.id} className={cn(
+                   'mb-1',
+                   msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-500 text-xs' // System message style
+                   )}>
+                 <span className={cn(
+                     'inline-block p-1 rounded max-w-[80%] break-words',
+                      msg.sender === 'user' ? 'bg-blue-200' :
+                      msg.sender === 'peer' ? 'bg-gray-200' :
+                      'bg-transparent' // System message background
+                     )}>
+                  {msg.sender === 'user' ? 'You: ' : msg.sender === 'peer' ? 'Peer: ' : ''} {msg.text}
                  </span>
                </li>
              ))}
@@ -317,11 +337,17 @@ export default function ChatPage() {
           // Add subtle background for glass effect readability
           <div className="messages flex-grow overflow-y-auto p-2" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
              {messages.map((msg) => (
-             <div key={msg.id} className={cn('mb-2', msg.sender === 'user' ? 'text-right' : 'text-left')}>
+             <div key={msg.id} className={cn(
+                 'mb-2',
+                  msg.sender === 'user' ? 'text-right' : msg.sender === 'peer' ? 'text-left' : 'text-center italic text-gray-400 text-xs' // System message style for theme-7
+                 )}>
                  {/* Use semi-transparent backgrounds for messages */}
                  <span className={cn(
-                     'inline-block p-2 rounded max-w-[80%] break-words text-black', // Ensure text is readable
-                     msg.sender === 'user' ? 'bg-blue-200 bg-opacity-70' : 'bg-gray-200 bg-opacity-70'
+                     'inline-block p-2 rounded max-w-[80%] break-words', 
+                     msg.sender === 'system' ? 'text-gray-300 bg-transparent' : 'text-black', // System message text color for theme-7
+                     msg.sender === 'user' ? 'bg-blue-200 bg-opacity-70' :
+                     msg.sender === 'peer' ? 'bg-gray-200 bg-opacity-70' :
+                     'bg-transparent' // System message background
                   )}>
                  {msg.text}
                  </span>
@@ -391,7 +417,7 @@ export default function ChatPage() {
       )}
 
        {/* Status Message for Text Chat */}
-       {chatType === 'text' && !isConnected && !isConnecting && (
+       {chatType === 'text' && !isConnected && !isConnecting && messages.length === 0 && ( // Only show if no messages yet
             <div className="text-center p-4">Waiting for a chat partner...</div>
         )}
 
