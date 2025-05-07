@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 
 type Theme = 'theme-98' | 'theme-7';
 
@@ -117,17 +116,17 @@ export function ThemeProvider({
 
   }, [theme, storageKey]);
 
-  const setTheme = useCallback((newTheme: Theme) => {
+  const setThemeCallback = useCallback((newTheme: Theme) => {
     if (newTheme === 'theme-98' || newTheme === 'theme-7') {
       setThemeState(newTheme);
     }
   }, []);
 
 
-  const value = {
+  const value = useMemo(() => ({
     theme,
-    setTheme,
-  };
+    setTheme: setThemeCallback,
+  }), [theme, setThemeCallback]);
 
   return (
     <ThemeProviderContext.Provider value={value}>
@@ -144,4 +143,3 @@ export const useTheme = () => {
 
   return context;
 };
-

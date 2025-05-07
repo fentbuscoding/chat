@@ -1,4 +1,3 @@
-
 import * as React from 'react';
 import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 import { cn } from '@/lib/utils';
@@ -9,17 +8,8 @@ const ScrollArea = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
 >(({ className, children, theme: themeProp, ...props }, ref) => {
   const { theme: contextTheme } = useTheme();
-  const [isMounted, setIsMounted] = React.useState(false); // Initialize to false
-  const theme = themeProp || contextTheme;
-
-  React.useEffect(() => {
-    // Set to true after mount, this will ensure the first client render matches SSR
-    // and then updates to client-specific state.
-    // The existing condition `if (!isMounted)` is compatible with this change.
-    if (!isMounted) {
-      setIsMounted(true);
-    }
-  }, []); // Empty dependency array, runs once on client
+  // Determine the theme to pass to ScrollBar. No local 'isMounted' state needed here for this purpose.
+  const themeToPass = themeProp || contextTheme;
 
   return (
     <ScrollAreaPrimitive.Root
@@ -30,10 +20,9 @@ const ScrollArea = React.forwardRef<
       <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] scroll-area-viewport">
         {children}
       </ScrollAreaPrimitive.Viewport>
-      {/* Pass theme directly if mounted, otherwise undefined to prevent hydration mismatch issues. */}
-      {/* The ScrollBar itself handles theme application once mounted. */}
-      <ScrollBar orientation="vertical" theme={isMounted ? theme : undefined} />
-      <ScrollBar orientation="horizontal" theme={isMounted ? theme : undefined} />
+      {/* Pass the resolved theme directly. ScrollBar will use its own isMounted state. */}
+      <ScrollBar orientation="vertical" theme={themeToPass} />
+      <ScrollBar orientation="horizontal" theme={themeToPass} />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );
@@ -44,16 +33,15 @@ const ScrollBar = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Scrollbar>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Scrollbar> & { theme?: 'theme-98' | 'theme-7' }
 >(({ className, orientation = 'vertical', theme: themeProp, ...props }, ref) => {
-  // Use the theme from props if provided, otherwise useTheme hook if mounted
-  const { theme: contextTheme } = useTheme();
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
   
-
-  const currentTheme = isMounted ? (themeProp || contextTheme) : undefined;
+  // themeProp is the resolved theme from ScrollArea.
+  // currentTheme is undefined on SSR/initial client render, then becomes themeProp after ScrollBar mounts.
+  const currentTheme = isMounted ? themeProp : undefined;
 
   return (
     <ScrollAreaPrimitive.Scrollbar
@@ -65,7 +53,7 @@ const ScrollBar = React.forwardRef<
           'h-full w-2.5 border-l border-l-transparent p-[1px]',
         orientation === 'horizontal' &&
           'h-2.5 flex-col border-t border-t-transparent p-[1px]',
-        // Theme-specific scrollbar styles
+        // Theme-specific scrollbar styles, applied only after ScrollBar is mounted
         currentTheme === 'theme-98' && 'themed-scrollbar-98',
         currentTheme === 'theme-7' && 'themed-scrollbar-7',
         className
@@ -75,7 +63,8 @@ const ScrollBar = React.forwardRef<
       <ScrollAreaPrimitive.Thumb
         className={cn(
           'relative flex-1 rounded-full',
-          currentTheme === 'theme-98' ? 'bg-gray-400 button' : 'bg-neutral-400 dark:bg-neutral-700' // Fallback for 7 or if theme not applied
+          // Apply themed styles for Thumb only after ScrollBar is mounted and currentTheme is set
+          currentTheme === 'theme-98' ? 'bg-gray-400 button' : 'bg-neutral-400 dark:bg-neutral-700' 
         )}
       />
     </ScrollAreaPrimitive.Scrollbar>

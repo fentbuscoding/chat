@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import type { ServerToClientEvents, ClientToServerEvents } from '@/lib/socket-types';
@@ -234,6 +234,11 @@ const ChatPage: React.FC = () => {
   const chatWindowInitialSize = chatType === 'video' ? { width: 350, height: 400 } : { width: 450, height: 500 };
   const inputAreaHeight = 100;
 
+  // Memoize the style object for ScrollArea
+  const scrollAreaStyle = useMemo(() => ({
+    height: `calc(100% - ${inputAreaHeight}px)`,
+  }), [inputAreaHeight]);
+
   const boundaryRef = useRef<HTMLDivElement>(null);
 
 
@@ -313,7 +318,7 @@ const ChatPage: React.FC = () => {
                 "flex-grow", // Takes available space
                 theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80'
               )}
-              style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
+              style={scrollAreaStyle} // Use the memoized style object
             >
               <ul ref={chatMessagesRef} className={cn('h-full overflow-y-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
                 {messages.map((msg) => (
