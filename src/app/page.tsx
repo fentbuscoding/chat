@@ -23,16 +23,16 @@ export default function SelectionLobby() {
   };
 
   const addInterest = useCallback((interestToAdd: string) => {
-    const newInterest = interestToAdd.trim();
+    const newInterest = interestToAdd.trim().toLowerCase(); // Normalize to lowercase
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, newInterest]);
       setCurrentInterest('');
     } else if (newInterest && selectedInterests.includes(newInterest)) {
       toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
-      setCurrentInterest(''); // Clear input even if duplicate
+      setCurrentInterest('');
     } else if (selectedInterests.length >= 5) {
       toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
-      setCurrentInterest(''); // Clear input
+      setCurrentInterest('');
     }
   }, [selectedInterests, toast]);
 
@@ -49,14 +49,14 @@ export default function SelectionLobby() {
     }
   };
 
-  const handleRemoveInterest = useCallback((interestToRemove: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent click from focusing input or other side effects
+  const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
+    event?.stopPropagation(); 
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
     if (!router) {
-      console.error("Router is not available in handleStartChat. This should not happen.");
+      console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Please try refreshing." });
       return;
     }
@@ -75,7 +75,6 @@ export default function SelectionLobby() {
     console.log(`SelectionLobby: Attempting to navigate to: ${path}`);
     try {
       router.push(path);
-      // console.log('SelectionLobby: router.push was called successfully.'); // Optional: for deep debugging
     } catch (error) {
       console.error("SelectionLobby: Error during router.push:", error);
       toast({ variant: "destructive", title: "Navigation Error", description: "An unexpected error occurred while trying to start the chat." });
