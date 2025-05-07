@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -59,28 +58,34 @@ const ChatPage: React.FC = () => {
     }
   }, [messages]);
 
-  const cleanupConnections = useCallback(() => {
+ const cleanupConnections = useCallback(() => {
+    console.log("Cleanup connections called");
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
     }
     if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
+        localVideoRef.current.srcObject = null;
     }
     if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = null;
+        remoteVideoRef.current.srcObject = null;
     }
     if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
     }
-    setIsConnected(false);
-    setPartnerId(null);
-    setRoom(null);
-  }, []);
+    // Only reset isConnected and partnerId if they are currently set
+    // This prevents clearing "Waiting for partner..." message prematurely
+    if (isConnected || partnerId) {
+        setIsConnected(false);
+        setPartnerId(null);
+    }
+    // Do not reset room here as it might be needed for 'leaveChat'
+}, [isConnected, partnerId]);
+
 
   const setupWebRTC = useCallback(async () => {
-    if (chatType !== 'video' || !navigator.mediaDevices) return;
+    if (chatType !== 'video' || !navigator.mediaDevices || !socket || !partnerId || !room) return;
 
     peerConnectionRef.current = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -134,6 +139,7 @@ const ChatPage: React.FC = () => {
     newSocket.on('waitingForPartner', () => {
       addMessage('Waiting for a partner...', 'system');
       setIsFindingPartner(true);
+      setIsConnected(false); // Ensure not connected while waiting
     });
 
     newSocket.on('partnerFound', async (data) => {
@@ -144,7 +150,7 @@ const ChatPage: React.FC = () => {
       setRoom(data.room);
 
       if (chatType === 'video') {
-        await setupWebRTC();
+        await setupWebRTC(); // setupWebRTC already checks for socket, partnerId, room
         if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
           const offer = await peerConnectionRef.current.createOffer();
           await peerConnectionRef.current.setLocalDescription(offer);
@@ -154,14 +160,19 @@ const ChatPage: React.FC = () => {
     });
 
     newSocket.on('webrtcSignal', async (data) => {
-      if (!peerConnectionRef.current || !data.signal || !socket || !room) return;
+       // Ensure peerConnectionRef.current exists before proceeding
+      if (!peerConnectionRef.current || !data.signal || !socket || !room || !data.from) return;
+
 
       if (data.signal.sdp) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-        if (data.signal.sdp.type === 'offer' && data.from && room) {
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
-          socket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
+        // Check if it's an offer and we are not the initiator to avoid glare
+        if (data.signal.sdp.type === 'offer') {
+            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+            const answer = await peerConnectionRef.current.createAnswer();
+            await peerConnectionRef.current.setLocalDescription(answer);
+            socket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
+        } else if (data.signal.sdp.type === 'answer') {
+            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
         }
       } else if (data.signal.candidate) {
         try {
@@ -179,9 +190,9 @@ const ChatPage: React.FC = () => {
     newSocket.on('peerDisconnected', () => {
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
-       if (chatType !== 'video') { // Only show this if not in video chat
-        setIsConnected(false); // Allows "Not Connected" message to show
-      }
+      setIsConnected(false); 
+      setPartnerId(null); 
+      // Don't set isFindingPartner to true, let user click "Find New Partner"
     });
 
     newSocket.on('connect_error', (err) => {
@@ -196,18 +207,25 @@ const ChatPage: React.FC = () => {
 
 
     return () => {
+      if (newSocket.connected && room) { // Ensure socket is connected and room exists before emitting leaveChat
+        newSocket.emit('leaveChat', room);
+      }
       cleanupConnections();
       newSocket.disconnect();
+      setRoom(null); // Also clear room on component unmount
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatType, addMessage, cleanupConnections, setupWebRTC]);
+  }, [chatType, addMessage, cleanupConnections, setupWebRTC]); // Removed socket, partnerId, room from deps as they are handled inside setupWebRTC or are part of newSocket logic
 
   const handleFindPartner = (currentSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = socket) => {
     if (currentSocket) {
-      cleanupConnections();
-      setMessages([]);
+      cleanupConnections(); // Clean up previous connection artifacts
+      setMessages([]); // Clear old messages
       addMessage('Looking for a partner...', 'system');
       setIsFindingPartner(true);
+      setIsConnected(false);
+      setPartnerId(null);
+      // Room is set by server on 'partnerFound'
       currentSocket.emit('findPartner', { chatType, interests });
     }
   };
@@ -225,17 +243,19 @@ const ChatPage: React.FC = () => {
       socket.emit('leaveChat', room);
     }
     cleanupConnections();
+    setRoom(null); // Explicitly clear room state
+    setIsFindingPartner(false); // Not finding partner after leaving
     router.push('/');
   };
 
   const inputAreaHeight = 100;
   const scrollAreaStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
-  }), []); // inputAreaHeight is constant
+  }), []); 
 
   const videoFeedStyle = { width: '240px', height: '180px' };
-  const chatWindowStyle = chatType === 'video'
-    ? { width: '350px', height: '400px' }
+   const chatWindowStyle = chatType === 'video'
+    ? { width: '350px', height: '400px' } // Adjusted for video mode
     : { width: '450px', height: '500px' };
 
 
@@ -258,7 +278,7 @@ const ChatPage: React.FC = () => {
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Your Video</div>
             </div>
-            <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
+            <div className={cn('window-body', theme === 'theme-98' || (theme === 'theme-7' && cn(theme === 'theme-7' ? 'glass' : '').includes('glass')) ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
               {hasCameraPermission === false && (
                 <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -276,9 +296,9 @@ const ChatPage: React.FC = () => {
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Partner's Video</div>
             </div>
-            <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
+            <div className={cn('window-body', theme === 'theme-98' || (theme === 'theme-7' && cn(theme === 'theme-7' ? 'glass' : '').includes('glass')) ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
-              {!isConnected && !isFindingPartner && (
+              {!partnerId && !isFindingPartner && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
                   <p className="text-white text-center p-2 text-sm">Waiting for partner...</p>
                 </div>
@@ -305,12 +325,13 @@ const ChatPage: React.FC = () => {
         >
           <div
             className={cn(
-              "flex-grow",
-              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-20'
+              "flex-grow", // This div will handle the scrolling area
+              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-20',
+              'overflow-y-auto' // Added overflow-y-auto here
             )}
-            style={scrollAreaStyle}
+            style={scrollAreaStyle} // scrollAreaStyle defines the height
           >
-            <ul ref={chatMessagesRef} className={cn('h-full overflow-y-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
+            <ul ref={chatMessagesRef} className={cn('h-auto', theme === 'theme-98' ? '' : 'space-y-1')}> {/* Changed h-full to h-auto or remove h-full if parent handles scrolling */}
               {messages.map((msg) => (
                 <li
                   key={msg.id}
@@ -362,7 +383,7 @@ const ChatPage: React.FC = () => {
             </div>
             <div className="flex gap-2">
               <Button onClick={() => handleFindPartner()} disabled={isFindingPartner} className="flex-1">
-                {isFindingPartner ? "Searching..." : "Find New Partner"}
+                {isFindingPartner ? "Searching..." : (isConnected ? "Find New Partner" : "Find Partner")}
               </Button>
               <Button onClick={handleLeaveChat} variant="destructive" className="flex-1">
                 Leave Chat
