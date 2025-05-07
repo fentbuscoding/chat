@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
@@ -61,20 +62,27 @@ export default function SelectionLobby() {
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
       return;
     }
-
-    // Removed the blank pop-up window logic for video chat.
-    // The router.push below will handle redirection for both text and video.
-
+    
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
     if (interestsString) {
         params.append('interests', interestsString);
     }
-    params.append('type', type);
 
-    const queryString = params.toString();
-    const path = `/chat${queryString ? `?${queryString}` : ''}`;
+    let path: string;
+    const queryString = params.toString(); // Get query string once
+
+    if (type === 'video') {
+        path = `/video-chat${queryString ? `?${queryString}` : ''}`;
+    } else { // text chat
+        // For text chat, if params already has 'interests', 'type=text' will be added.
+        // If params is empty, it will just be 'type=text'.
+        const textParams = new URLSearchParams(queryString); // Create new params to avoid modifying original for video
+        textParams.append('type', 'text');
+        const textQueryString = textParams.toString();
+        path = `/chat${textQueryString ? `?${textQueryString}` : ''}`;
+    }
 
     console.log(`SelectionLobby: Attempting to navigate to path: ${path}`);
 
@@ -86,6 +94,7 @@ export default function SelectionLobby() {
       toast({ variant: "destructive", title: "Navigation Error", description: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}` });
     }
   }, [router, selectedInterests, toast]);
+
 
   const focusInput = () => {
     inputRef.current?.focus();
@@ -107,7 +116,7 @@ export default function SelectionLobby() {
             <div
               className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
               onClick={focusInput}
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
+              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjusted to better fit content
             >
               {selectedInterests.map((interest) => (
                 <div
