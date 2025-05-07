@@ -32,7 +32,7 @@ const ChatPage: React.FC = () => {
   const interestsString = useMemo(() => interests.join(','), [interests]);
 
 
-  const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
+  const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -49,7 +49,6 @@ const ChatPage: React.FC = () => {
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
-      // Prevent duplicate system messages about connection status
       if (sender === 'system') {
         const lastMessage = prevMessages[prevMessages.length - 1];
         if (lastMessage && lastMessage.sender === 'system' && lastMessage.text === text) {
@@ -83,20 +82,25 @@ const ChatPage: React.FC = () => {
         peerConnectionRef.current = null;
     }
     setPartnerId(null);
-    setRoom(null); // Clear room on cleanup
+    setRoom(null); 
 }, []);
 
 
-  const setupWebRTC = useCallback(async () => {
-    if (chatType !== 'video' || !navigator.mediaDevices || !socket || !partnerId || !room) {
-      console.log("ChatPage: WebRTC setup prerequisites not met. chatType:", chatType, "socket:", !!socket, "partnerId:", partnerId, "room:", room);
+  const setupWebRTC = useCallback(async (currentSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null, currentPartnerId: string | null, currentRoom: string | null) => {
+    if (chatType !== 'video' || !navigator.mediaDevices || !currentSocket || !currentPartnerId || !currentRoom) {
+      console.log("ChatPage: WebRTC setup prerequisites not met. chatType:", chatType, "socket:", !!currentSocket, "partnerId:", currentPartnerId, "room:", currentRoom);
       if (chatType === 'video' && hasCameraPermission === false) { 
          toast({ variant: 'destructive', title: 'Camera Required', description: 'Video chat requires camera access.' });
       }
       return;
     }
+     if (hasCameraPermission !== true) {
+        console.log("ChatPage: Camera permission not granted, cannot setup WebRTC.");
+        return;
+    }
 
-    console.log("ChatPage: Setting up WebRTC for room:", room, "partner:", partnerId);
+
+    console.log("ChatPage: Setting up WebRTC for room:", currentRoom, "partner:", currentPartnerId);
 
     if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
         console.log("ChatPage: Closing existing peer connection before creating a new one.");
@@ -115,9 +119,9 @@ const ChatPage: React.FC = () => {
     console.log("ChatPage: New RTCPeerConnection created.");
 
     peerConnectionRef.current.onicecandidate = (event) => {
-      if (event.candidate && socket && partnerId && room) {
-        console.log("ChatPage: Sending ICE candidate to partner", partnerId);
-        socket.emit('webrtcSignal', { to: partnerId, signal: { candidate: event.candidate }, room });
+      if (event.candidate && currentSocket && currentPartnerId && currentRoom) {
+        console.log("ChatPage: Sending ICE candidate to partner", currentPartnerId);
+        currentSocket.emit('webrtcSignal', { to: currentPartnerId, signal: { candidate: event.candidate }, room: currentRoom });
       }
     };
 
@@ -134,14 +138,14 @@ const ChatPage: React.FC = () => {
       console.log("ChatPage: Attempting to get user media in setupWebRTC as it was not previously available.");
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setHasCameraPermission(true);
+        // setHasCameraPermission(true); // Assume already true or will be set by initial effect
         localStreamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
       } catch (error) {
         console.error('ChatPage: Error accessing camera in setupWebRTC:', error);
-        setHasCameraPermission(false);
+        // setHasCameraPermission(false); // Avoid setting state here
         toast({ variant: 'destructive', title: 'Camera Access Denied', description: 'Video chat requires camera. Please enable permissions.' });
         return;
       }
@@ -160,13 +164,13 @@ const ChatPage: React.FC = () => {
     } else {
       console.warn("ChatPage: No local stream or peer connection available to add tracks in setupWebRTC.");
     }
-  }, [chatType, socket, partnerId, room, toast, hasCameraPermission]); // Added addMessage as it's used indirectly by toast
+  }, [chatType, toast, hasCameraPermission, addMessage]);
 
   useEffect(() => {
     let didCancel = false;
     const getInitialCameraStream = async () => {
       if (chatType === 'video' && typeof navigator.mediaDevices?.getUserMedia === 'function') {
-        if (hasCameraPermission === undefined) { // Only request if status is unknown
+        if (hasCameraPermission === undefined) { 
           console.log("ChatPage: Attempting to get initial user media for video chat.");
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -196,13 +200,12 @@ const ChatPage: React.FC = () => {
           localVideoRef.current.srcObject = localStreamRef.current;
         }
       } else if (chatType !== 'video' && localStreamRef.current) { 
-        // Clean up stream if switching from video to text or if component unmounts early
-        if (!didCancel || !isConnected) { // Ensure cleanup if not connected or on explicit unmount
+        if (!didCancel || !isConnected) { 
             console.log("ChatPage: Chat type is not video or unmounting, cleaning up local stream.");
             localStreamRef.current.getTracks().forEach(track => track.stop());
             localStreamRef.current = null;
             if (localVideoRef.current) localVideoRef.current.srcObject = null;
-            if (!didCancel) setHasCameraPermission(undefined); // Reset permission state
+            if (!didCancel && chatType !== 'video') setHasCameraPermission(undefined); 
         }
       }
     };
@@ -211,16 +214,15 @@ const ChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("ChatPage: Cleanup for initial camera stream effect.");
-       // Conditional cleanup based on connection status
        if (localStreamRef.current && (!isConnected || chatType !== 'video')) { 
           console.log("ChatPage: Cleaning up local stream on effect unmount (not connected or not video chat).");
           localStreamRef.current.getTracks().forEach(track => track.stop());
           localStreamRef.current = null;
           if (localVideoRef.current) localVideoRef.current.srcObject = null;
-          // setHasCameraPermission(undefined); // Reset, might be more aggressive than needed here
+          if (chatType !== 'video') setHasCameraPermission(undefined);
        }
     };
-  }, [chatType, toast, isConnected, hasCameraPermission]);
+  }, [chatType, toast, isConnected, hasCameraPermission, addMessage]);
 
 
   const handleFindPartner = useCallback((currentSocket: Socket<ServerToClientEvents, ClientToServerEvents>) => {
@@ -229,7 +231,6 @@ const ChatPage: React.FC = () => {
       setMessages([]); 
       addMessage('Looking for a partner...', 'system');
       setIsFindingPartner(true);
-      // setIsConnected(false); // This should be handled by socket events
       setPartnerId(null);
       setRoom(null); 
       console.log('ChatPage: Emitting findPartner with:', { chatType, interests });
@@ -238,25 +239,34 @@ const ChatPage: React.FC = () => {
 
 
   useEffect(() => {
-    console.log('ChatPage: Main effect triggered. chatType:', chatType, 'interests:', interestsString);
+    console.log('ChatPage: Main effect triggered. chatType:', chatType, 'interests:', interestsString, 'HasCameraPermission:', hasCameraPermission);
+    
+    if (chatType === 'video' && hasCameraPermission === false) {
+        addMessage('Camera permission denied. Cannot search for video chat partner.', 'system');
+        toast({variant: 'destructive', title: 'Camera Required', description: 'Enable camera to find a video chat partner.'});
+        return;
+    }
+    // If video chat and permission is undefined, wait for the other effect to resolve it.
+    // if (chatType === 'video' && hasCameraPermission === undefined) {
+    //     console.log("ChatPage: Main effect waiting for camera permission status.");
+    //     return;
+    // }
+
     const newSocket = io(SOCKET_SERVER_URL, {
         reconnectionAttempts: 3,
         timeout: 5000,
     });
-    setSocket(newSocket);
+    socketRef.current = newSocket;
     console.log('ChatPage: Socket instance created.');
 
     newSocket.on('connect', () => {
       console.log('ChatPage: Socket connected successfully. ID:', newSocket.id);
       setIsConnected(true); 
-      // If chatType is video, camera permission must be granted or pending to find partner
-      if (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === true)) {
+      if (chatType === 'text' || (chatType === 'video' && hasCameraPermission === true)) {
         handleFindPartner(newSocket);
-      } else if (chatType === 'text') {
-        handleFindPartner(newSocket);
-      } else if (chatType === 'video' && hasCameraPermission === false) {
-        addMessage('Camera permission denied. Cannot search for video chat partner.', 'system');
-        toast({variant: 'destructive', title: 'Camera Required', description: 'Enable camera to find a video chat partner.'});
+      } else if (chatType === 'video' && hasCameraPermission === undefined) {
+        addMessage('Checking camera permissions...', 'system');
+        toast({title: "Camera Check", description: "Verifying camera permissions before finding partner."});
       }
     });
 
@@ -277,15 +287,8 @@ const ChatPage: React.FC = () => {
 
       if (chatType === 'video') {
         console.log('ChatPage: Setting up WebRTC for video chat after partner found.');
-        if (hasCameraPermission === undefined) { 
-            console.log("ChatPage: Waiting for camera permission before WebRTC setup.");
-             // This path might mean user needs to click "Find Partner" again after granting permission
-            addMessage("Camera permission pending. If granted, try finding a partner again.", "system");
-        } else if (hasCameraPermission === false) {
-            toast({variant: "destructive", title: "Cannot start video", description: "Camera permission is required."});
-            addMessage("Camera permission denied. Cannot start video chat.", "system");
-        } else { 
-            await setupWebRTC();
+        if (hasCameraPermission === true) { 
+            await setupWebRTC(newSocket, data.peerId, data.room);
              if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
                 console.log('ChatPage: Initiator path for WebRTC.');
                 if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) {
@@ -304,19 +307,29 @@ const ChatPage: React.FC = () => {
                     toast({variant: 'destructive', title: 'WebRTC Error', description: 'Failed to create offer for video chat.'});
                 }
             }
+        } else if (hasCameraPermission === undefined) { 
+             addMessage("Camera permission pending. If granted, try finding a partner again.", "system");
+        } else { // false
+            toast({variant: "destructive", title: "Cannot start video", description: "Camera permission is required."});
+            addMessage("Camera permission denied. Cannot start video chat.", "system");
         }
       }
     });
 
     newSocket.on('webrtcSignal', async (data) => {
       console.log('ChatPage: Received webrtcSignal', data.signal?.sdp?.type || (data.signal?.candidate ? 'candidate' : 'unknown signal'));
+      const currentRoom = room; // Use current state for room
       if (!peerConnectionRef.current || !data.signal || !newSocket || !data.room || !data.from ) {
-        console.warn('ChatPage: Skipping webrtcSignal due to missing refs/data. Current room state:', room, 'Signal room:', data.room);
+        console.warn('ChatPage: Skipping webrtcSignal due to missing refs/data. Current room state:', currentRoom, 'Signal room:', data.room);
         return;
       }
 
-      if (data.room !== room) {
-        console.warn(`ChatPage: Received webrtcSignal for a different room (${data.room}) than current (${room}). Ignoring.`);
+      if (data.room !== currentRoom) {
+        console.warn(`ChatPage: Received webrtcSignal for a different room (${data.room}) than current (${currentRoom}). Ignoring.`);
+        return;
+      }
+      if (chatType === 'video' && hasCameraPermission !== true) {
+        console.warn("ChatPage: Received WebRTC signal but no camera permission (or not video chat). Ignoring.");
         return;
       }
 
@@ -364,14 +377,13 @@ const ChatPage: React.FC = () => {
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
       setIsFindingPartner(false); 
-      // isConnected remains true as we are still connected to the socket server
-      setPartnerId(null);
-      setRoom(null); 
+      setPartnerId(null); // Clear partnerId state
+      setRoom(null); // Clear room state
     });
 
     newSocket.on('connect_error', (err) => {
         console.error("ChatPage: Socket connection error:", err.message, "Full error object:", err);
-        if (isConnected) { // Only toast if we were previously connected
+        if (isConnected) { 
             toast({
                 title: "Connection Error",
                 description: `Lost connection to chat server: ${err.message}. Attempting to reconnect...`,
@@ -384,7 +396,7 @@ const ChatPage: React.FC = () => {
 
     newSocket.on('disconnect', (reason) => {
         console.log('ChatPage: Socket disconnected.', reason);
-        if (isConnected) { // Only add message if we were previously connected
+        if (isConnected) { 
             addMessage('Disconnected from server. Please refresh or try finding a new partner.', 'system');
         }
         cleanupConnections();
@@ -392,6 +404,7 @@ const ChatPage: React.FC = () => {
         setIsConnected(false);
         setPartnerId(null);
         setRoom(null);
+        if (chatType === 'video' && hasCameraPermission !== false) setHasCameraPermission(undefined);
     });
 
 
@@ -404,28 +417,25 @@ const ChatPage: React.FC = () => {
       cleanupConnections(); 
       if(newSocket.connected) newSocket.disconnect();
       console.log('ChatPage: Socket disconnected in cleanup.');
-      setSocket(null);
-      // setRoom(null); // Already handled by cleanupConnections
-      // setIsFindingPartner(false); // Should be handled by disconnect or specific user actions
-      // setIsConnected(false); // Should be handled by disconnect
-      // setPartnerId(null); // Already handled by cleanupConnections
+      socketRef.current = null;
+      if (chatType === 'video' && hasCameraPermission !== false) setHasCameraPermission(undefined);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatType, interestsString, addMessage, cleanupConnections, setupWebRTC, toast, handleFindPartner, hasCameraPermission]); 
+  }, [chatType, interestsString, hasCameraPermission, addMessage, cleanupConnections, setupWebRTC, toast, handleFindPartner]); 
 
 
   const handleSendMessage = useCallback(() => {
-    if (newMessage.trim() && socket && room && partnerId && isConnected) {
+    if (newMessage.trim() && socketRef.current && room && partnerId && isConnected) {
       console.log('ChatPage: Sending message:', newMessage, 'to room:', room);
       addMessage(newMessage, 'me');
-      socket.emit('sendMessage', { room, message: newMessage });
+      socketRef.current.emit('sendMessage', { room, message: newMessage });
       setNewMessage('');
     } else {
       console.warn('ChatPage: Cannot send message. Conditions not met:', {
         hasMessage: !!newMessage.trim(),
-        socketConnected: socket?.connected,
-        room,
-        partnerId,
+        socketConnected: socketRef.current?.connected,
+        currentRoom: room,
+        currentPartnerId: partnerId,
         isConnected, 
         isActuallyInChat: !!partnerId && !!room 
       });
@@ -433,18 +443,16 @@ const ChatPage: React.FC = () => {
          toast({title: "Not in a chat", description: "You are not connected to a partner.", variant: "default"});
        }
     }
-  }, [newMessage, socket, room, partnerId, isConnected, addMessage, toast]);
+  }, [newMessage, room, partnerId, isConnected, addMessage, toast]);
 
   const handleLeaveChat = useCallback(() => {
     console.log('ChatPage: handleLeaveChat called. Current room:', room);
-    if (socket && room) {
-      socket.emit('leaveChat', room);
+    if (socketRef.current && room) {
+      socketRef.current.emit('leaveChat', room);
     }
     cleanupConnections();
-    // setRoom(null); // Handled by cleanup
-    // setIsFindingPartner(false); 
     router.push('/');
-  }, [socket, room, cleanupConnections, router]);
+  }, [room, cleanupConnections, router]);
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
@@ -589,7 +597,7 @@ const ChatPage: React.FC = () => {
             </div>
             <div className="flex gap-2">
               <Button
-                onClick={() => socket && handleFindPartner(socket)}
+                onClick={() => socketRef.current && handleFindPartner(socketRef.current)}
                 disabled={isFindingPartner || !isConnected || (chatType === 'video' && hasCameraPermission === false)}
                 className="flex-1"
               >
@@ -607,3 +615,4 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
+
