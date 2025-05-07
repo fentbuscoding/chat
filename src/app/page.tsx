@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
@@ -63,12 +62,8 @@ export default function SelectionLobby() {
       return;
     }
 
-    if (type === 'video') {
-      // Open a blank pop-up window for visual debugging
-      if (typeof window !== 'undefined') {
-        window.open('', '_blank', 'width=400,height=300,resizable=yes,scrollbars=yes');
-      }
-    }
+    // Removed the blank pop-up window logic for video chat.
+    // The router.push below will handle redirection for both text and video.
 
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
