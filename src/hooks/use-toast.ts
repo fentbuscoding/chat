@@ -9,7 +9,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 1000000 // Effectively infinite for now
 
 type ToasterToast = ToastProps & {
   id: string
@@ -93,8 +93,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -182,12 +180,16 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, []) // Changed dependency array from [state] to []
+  }, []) // setState is stable, so [] is correct here.
+
+  const dismiss = React.useCallback((toastId?: string) => {
+    dispatch({ type: "DISMISS_TOAST", toastId });
+  }, []); // dispatch is stable as it's defined outside the component scope.
 
   return {
-    ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    ...state, // This includes the `toasts` array
+    toast,    // This is the global `toast` function, already stable
+    dismiss,  // Now a memoized, stable function
   }
 }
 
