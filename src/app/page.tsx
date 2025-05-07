@@ -1,7 +1,7 @@
-'use client'
 
+'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -9,14 +9,14 @@ import { Label } from '@/components/ui/label-themed';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card-themed';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// import { useToast } from '@/hooks/use-toast'; // Uncomment if toast notifications are desired
+import { useToast } from '@/hooks/use-toast';
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  // const { toast } = useToast(); // Uncomment if toast notifications are desired
+  const { toast } = useToast();
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -26,17 +26,15 @@ export default function SelectionLobby() {
     const newInterest = interestToAdd.trim();
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, newInterest]);
-      setCurrentInterest(''); // Clear input after adding
+      setCurrentInterest('');
     } else if (newInterest && selectedInterests.includes(newInterest)) {
-      // Optional: Notify user about duplicate interest
-      // toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
+      toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
       setCurrentInterest(''); // Clear input even if duplicate
     } else if (selectedInterests.length >= 5) {
-      // Optional: Notify user about max interests
-      // toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
+      toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
       setCurrentInterest(''); // Clear input
     }
-  }, [selectedInterests.length]); // Only re-create if selectedInterests.length changes status regarding < 5
+  }, [selectedInterests, toast]);
 
   const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
@@ -47,23 +45,19 @@ export default function SelectionLobby() {
       addInterest(value);
     } else if (key === 'Backspace' && !currentInterest && selectedInterests.length > 0) {
       e.preventDefault();
-      setSelectedInterests(selectedInterests.slice(0, -1));
+      setSelectedInterests(prev => prev.slice(0, -1));
     }
   };
-
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent click from focusing input or other side effects
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
-  const handleStartChat = (type: 'text' | 'video') => {
-    // console.log('handleStartChat called with type:', type);
-    // console.log('Router object:', router);
-
+  const handleStartChat = useCallback((type: 'text' | 'video') => {
     if (!router) {
-      console.error("Router is not available in handleStartChat.");
-      // alert("Router is not available!"); 
+      console.error("Router is not available in handleStartChat. This should not happen.");
+      toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Please try refreshing." });
       return;
     }
 
@@ -78,19 +72,15 @@ export default function SelectionLobby() {
     const queryString = params.toString();
     const path = `/chat${queryString ? `?${queryString}` : ''}`;
     
-    // console.log(`Attempting to navigate to: ${path}`);
-    // alert(`Attempting to navigate to: ${path}`); 
-
+    console.log(`SelectionLobby: Attempting to navigate to: ${path}`);
     try {
       router.push(path);
-      // console.log('router.push was called successfully.');
-      // alert('router.push was called successfully.');
-
+      // console.log('SelectionLobby: router.push was called successfully.'); // Optional: for deep debugging
     } catch (error) {
-      console.error("Error during router.push:", error);
-      // alert(`Error during navigation: ${error}`); 
+      console.error("SelectionLobby: Error during router.push:", error);
+      toast({ variant: "destructive", title: "Navigation Error", description: "An unexpected error occurred while trying to start the chat." });
     }
-  };
+  }, [router, selectedInterests, toast]);
 
   const focusInput = () => {
     inputRef.current?.focus();
@@ -157,4 +147,3 @@ export default function SelectionLobby() {
     </div>
   );
 }
-// export default React.memo(SelectionLobby); // Removed React.memo to ensure router functions correctly
