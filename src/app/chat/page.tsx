@@ -93,11 +93,11 @@ const ChatPage: React.FC = () => {
             if (!didCancel) {
               console.error('ChatPage: Error accessing camera initially:', error);
               setHasCameraPermission(false);
-              toast({
-                variant: 'destructive',
-                title: 'Camera Access Denied',
-                description: 'Please enable camera permissions for video chat.',
-              });
+              // toast({
+              //   variant: 'destructive',
+              //   title: 'Camera Access Denied',
+              //   description: 'Please enable camera permissions for video chat.',
+              // });
             }
           }
         } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
@@ -117,7 +117,7 @@ const ChatPage: React.FC = () => {
     getInitialCameraStream();
     // Initial system message based on connection status
     if (!isPartnerConnected && !isFindingPartner) {
-        addMessage('Chat service is currently unavailable. You can leave this page or try finding a partner.', 'system');
+       // addMessage('Chat service is currently unavailable. You can leave this page or try finding a partner.', 'system');
     }
 
     return () => {
@@ -131,13 +131,13 @@ const ChatPage: React.FC = () => {
           if (chatType !== 'video') setHasCameraPermission(undefined);
        }
     };
-  }, [chatType, toast, hasCameraPermission, addMessage, isPartnerConnected, isFindingPartner]); 
+  }, [chatType, hasCameraPermission, addMessage, isPartnerConnected, isFindingPartner]); // Removed toast from dependencies
 
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim()) return;
     if (!isPartnerConnected) {
-        toast({title: "Not Connected", description: "You must be connected to a partner to send messages.", variant: "default"});
+        // toast({title: "Not Connected", description: "You must be connected to a partner to send messages.", variant: "default"});
         return;
     }
     addMessage(newMessage, 'me'); 
@@ -145,7 +145,7 @@ const ChatPage: React.FC = () => {
     setTimeout(() => addMessage(`Partner received: ${newMessage}`, 'partner'), 500);
     setNewMessage('');
     // toast({title: "Chat Unavailable", description: "Messaging is currently disabled.", variant: "default"});
-  }, [newMessage, addMessage, toast, isPartnerConnected]);
+  }, [newMessage, addMessage, isPartnerConnected]); // Removed toast from dependencies
 
   const handleLeaveChatAndDisconnect = useCallback(() => {
     if (isPartnerConnected) {
@@ -172,7 +172,7 @@ const ChatPage: React.FC = () => {
 
       setIsFindingPartner(true);
       addMessage('Searching for a partner...', 'system');
-      toast({ title: "Looking for a partner", description: "Please wait..." });
+      // toast({ title: "Looking for a partner", description: "Please wait..." });
 
       await new Promise(resolve => setTimeout(resolve, 2000)); 
 
@@ -181,14 +181,14 @@ const ChatPage: React.FC = () => {
       if (found) {
         addMessage('Partner found! You are now connected.', 'system');
         setIsPartnerConnected(true);
-        toast({ title: "Partner Connected!", description: "You can start chatting." });
+        // toast({ title: "Partner Connected!", description: "You can start chatting." });
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
-        toast({ title: "No Partner Found", description: "Please try again in a few moments.", variant: "default" });
+        // toast({ title: "No Partner Found", description: "Please try again in a few moments.", variant: "default" });
       }
       setIsFindingPartner(false);
     }
-  }, [isPartnerConnected, isFindingPartner, addMessage, toast]);
+  }, [isPartnerConnected, isFindingPartner, addMessage]); // Removed toast from dependencies
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
@@ -316,7 +316,7 @@ const ChatPage: React.FC = () => {
                 className="flex-grow"
                 disabled={!isPartnerConnected || isFindingPartner} 
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent h-8"> {/* Ensure button height consistency */}
                 Send
               </Button>
             </div>
@@ -324,10 +324,11 @@ const ChatPage: React.FC = () => {
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner}
+                className="h-8" // Ensure button height consistency
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
-              <Button onClick={handleLeaveChatAndDisconnect} variant="destructive">
+              <Button onClick={handleLeaveChatAndDisconnect} variant="destructive" className="h-8"> {/* Ensure button height consistency */}
                 Leave Chat
               </Button>
             </div>
