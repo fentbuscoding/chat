@@ -13,7 +13,12 @@ const ScrollArea = React.forwardRef<
   const theme = themeProp || contextTheme;
 
   React.useEffect(() => {
-    setIsMounted(true); // Set to true after mount
+    // Set to true after mount, this will ensure the first client render matches SSR
+    // and then updates to client-specific state.
+    // The existing condition `if (!isMounted)` is compatible with this change.
+    if (!isMounted) {
+      setIsMounted(true);
+    }
   }, []); // Empty dependency array, runs once on client
 
   return (
