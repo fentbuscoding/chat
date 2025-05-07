@@ -1,7 +1,7 @@
 'use client'
 
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -22,10 +22,10 @@ export default function SelectionLobby() {
     setCurrentInterest(e.target.value);
   };
 
-  const addInterest = (interestToAdd: string) => {
+  const addInterest = useCallback((interestToAdd: string) => {
     const newInterest = interestToAdd.trim();
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
-      setSelectedInterests([...selectedInterests, newInterest]);
+      setSelectedInterests(prev => [...prev, newInterest]);
       setCurrentInterest(''); // Clear input after adding
     } else if (newInterest && selectedInterests.includes(newInterest)) {
       // Optional: Notify user about duplicate interest
@@ -36,7 +36,7 @@ export default function SelectionLobby() {
       // toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
       setCurrentInterest(''); // Clear input
     }
-  };
+  }, [selectedInterests.length]); // Only re-create if selectedInterests.length changes status regarding < 5
 
   const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
@@ -52,41 +52,44 @@ export default function SelectionLobby() {
   };
 
 
-  const handleRemoveInterest = (interestToRemove: string, event: React.MouseEvent) => {
+  const handleRemoveInterest = useCallback((interestToRemove: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent click from focusing input or other side effects
-    setSelectedInterests(selectedInterests.filter(interest => interest !== interestToRemove));
-  };
+    setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
+  }, []);
 
   const handleStartChat = (type: 'text' | 'video') => {
-    window.alert(`handleStartChat called with type: ${type}`); // Diagnostic alert
+    // console.log('handleStartChat called with type:', type);
+    // console.log('Router object:', router);
 
     if (!router) {
-      console.error("Router not available in handleStartChat");
-      window.alert("Router not available!"); // More visible error for diagnostics
+      console.error("Router is not available in handleStartChat.");
+      // alert("Router is not available!"); 
       return;
     }
 
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
-    // Only add 'interests' to query if it's not empty for a cleaner URL
     if (interestsString) {
         params.append('interests', interestsString);
     }
     params.append('type', type);
 
     const queryString = params.toString();
-    // Ensure a '?' is only added if there's an actual query string.
     const path = `/chat${queryString ? `?${queryString}` : ''}`;
     
-    console.log(`Navigating to: ${path}`);
+    // console.log(`Attempting to navigate to: ${path}`);
+    // alert(`Attempting to navigate to: ${path}`); 
+
     try {
       router.push(path);
+      // console.log('router.push was called successfully.');
+      // alert('router.push was called successfully.');
+
     } catch (error) {
       console.error("Error during router.push:", error);
-      window.alert(`Error during navigation: ${error}`); // More visible error for diagnostics
+      // alert(`Error during navigation: ${error}`); 
     }
-    console.log(`Attempted navigation for ${type} chat with interests: ${interestsString || 'any'}`);
   };
 
   const focusInput = () => {
@@ -107,9 +110,9 @@ export default function SelectionLobby() {
           <div className="space-y-2">
             <Label htmlFor="interests-input-field">Your Interests</Label>
             <div
-              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text" // Added cursor-text
-              onClick={focusInput} // Allow clicking on the container to focus input
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjusted to match typical input height
+              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text" 
+              onClick={focusInput} 
+              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
             >
               {selectedInterests.map((interest) => (
                 <div
@@ -120,7 +123,7 @@ export default function SelectionLobby() {
                   <X
                     size={14}
                     className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                    onClick={(e) => handleRemoveInterest(interest, e)} // Pass event to stop propagation
+                    onClick={(e) => handleRemoveInterest(interest, e)} 
                     aria-label={`Remove ${interest}`}
                   />
                 </div>
@@ -133,8 +136,8 @@ export default function SelectionLobby() {
                 onKeyDown={handleInterestInputKeyDown}
                 placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                 className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                style={{ minWidth: '80px' }} // Ensure input has some min width to be clickable
-                disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests and no current input
+                style={{ minWidth: '80px' }} 
+                disabled={selectedInterests.length >= 5 && !currentInterest} 
               />
             </div>
             <p className="text-xs text-gray-500">
@@ -154,3 +157,4 @@ export default function SelectionLobby() {
     </div>
   );
 }
+// export default React.memo(SelectionLobby); // Removed React.memo to ensure router functions correctly
