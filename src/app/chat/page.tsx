@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 import type { ServerToClientEvents, ClientToServerEvents } from '@/lib/socket-types';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -27,7 +27,7 @@ const ChatPage: React.FC = () => {
   const { theme } = useTheme();
 
   const chatType = searchParams.get('type') as 'text' | 'video' || 'text';
-  const interests = searchParams.get('interests')?.split(',').filter(interest => interest.trim() !== '') || [];
+  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(interest => interest.trim() !== '') || [], [searchParams]);
 
 
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -62,7 +62,7 @@ const ChatPage: React.FC = () => {
     console.log("Cleanup connections called");
     if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
+        localStreamRef.current = null; // Nullify the ref
     }
     if (localVideoRef.current) {
         localVideoRef.current.srcObject = null;
@@ -72,21 +72,30 @@ const ChatPage: React.FC = () => {
     }
     if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
+        peerConnectionRef.current = null; // Nullify the ref
     }
-    // Only reset isConnected and partnerId if they are currently set
-    // This prevents clearing "Waiting for partner..." message prematurely
-    if (isConnected || partnerId) {
-        setIsConnected(false);
-        setPartnerId(null);
-    }
-    // Do not reset room here as it might be needed for 'leaveChat'
-}, [isConnected, partnerId]);
+    
+    setIsConnected(false); // Reset connection state
+    setPartnerId(null);    // Reset partner ID
+    // setRoom(null); // Room is cleared on disconnect/leaveChat explicitly
+    // setIsFindingPartner(false); // Don't reset this here, could be set by findPartner
+}, []);
 
 
   const setupWebRTC = useCallback(async () => {
-    if (chatType !== 'video' || !navigator.mediaDevices || !socket || !partnerId || !room) return;
+    if (chatType !== 'video' || !navigator.mediaDevices || !socket || !partnerId || !room) {
+      console.log("WebRTC setup prerequisites not met.");
+      return;
+    }
 
+    console.log("Setting up WebRTC for room:", room, "partner:", partnerId);
+
+    if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
+        console.log("Closing existing peer connection before creating a new one.");
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null; 
+    }
+    
     peerConnectionRef.current = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
@@ -103,28 +112,93 @@ const ChatPage: React.FC = () => {
       }
     };
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      setHasCameraPermission(true);
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-      stream.getTracks().forEach(track => {
-        if (localStreamRef.current && peerConnectionRef.current) {
-           peerConnectionRef.current.addTrack(track, localStreamRef.current)
+    if (!localStreamRef.current && typeof navigator.mediaDevices?.getUserMedia === 'function') {
+      console.log("Attempting to get user media in setupWebRTC");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setHasCameraPermission(true);
+        localStreamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
+      } catch (error) {
+        console.error('Error accessing camera in setupWebRTC:', error);
+        setHasCameraPermission(false);
+        toast({ variant: 'destructive', title: 'Camera Access Denied', description: 'Video chat requires camera. Please enable permissions.' });
+      }
+    } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+
+    if (localStreamRef.current && peerConnectionRef.current) {
+      console.log("Adding local stream tracks to peer connection.");
+      localStreamRef.current.getTracks().forEach(track => {
+        peerConnectionRef.current!.addTrack(track, localStreamRef.current!);
       });
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions to use video chat.',
-      });
+    } else {
+      console.log("No local stream or peer connection available to add tracks in setupWebRTC.");
     }
   }, [chatType, socket, partnerId, room, toast]);
+
+  // Effect for initial camera permission UI update and local feed display
+  useEffect(() => {
+    let didCancel = false;
+    const checkInitialCameraPermission = async () => {
+      if (chatType === 'video' && typeof navigator.mediaDevices?.getUserMedia === 'function') {
+        if (!localStreamRef.current) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            if (!didCancel) {
+              setHasCameraPermission(true);
+              localStreamRef.current = stream;
+              if (localVideoRef.current) {
+                localVideoRef.current.srcObject = stream;
+              }
+            } else {
+              stream.getTracks().forEach(track => track.stop());
+            }
+          } catch (error) {
+            if (!didCancel) {
+              console.error('Error accessing camera initially for UI:', error);
+              setHasCameraPermission(false);
+              toast({
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to use video chat.',
+              });
+            }
+          }
+        } else if (localVideoRef.current && !localVideoRef.current.srcObject) {
+           localVideoRef.current.srcObject = localStreamRef.current;
+           setHasCameraPermission(true);
+        } else if (localStreamRef.current) {
+            setHasCameraPermission(true);
+        }
+      } else if (chatType !== 'video' && localStreamRef.current) {
+        // Switched from video to text, cleanup local video preview if stream exists
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+        setHasCameraPermission(undefined); // Reset permission status
+      }
+    };
+
+    checkInitialCameraPermission();
+    return () => {
+      didCancel = true;
+    };
+  }, [chatType, toast]);
+
+
+  const handleFindPartner = useCallback((currentSocket: Socket<ServerToClientEvents, ClientToServerEvents>) => {
+      cleanupConnections(); 
+      setMessages([]); 
+      addMessage('Looking for a partner...', 'system');
+      setIsFindingPartner(true);
+      setIsConnected(false);
+      setPartnerId(null);
+      currentSocket.emit('findPartner', { chatType, interests });
+  }, [cleanupConnections, addMessage, chatType, interests]);
 
 
   useEffect(() => {
@@ -139,7 +213,7 @@ const ChatPage: React.FC = () => {
     newSocket.on('waitingForPartner', () => {
       addMessage('Waiting for a partner...', 'system');
       setIsFindingPartner(true);
-      setIsConnected(false); // Ensure not connected while waiting
+      setIsConnected(false); 
     });
 
     newSocket.on('partnerFound', async (data) => {
@@ -150,8 +224,13 @@ const ChatPage: React.FC = () => {
       setRoom(data.room);
 
       if (chatType === 'video') {
-        await setupWebRTC(); // setupWebRTC already checks for socket, partnerId, room
+        await setupWebRTC(); 
         if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
+          if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) { // Ensure tracks are added if not already
+             localStreamRef.current.getTracks().forEach(track => {
+                peerConnectionRef.current?.addTrack(track, localStreamRef.current!);
+             });
+          }
           const offer = await peerConnectionRef.current.createOffer();
           await peerConnectionRef.current.setLocalDescription(offer);
           newSocket.emit('webrtcSignal', { to: data.peerId, signal: { sdp: offer }, room: data.room });
@@ -160,17 +239,19 @@ const ChatPage: React.FC = () => {
     });
 
     newSocket.on('webrtcSignal', async (data) => {
-       // Ensure peerConnectionRef.current exists before proceeding
-      if (!peerConnectionRef.current || !data.signal || !socket || !room || !data.from) return;
-
+      if (!peerConnectionRef.current || !data.signal || !newSocket || !room || !data.from) return;
 
       if (data.signal.sdp) {
-        // Check if it's an offer and we are not the initiator to avoid glare
         if (data.signal.sdp.type === 'offer') {
             await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+            if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) { // Ensure tracks for answerer
+                localStreamRef.current.getTracks().forEach(track => {
+                   peerConnectionRef.current?.addTrack(track, localStreamRef.current!);
+                });
+            }
             const answer = await peerConnectionRef.current.createAnswer();
             await peerConnectionRef.current.setLocalDescription(answer);
-            socket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
+            newSocket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
         } else if (data.signal.sdp.type === 'answer') {
             await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
         }
@@ -190,9 +271,6 @@ const ChatPage: React.FC = () => {
     newSocket.on('peerDisconnected', () => {
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
-      setIsConnected(false); 
-      setPartnerId(null); 
-      // Don't set isFindingPartner to true, let user click "Find New Partner"
     });
 
     newSocket.on('connect_error', (err) => {
@@ -205,58 +283,48 @@ const ChatPage: React.FC = () => {
         setIsFindingPartner(false);
     });
 
-
     return () => {
-      if (newSocket.connected && room) { // Ensure socket is connected and room exists before emitting leaveChat
+      if (newSocket.connected && room) { 
         newSocket.emit('leaveChat', room);
       }
       cleanupConnections();
       newSocket.disconnect();
-      setRoom(null); // Also clear room on component unmount
+      setSocket(null);
+      setRoom(null); 
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatType, addMessage, cleanupConnections, setupWebRTC]); // Removed socket, partnerId, room from deps as they are handled inside setupWebRTC or are part of newSocket logic
+  }, [chatType, interests, addMessage, cleanupConnections, setupWebRTC, toast, handleFindPartner]);
 
-  const handleFindPartner = (currentSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = socket) => {
-    if (currentSocket) {
-      cleanupConnections(); // Clean up previous connection artifacts
-      setMessages([]); // Clear old messages
-      addMessage('Looking for a partner...', 'system');
-      setIsFindingPartner(true);
-      setIsConnected(false);
-      setPartnerId(null);
-      // Room is set by server on 'partnerFound'
-      currentSocket.emit('findPartner', { chatType, interests });
-    }
-  };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = useCallback(() => {
     if (newMessage.trim() && socket && room && partnerId && isConnected) {
       addMessage(newMessage, 'me');
       socket.emit('sendMessage', { room, message: newMessage });
       setNewMessage('');
     }
-  };
+  }, [newMessage, socket, room, partnerId, isConnected, addMessage]);
 
-  const handleLeaveChat = () => {
+  const handleLeaveChat = useCallback(() => {
     if (socket && room) {
       socket.emit('leaveChat', room);
     }
     cleanupConnections();
-    setRoom(null); // Explicitly clear room state
-    setIsFindingPartner(false); // Not finding partner after leaving
+    setRoom(null); 
+    setIsFindingPartner(false);
     router.push('/');
-  };
+  }, [socket, room, cleanupConnections, router]);
 
-  const inputAreaHeight = 100;
-  const scrollAreaStyle = useMemo(() => ({
+
+  const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
+  const chatWindowStyle = useMemo(() => (
+    chatType === 'video'
+    ? { width: '350px', height: '400px' } 
+    : { width: '450px', height: '500px' }
+  ), [chatType]);
+
+  const inputAreaHeight = 100; // Constant
+  const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
-  }), []); 
-
-  const videoFeedStyle = { width: '240px', height: '180px' };
-   const chatWindowStyle = chatType === 'video'
-    ? { width: '350px', height: '400px' } // Adjusted for video mode
-    : { width: '450px', height: '500px' };
+  }), [inputAreaHeight]);
 
 
   return (
@@ -278,7 +346,7 @@ const ChatPage: React.FC = () => {
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Your Video</div>
             </div>
-            <div className={cn('window-body', theme === 'theme-98' || (theme === 'theme-7' && cn(theme === 'theme-7' ? 'glass' : '').includes('glass')) ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
+            <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0'), 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
               {hasCameraPermission === false && (
                 <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -296,11 +364,13 @@ const ChatPage: React.FC = () => {
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Partner's Video</div>
             </div>
-            <div className={cn('window-body', theme === 'theme-98' || (theme === 'theme-7' && cn(theme === 'theme-7' ? 'glass' : '').includes('glass')) ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
+             <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0'), 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
-              {!partnerId && !isFindingPartner && (
+              {!partnerId && (!isFindingPartner || !isConnected) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                  <p className="text-white text-center p-2 text-sm">Waiting for partner...</p>
+                  <p className="text-white text-center p-2 text-sm">
+                    {isFindingPartner ? "Searching..." : "Waiting for partner..."}
+                  </p>
                 </div>
               )}
             </div>
@@ -317,21 +387,20 @@ const ChatPage: React.FC = () => {
         </div>
         <div
           className={cn(
-            'window-body window-body-content',
-            theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' && !cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'has-space' : 'glass-body-padding'),
-            'flex flex-col'
+            'window-body window-body-content', // Ensures flex column layout
+            theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2'),
+            'flex flex-col' 
           )}
-          style={{ height: `calc(100% - 20px)` }}
+          style={{ height: `calc(100% - 20px)` }} // Total height for window-body
         >
-          <div
+          <div // This div is the scrollable message area
             className={cn(
-              "flex-grow", // This div will handle the scrolling area
-              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-20',
-              'overflow-y-auto' // Added overflow-y-auto here
+              "flex-grow overflow-y-auto", // flex-grow to take available space, overflow-y-auto for scrolling
+              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80'
             )}
-            style={scrollAreaStyle} // scrollAreaStyle defines the height
+            style={scrollableChatHeightStyle} // Explicit height for the scrollable area
           >
-            <ul ref={chatMessagesRef} className={cn('h-auto', theme === 'theme-98' ? '' : 'space-y-1')}> {/* Changed h-full to h-auto or remove h-full if parent handles scrolling */}
+            <ul ref={chatMessagesRef} className={cn('h-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
               {messages.map((msg) => (
                 <li
                   key={msg.id}
@@ -360,12 +429,12 @@ const ChatPage: React.FC = () => {
               ))}
             </ul>
           </div>
-          <div
+          <div // This is the input area, fixed height
             className={cn(
-              "p-2",
+              "p-2 flex-shrink-0", // flex-shrink-0 to prevent shrinking
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t' : '')
             )}
-            style={{ height: `${inputAreaHeight}px`, flexShrink: 0 }}
+            style={{ height: `${inputAreaHeight}px` }}
           >
             <div className="flex items-center gap-2 mb-2">
               <Input
@@ -382,7 +451,7 @@ const ChatPage: React.FC = () => {
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => handleFindPartner()} disabled={isFindingPartner} className="flex-1">
+              <Button onClick={() => socket && handleFindPartner(socket)} disabled={isFindingPartner && isConnected /* Allow new search if connected but not finding */} className="flex-1">
                 {isFindingPartner ? "Searching..." : (isConnected ? "Find New Partner" : "Find Partner")}
               </Button>
               <Button onClick={handleLeaveChat} variant="destructive" className="flex-1">
