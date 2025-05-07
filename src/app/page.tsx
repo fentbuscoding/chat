@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
@@ -9,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-// import Link from 'next/link'; // For testing if needed
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -50,18 +50,24 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); 
+    event?.stopPropagation();
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
     console.log("SelectionLobby: handleStartChat called with type:", type, "Current Interests:", selectedInterests);
-    console.log("SelectionLobby: Router object:", router);
 
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
       return;
+    }
+
+    if (type === 'video') {
+      // Open a blank pop-up window for visual debugging
+      if (typeof window !== 'undefined') {
+        window.open('', '_blank', 'width=400,height=300,resizable=yes,scrollbars=yes');
+      }
     }
 
     const interestsString = selectedInterests.join(',');
@@ -74,7 +80,7 @@ export default function SelectionLobby() {
 
     const queryString = params.toString();
     const path = `/chat${queryString ? `?${queryString}` : ''}`;
-    
+
     console.log(`SelectionLobby: Attempting to navigate to path: ${path}`);
 
     try {
@@ -104,9 +110,9 @@ export default function SelectionLobby() {
           <div className="space-y-2">
             <Label htmlFor="interests-input-field">Your Interests</Label>
             <div
-              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text" 
-              onClick={focusInput} 
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
+              onClick={focusInput}
+              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
             >
               {selectedInterests.map((interest) => (
                 <div
@@ -117,7 +123,7 @@ export default function SelectionLobby() {
                   <X
                     size={14}
                     className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                    onClick={(e) => handleRemoveInterest(interest, e)} 
+                    onClick={(e) => handleRemoveInterest(interest, e)}
                     aria-label={`Remove ${interest}`}
                   />
                 </div>
@@ -130,8 +136,8 @@ export default function SelectionLobby() {
                 onKeyDown={handleInterestInputKeyDown}
                 placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                 className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                style={{ minWidth: '80px' }} 
-                disabled={selectedInterests.length >= 5 && !currentInterest} 
+                style={{ minWidth: '80px' }}
+                disabled={selectedInterests.length >= 5 && !currentInterest}
               />
             </div>
             <p className="text-xs text-gray-500">
@@ -153,19 +159,6 @@ export default function SelectionLobby() {
              <span className="animate-rainbow-text-alt">Start Video Chat</span>
            </Button>
          </CardFooter>
-         {/*
-         <div className="p-4 text-center">
-           <Link href="/chat?type=text&interests=test" className="text-blue-500 underline">
-             Test Client Navigation Link (Using Link component)
-           </Link>
-           <button 
-             onClick={() => router.push('/chat?type=video&interests=testvideo')} 
-             className="ml-4 p-2 bg-gray-300"
-           >
-             Test router.push directly
-           </button>
-         </div>
-         */}
       </Card>
     </div>
   );
