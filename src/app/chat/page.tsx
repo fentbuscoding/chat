@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -10,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
 
@@ -28,7 +28,8 @@ const ChatPage: React.FC = () => {
   const { theme } = useTheme();
 
   const chatType = searchParams.get('type') as 'text' | 'video' || 'text';
-  const interests = searchParams.get('interests')?.split(',') || [];
+  const interests = searchParams.get('interests')?.split(',').filter(interest => interest.trim() !== '') || [];
+
 
   const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -144,7 +145,7 @@ const ChatPage: React.FC = () => {
 
       if (chatType === 'video') {
         await setupWebRTC();
-        if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) { 
+        if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
           const offer = await peerConnectionRef.current.createOffer();
           await peerConnectionRef.current.setLocalDescription(offer);
           newSocket.emit('webrtcSignal', { to: data.peerId, signal: { sdp: offer }, room: data.room });
@@ -153,11 +154,11 @@ const ChatPage: React.FC = () => {
     });
 
     newSocket.on('webrtcSignal', async (data) => {
-      if (!peerConnectionRef.current || !data.signal || !socket || !room) return; 
+      if (!peerConnectionRef.current || !data.signal || !socket || !room) return;
 
       if (data.signal.sdp) {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-        if (data.signal.sdp.type === 'offer' && data.from && room) { 
+        if (data.signal.sdp.type === 'offer' && data.from && room) {
           const answer = await peerConnectionRef.current.createAnswer();
           await peerConnectionRef.current.setLocalDescription(answer);
           socket.emit('webrtcSignal', { to: data.from, signal: { sdp: answer }, room });
@@ -178,6 +179,9 @@ const ChatPage: React.FC = () => {
     newSocket.on('peerDisconnected', () => {
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
+       if (chatType !== 'video') { // Only show this if not in video chat
+        setIsConnected(false); // Allows "Not Connected" message to show
+      }
     });
 
     newSocket.on('connect_error', (err) => {
@@ -227,12 +231,11 @@ const ChatPage: React.FC = () => {
   const inputAreaHeight = 100;
   const scrollAreaStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
-  }), [inputAreaHeight]);
+  }), []); // inputAreaHeight is constant
 
-  // Define sizes for static windows
   const videoFeedStyle = { width: '240px', height: '180px' };
-  const chatWindowStyle = chatType === 'video' 
-    ? { width: '350px', height: '400px' } 
+  const chatWindowStyle = chatType === 'video'
+    ? { width: '350px', height: '400px' }
     : { width: '450px', height: '500px' };
 
 
@@ -248,15 +251,14 @@ const ChatPage: React.FC = () => {
 
       {chatType === 'video' && (
         <div className="flex justify-center gap-4 mb-4 w-full">
-          {/* Local Video Window */}
-          <div 
-            className={cn('window', theme === 'theme-7' && 'active glass', theme === 'theme-98' ? 'no-padding-window-body' : '')} 
+          <div
+            className={cn('window', theme === 'theme-7' && 'active glass', theme === 'theme-98' ? 'no-padding-window-body' : '')}
             style={videoFeedStyle}
           >
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Your Video</div>
             </div>
-            <div className={cn('window-body relative', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden')} style={{ height: `calc(100% - 20px)`}}>
+            <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
               {hasCameraPermission === false && (
                 <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -267,15 +269,14 @@ const ChatPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Remote Video Window */}
-          <div 
-            className={cn('window', theme === 'theme-7' && 'active glass', theme === 'theme-98' ? 'no-padding-window-body' : '')} 
+          <div
+            className={cn('window', theme === 'theme-7' && 'active glass', theme === 'theme-98' ? 'no-padding-window-body' : '')}
             style={videoFeedStyle}
           >
             <div className={cn('title-bar', "text-sm")}>
               <div className="title-bar-text">Partner's Video</div>
             </div>
-            <div className={cn('window-body relative', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden')} style={{ height: `calc(100% - 20px)`}}>
+            <div className={cn('window-body', theme === 'theme-98' ? 'p-0' : 'p-0', 'flex flex-col overflow-hidden relative')} style={{ height: `calc(100% - 20px)`}}>
               <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
               {!isConnected && !isFindingPartner && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -287,29 +288,27 @@ const ChatPage: React.FC = () => {
         </div>
       )}
 
-      {/* Chat Window */}
-      <div 
+      <div
         className={cn('window', theme === 'theme-7' ? 'active glass' : '', 'mb-4')}
         style={chatWindowStyle}
       >
         <div className="title-bar">
           <div className="title-bar-text">Chat</div>
         </div>
-        <div 
+        <div
           className={cn(
-            'window-body window-body-content', 
+            'window-body window-body-content',
             theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' && !cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'has-space' : 'glass-body-padding'),
             'flex flex-col'
           )}
           style={{ height: `calc(100% - 20px)` }}
         >
-          <ScrollArea
-            theme={theme}
+          <div
             className={cn(
-              "flex-grow", 
+              "flex-grow",
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-20'
             )}
-            style={scrollAreaStyle} 
+            style={scrollAreaStyle}
           >
             <ul ref={chatMessagesRef} className={cn('h-full overflow-y-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
               {messages.map((msg) => (
@@ -339,13 +338,13 @@ const ChatPage: React.FC = () => {
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
           <div
             className={cn(
               "p-2",
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t' : '')
             )}
-            style={{ height: `${inputAreaHeight}px`, flexShrink: 0 }} 
+            style={{ height: `${inputAreaHeight}px`, flexShrink: 0 }}
           >
             <div className="flex items-center gap-2 mb-2">
               <Input
