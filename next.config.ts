@@ -18,9 +18,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'http://localhost:3001',
-  }
+  // env: {
+  //   NEXT_PUBLIC_SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'http://localhost:3001',
+  // }
 };
 
 export default nextConfig;
