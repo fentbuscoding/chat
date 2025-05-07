@@ -121,7 +121,7 @@ const VideoChatPage: React.FC = () => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (!isFindingPartner) {
-      // addMessage('Not connected. Try finding a new partner.', 'system');
+       addMessage('Not connected. Try finding a new partner.', 'system');
     }
     
     return () => {
@@ -129,7 +129,8 @@ const VideoChatPage: React.FC = () => {
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
       cleanupConnections(true); 
     };
-  }, [hasCameraPermission, addMessage, cleanupConnections, toast, isPartnerConnected, isFindingPartner]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCameraPermission, cleanupConnections, toast, isPartnerConnected, isFindingPartner]); // `addMessage` was removed here to prevent loop
 
 
   const handleSendMessage = useCallback(() => {
@@ -142,23 +143,13 @@ const VideoChatPage: React.FC = () => {
     setNewMessage('');
   }, [newMessage, addMessage, toast, isPartnerConnected]);
 
-  const handleLeaveChatAndDisconnect = useCallback(() => {
-    if (isPartnerConnected) {
-      addMessage('You have disconnected and left the chat.', 'system');
-    } else {
-      addMessage('You have left the chat.', 'system');
-    }
-    setIsPartnerConnected(false);
-    setIsFindingPartner(false);
-    cleanupConnections(true); 
-    router.push('/');
-  }, [isPartnerConnected, cleanupConnections, router, addMessage]);
 
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
+      addMessage('Not connected. Try finding a new partner.', 'system');
     } else {
       if (isFindingPartner) return; 
 
@@ -191,7 +182,7 @@ const VideoChatPage: React.FC = () => {
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
   const chatWindowStyle = useMemo(() => ({ width: '350px', height: '400px' }), []); // Adjusted chat window width
-  const inputAreaHeight = 100;
+  const inputAreaHeight = 60; // Reduced height for a more compact input area
   const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
   }), [inputAreaHeight]);
@@ -294,12 +285,12 @@ const VideoChatPage: React.FC = () => {
           </ScrollArea>
           <div
             className={cn(
-              "p-2 flex-shrink-0",
+              "p-2 flex-shrink-0", // Added flex-shrink-0
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
@@ -313,16 +304,11 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-grow"
+                className="flex-grow h-8" // Added h-8 for consistent height
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent h-8">
                 Send
-              </Button>
-            </div>
-            <div className="flex gap-2 justify-start">
-              <Button onClick={handleLeaveChatAndDisconnect} variant="destructive" className="h-8">
-                Leave Chat
               </Button>
             </div>
           </div>

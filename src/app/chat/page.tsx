@@ -120,7 +120,7 @@ const ChatPage: React.FC = () => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (!isFindingPartner) {
-      // addMessage('Not connected. Try finding a new partner.', 'system');
+      addMessage('Not connected. Try finding a new partner.', 'system');
     }
 
 
@@ -148,36 +148,28 @@ const ChatPage: React.FC = () => {
     setNewMessage('');
   }, [newMessage, addMessage, isPartnerConnected, toast]); 
 
-  const handleLeaveChatAndDisconnect = useCallback(() => {
-    if (isPartnerConnected) {
-      addMessage('You have disconnected and left the chat.', 'system');
-    } else {
-      addMessage('You have left the chat.', 'system');
-    }
-    setIsPartnerConnected(false);
-    setIsFindingPartner(false);
-    cleanupConnections();
-    router.push('/');
-  }, [isPartnerConnected, cleanupConnections, router, addMessage]);
 
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false); 
+      // After disconnecting, we should show "Not connected" message
+      addMessage('Not connected. Try finding a new partner.', 'system');
     } else {
       if (isFindingPartner) return; 
 
       setIsFindingPartner(true);
       addMessage('Searching for a partner...', 'system');
       
+      // Simulate finding a partner
       await new Promise(resolve => setTimeout(resolve, 2000)); 
 
-      const found = Math.random() > 0.3; 
+      const found = Math.random() > 0.3; // Simulate success/failure
 
       if (found) {
         setIsPartnerConnected(true);
-        // System message for connection is now handled by the useEffect
+        // System message for connection is now handled by the useEffect that watches isPartnerConnected
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
       }
@@ -193,7 +185,7 @@ const ChatPage: React.FC = () => {
     : { width: '450px', height: '500px' }
   ), [chatType]);
 
-  const inputAreaHeight = 100; 
+  const inputAreaHeight = 60; // Reduced height for a more compact input area
   const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
   }), [inputAreaHeight]);
@@ -297,12 +289,12 @@ const ChatPage: React.FC = () => {
           </ScrollArea>
           <div
             className={cn(
-              "p-2 flex-shrink-0",
+              "p-2 flex-shrink-0", // Added flex-shrink-0
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner}
@@ -316,16 +308,11 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-grow"
+                className="flex-grow h-8" // Added h-8 for consistent height
                 disabled={!isPartnerConnected || isFindingPartner} 
               />
               <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent h-8">
                 Send
-              </Button>
-            </div>
-            <div className="flex gap-2 justify-start">
-              <Button onClick={handleLeaveChatAndDisconnect} variant="destructive" className="h-8">
-                Leave Chat
               </Button>
             </div>
           </div>
