@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
@@ -10,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+// import Link from 'next/link'; // For testing if needed
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -23,7 +23,7 @@ export default function SelectionLobby() {
   };
 
   const addInterest = useCallback((interestToAdd: string) => {
-    const newInterest = interestToAdd.trim().toLowerCase(); // Normalize to lowercase
+    const newInterest = interestToAdd.trim().toLowerCase();
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, newInterest]);
       setCurrentInterest('');
@@ -55,9 +55,12 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
+    console.log("SelectionLobby: handleStartChat called with type:", type, "Current Interests:", selectedInterests);
+    console.log("SelectionLobby: Router object:", router);
+
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
-      toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Please try refreshing." });
+      toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
       return;
     }
 
@@ -72,12 +75,14 @@ export default function SelectionLobby() {
     const queryString = params.toString();
     const path = `/chat${queryString ? `?${queryString}` : ''}`;
     
-    console.log(`SelectionLobby: Attempting to navigate to: ${path}`);
+    console.log(`SelectionLobby: Attempting to navigate to path: ${path}`);
+
     try {
       router.push(path);
+      console.log(`SelectionLobby: router.push('${path}') was called.`);
     } catch (error) {
       console.error("SelectionLobby: Error during router.push:", error);
-      toast({ variant: "destructive", title: "Navigation Error", description: "An unexpected error occurred while trying to start the chat." });
+      toast({ variant: "destructive", title: "Navigation Error", description: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}` });
     }
   }, [router, selectedInterests, toast]);
 
@@ -135,13 +140,32 @@ export default function SelectionLobby() {
           </div>
         </CardContent>
          <CardFooter className="flex justify-between space-x-4">
-           <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
+           <Button className="flex-1 accent" onClick={() => {
+               console.log("SelectionLobby: 'Start Text Chat' button clicked.");
+               handleStartChat('text');
+            }}>
              <span className="animate-rainbow-text">Start Text Chat</span>
            </Button>
-           <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
+           <Button className="flex-1 accent" onClick={() => {
+               console.log("SelectionLobby: 'Start Video Chat' button clicked.");
+               handleStartChat('video');
+            }}>
              <span className="animate-rainbow-text-alt">Start Video Chat</span>
            </Button>
          </CardFooter>
+         {/*
+         <div className="p-4 text-center">
+           <Link href="/chat?type=text&interests=test" className="text-blue-500 underline">
+             Test Client Navigation Link (Using Link component)
+           </Link>
+           <button 
+             onClick={() => router.push('/chat?type=video&interests=testvideo')} 
+             className="ml-4 p-2 bg-gray-300"
+           >
+             Test router.push directly
+           </button>
+         </div>
+         */}
       </Card>
     </div>
   );
