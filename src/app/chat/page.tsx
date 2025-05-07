@@ -78,7 +78,7 @@ const ChatPage: React.FC = () => {
         peerConnectionRef.current = null;
     }
 
-    setIsConnected(false);
+    // setIsConnected(false); // This might be set too early, let disconnect handlers manage.
     setPartnerId(null);
     // Room is cleared more explicitly elsewhere
 }, []);
@@ -188,7 +188,7 @@ const ChatPage: React.FC = () => {
         } else if (localStreamRef.current && !didCancel) {
              setHasCameraPermission(true);
         }
-      } else if (chatType !== 'video' && localStreamRef.current && !didCancel) { // Added !didCancel check
+      } else if (chatType !== 'video' && localStreamRef.current && !didCancel) { 
         console.log("ChatPage: Chat type is not video or unmounting, cleaning up local stream.");
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
@@ -201,76 +201,93 @@ const ChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("ChatPage: Cleanup for initial camera stream effect.");
+       if (localStreamRef.current && !isConnected && didCancel) { 
+          console.log("ChatPage: Cleaning up local stream on effect unmount because not connected.");
+          localStreamRef.current.getTracks().forEach(track => track.stop());
+          localStreamRef.current = null;
+          if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          setHasCameraPermission(undefined);
+       }
     };
-  }, [chatType, toast]);
+  }, [chatType, toast, isConnected]);
 
 
   const handleFindPartner = useCallback((currentSocket: Socket<ServerToClientEvents, ClientToServerEvents>) => {
       console.log("ChatPage: handleFindPartner called.");
       cleanupConnections();
-      setMessages([]);
+      setMessages([]); // Clear previous messages
       addMessage('Looking for a partner...', 'system');
       setIsFindingPartner(true);
       setIsConnected(false);
       setPartnerId(null);
-      setRoom(null);
+      setRoom(null); // Explicitly clear room
       console.log('ChatPage: Emitting findPartner with:', { chatType, interests });
       currentSocket.emit('findPartner', { chatType, interests });
-  }, [cleanupConnections, addMessage, chatType, interests, setMessages, setIsFindingPartner, setIsConnected, setPartnerId, setRoom ]);
+  }, [cleanupConnections, addMessage, chatType, interests]);
 
 
   useEffect(() => {
     console.log('ChatPage: Main effect triggered. chatType:', chatType, 'interests:', interestsString);
     const newSocket = io(SOCKET_SERVER_URL, {
         reconnectionAttempts: 5,
-        transports: ['websocket']
+        // transports: ['websocket'] // Allowing default transport negotiation
     });
     setSocket(newSocket);
     console.log('ChatPage: Socket instance created.');
 
     newSocket.on('connect', () => {
       console.log('ChatPage: Socket connected successfully. ID:', newSocket.id);
+      setIsConnected(true); // Set connected state here
       handleFindPartner(newSocket);
     });
 
     newSocket.on('waitingForPartner', () => {
       console.log('ChatPage: Waiting for partner...');
-      setMessages(prev => prev.filter(msg => msg.sender !== 'system' || !msg.text.startsWith('Looking for a partner...')));
+      // Clear previous system messages about looking/waiting
+      setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && (msg.text.startsWith('Looking for a partner...') || msg.text.startsWith('Waiting for a partner...')))));
       addMessage('Waiting for a partner...', 'system');
       setIsFindingPartner(true);
-      setIsConnected(false);
+      // setIsConnected should already be true if 'connect' event fired.
     });
 
     newSocket.on('partnerFound', async (data) => {
       console.log('ChatPage: Partner found!', data);
-      setMessages(prev => prev.filter(msg => msg.sender !== 'system' && msg.sender !== 'system'));
+       // Clear previous system messages
+      setMessages(prev => prev.filter(msg => msg.sender !== 'system'));
       addMessage(`Partner found! You are connected. Room: ${data.room}`, 'system');
-      setIsConnected(true);
+      // setIsConnected(true); // Already set on 'connect' or should be
       setIsFindingPartner(false);
       setPartnerId(data.peerId);
       setRoom(data.room);
 
       if (chatType === 'video') {
         console.log('ChatPage: Setting up WebRTC for video chat after partner found.');
-        await setupWebRTC();
-
-        if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
-          console.log('ChatPage: Initiator path for WebRTC.');
-          if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) {
-             console.log('ChatPage: Adding tracks for initiator.');
-             localStreamRef.current.getTracks().forEach(track => {
-                peerConnectionRef.current?.addTrack(track, localStreamRef.current!);
-             });
-          }
-          try {
-            const offer = await peerConnectionRef.current.createOffer();
-            await peerConnectionRef.current.setLocalDescription(offer);
-            console.log('ChatPage: Sending offer to partner.');
-            newSocket.emit('webrtcSignal', { to: data.peerId, signal: { sdp: offer }, room: data.room });
-          } catch (e) {
-            console.error("ChatPage: Error creating/sending offer", e);
-            toast({variant: 'destructive', title: 'WebRTC Error', description: 'Failed to create offer for video chat.'});
-          }
+        // Ensure camera stream is ready before setting up WebRTC
+        if (hasCameraPermission === undefined) { // Not yet determined
+            console.log("ChatPage: Waiting for camera permission before WebRTC setup.");
+            // This might need a re-trigger or a check after permission is granted
+        } else if (hasCameraPermission === false) {
+            toast({variant: "destructive", title: "Cannot start video", description: "Camera permission is required."});
+        } else { // hasCameraPermission is true
+            await setupWebRTC();
+             if (data.initiator && peerConnectionRef.current && newSocket && data.room && data.peerId) {
+                console.log('ChatPage: Initiator path for WebRTC.');
+                if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) {
+                    console.log('ChatPage: Adding tracks for initiator in partnerFound.');
+                    localStreamRef.current.getTracks().forEach(track => {
+                        peerConnectionRef.current?.addTrack(track, localStreamRef.current!);
+                    });
+                }
+                try {
+                    const offer = await peerConnectionRef.current.createOffer();
+                    await peerConnectionRef.current.setLocalDescription(offer);
+                    console.log('ChatPage: Sending offer to partner.');
+                    newSocket.emit('webrtcSignal', { to: data.peerId, signal: { sdp: offer }, room: data.room });
+                } catch (e) {
+                    console.error("ChatPage: Error creating/sending offer", e);
+                    toast({variant: 'destructive', title: 'WebRTC Error', description: 'Failed to create offer for video chat.'});
+                }
+            }
         }
       }
     });
@@ -278,7 +295,7 @@ const ChatPage: React.FC = () => {
     newSocket.on('webrtcSignal', async (data) => {
       console.log('ChatPage: Received webrtcSignal', data.signal?.sdp?.type || (data.signal?.candidate ? 'candidate' : 'unknown signal'));
       if (!peerConnectionRef.current || !data.signal || !newSocket || !data.room || !data.from ) {
-        console.warn('ChatPage: Skipping webrtcSignal due to missing refs/data. Current room state:', room);
+        console.warn('ChatPage: Skipping webrtcSignal due to missing refs/data. Current room state:', room, 'Signal room:', data.room);
         return;
       }
 
@@ -293,7 +310,7 @@ const ChatPage: React.FC = () => {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
           if (data.signal.sdp.type === 'offer') {
             if (localStreamRef.current && peerConnectionRef.current.getSenders().length === 0) {
-                console.log('ChatPage: Adding tracks for answerer.');
+                console.log('ChatPage: Adding tracks for answerer in webrtcSignal.');
                 localStreamRef.current.getTracks().forEach(track => {
                    peerConnectionRef.current?.addTrack(track, localStreamRef.current!);
                 });
@@ -322,11 +339,14 @@ const ChatPage: React.FC = () => {
       console.log('ChatPage: Partner disconnected.');
       addMessage('Partner disconnected. You can find a new partner or leave.', 'system');
       cleanupConnections();
-      setIsFindingPartner(false);
+      setIsFindingPartner(false); // Allow finding new partner
+      setIsConnected(true); // Still connected to socket server
+      setPartnerId(null);
+      setRoom(null); // Clear the room
     });
 
     newSocket.on('connect_error', (err) => {
-        console.error("ChatPage: Socket connection error. Full error object:", err);
+        console.error("ChatPage: Socket connection error:", err.message, "Full error object:", err);
         toast({
             title: "Connection Error",
             description: `Could not connect to chat server: ${err.message}. Please try again later.`,
@@ -338,21 +358,22 @@ const ChatPage: React.FC = () => {
 
     newSocket.on('disconnect', (reason) => {
         console.log('ChatPage: Socket disconnected.', reason);
-        if (reason === 'io server disconnect') {
-            addMessage('Disconnected from server. Please refresh to reconnect.', 'system');
-        }
+        addMessage('Disconnected from server. Please refresh or try finding a new partner.', 'system');
         cleanupConnections();
         setIsFindingPartner(false);
+        setIsConnected(false);
+        setPartnerId(null);
+        setRoom(null);
     });
 
 
     return () => {
       console.log('ChatPage: Cleaning up main socket effect. Current room:', room, 'Socket connected:', newSocket.connected);
-      if (newSocket.connected && room) {
+      if (newSocket.connected && room) { // Only leave if in a room
         console.log('ChatPage: Emitting leaveChat for room:', room);
         newSocket.emit('leaveChat', room);
       }
-      cleanupConnections();
+      cleanupConnections(); // Clean up WebRTC and stream refs
       newSocket.disconnect();
       console.log('ChatPage: Socket disconnected in cleanup.');
       setSocket(null);
@@ -361,7 +382,8 @@ const ChatPage: React.FC = () => {
       setIsConnected(false);
       setPartnerId(null);
     };
-  }, [chatType, interestsString, addMessage, cleanupConnections, setupWebRTC, toast, handleFindPartner]); // Use interestsString here
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatType, interestsString, addMessage, cleanupConnections, setupWebRTC, toast, handleFindPartner, hasCameraPermission]); 
 
 
   const handleSendMessage = useCallback(() => {
@@ -373,13 +395,17 @@ const ChatPage: React.FC = () => {
     } else {
       console.warn('ChatPage: Cannot send message. Conditions not met:', {
         hasMessage: !!newMessage.trim(),
-        socket: !!socket,
-        room: !!room,
-        partnerId: !!partnerId,
-        isConnected,
+        socketConnected: socket?.connected,
+        room,
+        partnerId,
+        isConnected, // This refers to socket server connection status
+        isActuallyInChat: !!partnerId && !!room // More specific check for being in a chat session
       });
+       if (!partnerId || !room) {
+         toast({title: "Not in a chat", description: "You are not connected to a partner.", variant: "default"});
+       }
     }
-  }, [newMessage, socket, room, partnerId, isConnected, addMessage]);
+  }, [newMessage, socket, room, partnerId, isConnected, addMessage, toast]);
 
   const handleLeaveChat = useCallback(() => {
     console.log('ChatPage: handleLeaveChat called. Current room:', room);
@@ -388,7 +414,8 @@ const ChatPage: React.FC = () => {
     }
     cleanupConnections();
     setRoom(null);
-    setIsFindingPartner(false);
+    setIsFindingPartner(false); // Allow finding new partner
+    // setIsConnected(false); // Let disconnect handler or findPartner manage this.
     router.push('/');
   }, [socket, room, cleanupConnections, router]);
 
@@ -396,19 +423,19 @@ const ChatPage: React.FC = () => {
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
   const chatWindowStyle = useMemo(() => (
     chatType === 'video'
-    ? { width: '300px', height: '350px' } // Adjusted for video chat
+    ? { width: '300px', height: '350px' } 
     : { width: '450px', height: '500px' }
   ), [chatType]);
 
-  const inputAreaHeight = 100; // approx 100px
+  const inputAreaHeight = 100; 
   const scrollableChatHeightStyle = useMemo(() => ({
-    height: `calc(100% - ${inputAreaHeight}px)`, // Adjusted to use the variable
+    height: `calc(100% - ${inputAreaHeight}px)`, 
   }), []);
 
 
   return (
-    <div className="flex flex-col items-center justify-start h-full p-4 overflow-auto">
-      {isFindingPartner && !isConnected && (
+    <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
+      {isFindingPartner && !partnerId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className={cn("p-4 rounded-md shadow-lg", theme === 'theme-98' ? 'window' : 'bg-background text-foreground')}>
             <p className="text-lg">Finding a partner...</p>
@@ -429,9 +456,13 @@ const ChatPage: React.FC = () => {
               <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
               {hasCameraPermission === false && (
                 <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
-                  <AlertTitle className="text-xs">Camera Access Denied</AlertTitle>
-                  <AlertDescription className="text-xs">Enable permissions.</AlertDescription>
+                  <AlertTitle className="text-xs">Camera Denied</AlertTitle>
                 </Alert>
+              )}
+               {hasCameraPermission === undefined && (
+                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                  <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
+                </div>
               )}
             </div>
           </div>
@@ -448,7 +479,7 @@ const ChatPage: React.FC = () => {
               {!partnerId && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
                   <p className="text-white text-center p-2 text-sm">
-                    {isFindingPartner ? "Searching..." : (isConnected ? "" : "Waiting for partner...")}
+                    {isFindingPartner ? "Searching..." : (isConnected ? (room ? "" : "Waiting for room...") : "Connecting...")}
                   </p>
                 </div>
               )}
@@ -474,12 +505,12 @@ const ChatPage: React.FC = () => {
         >
           <div
              className={cn(
-              "flex-grow overflow-y-auto", // Ensures this div takes available space and scrolls
-              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80'
+              "flex-grow overflow-y-auto", 
+              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
             style={scrollableChatHeightStyle}
           >
-            <ul ref={chatMessagesRef} className={cn('h-auto', theme === 'theme-98' ? '' : 'space-y-1')}>
+            <ul ref={chatMessagesRef} className={cn('h-auto break-words', theme === 'theme-98' ? '' : 'space-y-1')}>
               {messages.map((msg) => (
                 <li
                   key={msg.id}
@@ -490,17 +521,17 @@ const ChatPage: React.FC = () => {
                 >
                   <div
                     className={cn(
-                      "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
+                      "rounded-lg px-3 py-1 max-w-xs lg:max-w-md",
                       msg.sender === "me"
-                        ? theme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800'
-                        : theme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800',
-                      msg.sender === 'system' ? 'text-center w-full text-gray-500 italic text-xs' : ''
+                        ? theme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'
+                        : theme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
+                      msg.sender === 'system' ? 'text-center w-full text-gray-500 dark:text-gray-400 italic text-xs' : ''
                     )}
                   >
                     {msg.text}
                   </div>
                   {msg.sender !== "system" && (
-                    <span className={cn("text-xxs ml-1 self-end", theme === 'theme-98' ? 'text-gray-700' : 'text-gray-400')}>
+                    <span className={cn("text-xxs ml-1 self-end", theme === 'theme-98' ? 'text-gray-700' : 'text-gray-400 dark:text-gray-500')}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
@@ -510,8 +541,8 @@ const ChatPage: React.FC = () => {
           </div>
           <div
             className={cn(
-              "p-2 flex-shrink-0", // This div should not grow, it's fixed height
-              theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t' : '')
+              "p-2 flex-shrink-0", 
+              theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
@@ -523,19 +554,19 @@ const ChatPage: React.FC = () => {
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
                 className="flex-grow"
-                disabled={!isConnected || isFindingPartner}
+                disabled={!partnerId || !room}
               />
-              <Button onClick={handleSendMessage} disabled={!isConnected || isFindingPartner} className="accent">
+              <Button onClick={handleSendMessage} disabled={!partnerId || !room} className="accent">
                 Send
               </Button>
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={() => socket && handleFindPartner(socket)}
-                disabled={isFindingPartner}
+                disabled={isFindingPartner || !isConnected}
                 className="flex-1"
               >
-                {isFindingPartner ? "Searching..." : (isConnected ? "Find New Partner" : "Find Partner")}
+                {isFindingPartner ? "Searching..." : (partnerId ? "Find New Partner" : "Find Partner")}
               </Button>
               <Button onClick={handleLeaveChat} variant="destructive" className="flex-1">
                 Leave Chat
@@ -549,3 +580,4 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
+
