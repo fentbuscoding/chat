@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -79,9 +79,10 @@ const ChatPage: React.FC = () => {
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-      if (sender === 'system') {
+       if (sender === 'system') {
+        // Remove previous system messages about connection status
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -128,6 +129,11 @@ const ChatPage: React.FC = () => {
             if (!didCancel) {
               console.error('ChatPage: Error accessing camera initially (video chat):', error);
               setHasCameraPermission(false);
+               toast({
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to use this app.',
+              });
             }
           }
         } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
@@ -157,20 +163,19 @@ const ChatPage: React.FC = () => {
     };
   }, [chatType, hasCameraPermission, toast, cleanupConnections]);
 
-  useEffect(() => {
+ useEffect(() => {
+    // This effect handles displaying connection status messages.
+    // It runs when isPartnerConnected or isFindingPartner changes.
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (messages.some(msg => msg.sender === 'system' && msg.text.includes('Connected with a partner'))) {
-      // If previously connected, now show "Not connected"
-      addMessage('Not connected. Try finding a new partner.', 'system');
-    } else if (!isFindingPartner && ((chatType === 'text') || (chatType === 'video' && hasCameraPermission !== undefined))) {
-      // Initial state or after failed search, if no "connected" message was ever present
-      if (!messages.some(msg => msg.sender === 'system' && msg.text.includes('Not connected'))) {
-        // Add "Not connected" only if it's not already there to avoid duplicates on re-renders
-        // And if we are not currently searching
-      }
+    } else if (isFindingPartner) {
+      addMessage('Searching for a partner...', 'system');
     }
-  }, [isPartnerConnected, isFindingPartner, chatType, hasCameraPermission, addMessage, messages]);
+    // No explicit "not connected" message on initial load or after disconnect,
+    // as the absence of "connected" or "searching" implies this.
+    // A "disconnected" message is added by handleToggleConnection.
+    // A "no partner found" message is added by handleToggleConnection.
+  }, [isPartnerConnected, isFindingPartner, addMessage]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -208,14 +213,15 @@ const ChatPage: React.FC = () => {
       }
 
       setIsFindingPartner(true);
-      addMessage('Searching for a partner...', 'system');
+      // "Searching for a partner..." message is handled by the useEffect above
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3;
+      const found = Math.random() > 0.3; // Simulate finding a partner
 
       if (found) {
         setIsPartnerConnected(true);
+        // "Connected with a partner..." message is handled by the useEffect above
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
@@ -226,11 +232,9 @@ const ChatPage: React.FC = () => {
 
 
   const chatWindowStyle = useMemo(() => (
-    // For text chat, the video-specific conditions for 'width' might not be relevant,
-    // but keeping structure for consistency if chatType could dynamically change here.
-    chatType === 'video'
+    chatType === 'video' // This page is text chat, but keeping logic for potential future merging
     ? { width: '350px', height: '400px' }
-    : { width: '600px', height: '600px' } // Increased width
+    : { width: '600px', height: '600px' }
   ), [chatType]);
 
   const inputAreaHeight = 60;
@@ -245,7 +249,7 @@ const ChatPage: React.FC = () => {
         style={chatWindowStyle}
       >
         <div className={cn("title-bar", 'flex-shrink-0')}>
-          <div className="title-bar-text">{chatType === 'video' ? 'Video Chat (Text Mode)' : 'Text Chat'}</div>
+          <div className="title-bar-text">Text Chat</div>
         </div>
         <div
           ref={chatContainerRef}
@@ -254,10 +258,9 @@ const ChatPage: React.FC = () => {
             theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
-          {/* ScrollArea removed, react-window will manage scrolling within its container */}
           <div
             className={cn(
-              "flex-grow", // This div will be the container for react-window
+              "flex-grow",
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
             style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
@@ -270,12 +273,11 @@ const ChatPage: React.FC = () => {
                 itemSize={itemHeight}
                 width={chatContainerWidth}
                 itemData={itemData}
-                className="scroll-area-viewport" // Added for potential global styling
+                className="scroll-area-viewport"
               >
                 {Row}
               </List>
             ) : (
-              // Fallback or loading state for the list area
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-500">Loading messages...</p>
               </div>
@@ -288,7 +290,7 @@ const ChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 h-full">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}
@@ -305,7 +307,7 @@ const ChatPage: React.FC = () => {
                 className="flex-1 px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">
                 Send
               </Button>
             </div>

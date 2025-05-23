@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -73,17 +73,17 @@ const VideoChatPage: React.FC = () => {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
   
   const listRef = useRef<List>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null); // For the chat window's scrollable area
+  const chatContainerRef = useRef<HTMLDivElement>(null); 
   const { width: chatContainerWidth, height: chatContainerHeight } = useElementSize(chatContainerRef);
-  const itemHeight = 50; // Approximate height for a message row
+  const itemHeight = 50; 
 
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-      if (sender === 'system') {
+       if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -139,6 +139,11 @@ const VideoChatPage: React.FC = () => {
           if (!didCancel) {
             console.error('VideoChatPage: Error accessing camera initially:', error);
             setHasCameraPermission(false);
+             toast({
+                variant: 'destructive',
+                title: 'Camera Access Denied',
+                description: 'Please enable camera permissions in your browser settings to use this app.',
+              });
           }
         }
       } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
@@ -151,22 +156,17 @@ const VideoChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
-      cleanupConnections(true);
+      cleanupConnections(true); // Ensure local stream is stopped on unmount
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasCameraPermission, toast, cleanupConnections]); // Removed addMessage from dependencies
+  }, [hasCameraPermission, toast, cleanupConnections]); 
 
-  useEffect(() => {
+   useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (messages.some(msg => msg.sender === 'system' && msg.text.includes('Connected with a partner'))) {
-       addMessage('Not connected. Try finding a new partner.', 'system');
-    } else if (!isFindingPartner && hasCameraPermission !== undefined) {
-       if (!messages.some(msg => msg.sender === 'system' && msg.text.includes('Not connected'))) {
-         // addMessage('Not connected. Try finding a new partner.', 'system');
-       }
+    } else if (isFindingPartner) {
+      addMessage('Searching for a partner...', 'system');
     }
-  }, [isPartnerConnected, isFindingPartner, hasCameraPermission, addMessage, messages]);
+  }, [isPartnerConnected, isFindingPartner, addMessage]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -176,7 +176,6 @@ const VideoChatPage: React.FC = () => {
         return;
     }
     addMessage(newMessage, 'me');
-     // Simulate partner reply
     setTimeout(() => {
         addMessage(`Partner: ${newMessage}`, 'partner');
     }, 1000);
@@ -203,12 +202,9 @@ const VideoChatPage: React.FC = () => {
 
 
       setIsFindingPartner(true);
-      addMessage('Searching for a partner...', 'system');
-
-      // Simulate finding a partner
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3;
+      const found = Math.random() > 0.3; 
 
       if (found) {
         setIsPartnerConnected(true);
@@ -222,10 +218,9 @@ const VideoChatPage: React.FC = () => {
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
-  const chatWindowStyle = useMemo(() => ({ width: '500px', height: '500px' }), []); // Increased width
-  const inputAreaHeight = 60; // Fixed height for the input area
+  const chatWindowStyle = useMemo(() => ({ width: '500px', height: '500px' }), []);
+  const inputAreaHeight = 60; 
   
-  // Calculate the height for the react-window List component
   const scrollableChatHeight = chatContainerHeight > 0 ? chatContainerHeight - inputAreaHeight : 0;
 
   const itemData = useMemo(() => ({ messages, theme }), [messages, theme]);
@@ -234,7 +229,7 @@ const VideoChatPage: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-start h-full p-4 overflow-auto">
 
-      <div className="flex justify-center gap-4 mb-4 w-full max-w-xl"> {/* Max width for video container */}
+      <div className="flex justify-center gap-4 mb-4 w-full max-w-xl">
         <div
           className={cn(
             'window flex flex-col',
@@ -251,12 +246,12 @@ const VideoChatPage: React.FC = () => {
             theme === 'theme-98' ? 'p-0' : 'p-0' 
           )}>
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
-            {hasCameraPermission === false && (
+            { hasCameraPermission === false && (
               <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
                 <AlertTitle className="text-xs">Camera Denied</AlertTitle>
               </Alert>
             )}
-             {hasCameraPermission === undefined && (
+             { hasCameraPermission === undefined && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
                   <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
                 </div>
@@ -297,30 +292,29 @@ const VideoChatPage: React.FC = () => {
           <div className="title-bar-text">Chat</div>
         </div>
         <div
-          ref={chatContainerRef} // Ref moved to the window-body that contains scrollable area and input
+          ref={chatContainerRef}
           className={cn(
             'window-body window-body-content flex-grow',
             theme === 'theme-98' ? 'p-0.5' :
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
-          {/* This div becomes the container for react-window */}
           <div
             className={cn(
               "flex-grow",
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
-            style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }} // Dynamic height
+            style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
             {scrollableChatHeight > 0 && chatContainerWidth > 0 ? (
               <List
                 ref={listRef}
                 height={scrollableChatHeight}
                 itemCount={messages.length}
-                itemSize={itemHeight} // Use fixed item height
-                width={chatContainerWidth} // Use the calculated width
-                itemData={itemData} // Pass messages and theme as itemData
-                className="scroll-area-viewport" // Added for potential global styling
+                itemSize={itemHeight}
+                width={chatContainerWidth}
+                itemData={itemData}
+                className="scroll-area-viewport"
               >
                 {Row}
               </List>
@@ -332,12 +326,12 @@ const VideoChatPage: React.FC = () => {
           </div>
           <div
             className={cn(
-              "p-2 flex-shrink-0", // p-2 gives some padding around the controls
+              "p-2 flex-shrink-0", 
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 h-full">
+            <div className="flex items-center gap-2">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
@@ -354,7 +348,7 @@ const VideoChatPage: React.FC = () => {
                 className="flex-1 px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">
                 Send
               </Button>
             </div>
