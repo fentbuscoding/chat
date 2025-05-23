@@ -1,5 +1,4 @@
 
-// @ts-nocheck
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -10,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-// import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -82,7 +80,7 @@ const ChatPage: React.FC = () => {
        if (sender === 'system') {
         // Remove previous system messages about connection status
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -164,18 +162,17 @@ const ChatPage: React.FC = () => {
   }, [chatType, hasCameraPermission, toast, cleanupConnections]);
 
  useEffect(() => {
-    // This effect handles displaying connection status messages.
-    // It runs when isPartnerConnected or isFindingPartner changes.
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.text.includes('You have disconnected'))) {
+      // This handles the case after a manual disconnect, ensuring "Not connected" doesn't immediately follow "You have disconnected"
+      // If no "You have disconnected" message, then show "Not connected"
+    } else if (!isFindingPartner && !isPartnerConnected) {
+       // addMessage('Not connected. Try finding a new partner.', 'system');
     }
-    // No explicit "not connected" message on initial load or after disconnect,
-    // as the absence of "connected" or "searching" implies this.
-    // A "disconnected" message is added by handleToggleConnection.
-    // A "no partner found" message is added by handleToggleConnection.
-  }, [isPartnerConnected, isFindingPartner, addMessage]);
+  }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -232,10 +229,8 @@ const ChatPage: React.FC = () => {
 
 
   const chatWindowStyle = useMemo(() => (
-    chatType === 'video' // This page is text chat, but keeping logic for potential future merging
-    ? { width: '350px', height: '400px' }
-    : { width: '600px', height: '600px' }
-  ), [chatType]);
+    { width: '600px', height: '600px' }
+  ), []);
 
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatContainerHeight > 0 ? chatContainerHeight - inputAreaHeight : 0;
@@ -290,11 +285,11 @@ const ChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}
-                className="px-2"
+                className="px-2 mr-2"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -304,7 +299,7 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 px-2 py-1"
+                className="flex-1 px-2 py-1 mr-2"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">

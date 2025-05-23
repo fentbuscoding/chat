@@ -1,5 +1,4 @@
 
-// @ts-nocheck
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -10,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-// import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -71,11 +69,11 @@ const VideoChatPage: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
-  
+
   const listRef = useRef<List>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null); 
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatContainerWidth, height: chatContainerHeight } = useElementSize(chatContainerRef);
-  const itemHeight = 50; 
+  const itemHeight = 50;
 
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
@@ -83,7 +81,7 @@ const VideoChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -120,7 +118,7 @@ const VideoChatPage: React.FC = () => {
         return;
       }
 
-      if (hasCameraPermission === undefined) {
+      if (hasCameraPermission === undefined) { // Only attempt if status is unknown
         console.log("VideoChatPage: Attempting to get initial user media for video chat.");
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -147,6 +145,7 @@ const VideoChatPage: React.FC = () => {
           }
         }
       } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+        // If permission was already granted and stream exists, re-assign it (e.g., after a hot reload)
         localVideoRef.current.srcObject = localStreamRef.current;
       }
     };
@@ -158,15 +157,20 @@ const VideoChatPage: React.FC = () => {
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
       cleanupConnections(true); // Ensure local stream is stopped on unmount
     };
-  }, [hasCameraPermission, toast, cleanupConnections]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCameraPermission, toast]); // Removed cleanupConnections from dependencies
 
    useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.text.includes('You have disconnected'))) {
+      // Prevents "Not connected" right after "You have disconnected"
+    } else if (!isFindingPartner && !isPartnerConnected ) {
+      // addMessage('Not connected. Try finding a new partner.', 'system');
     }
-  }, [isPartnerConnected, isFindingPartner, addMessage]);
+  }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -204,7 +208,7 @@ const VideoChatPage: React.FC = () => {
       setIsFindingPartner(true);
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3; 
+      const found = Math.random() > 0.3;
 
       if (found) {
         setIsPartnerConnected(true);
@@ -219,8 +223,8 @@ const VideoChatPage: React.FC = () => {
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
   const chatWindowStyle = useMemo(() => ({ width: '500px', height: '500px' }), []);
-  const inputAreaHeight = 60; 
-  
+  const inputAreaHeight = 60;
+
   const scrollableChatHeight = chatContainerHeight > 0 ? chatContainerHeight - inputAreaHeight : 0;
 
   const itemData = useMemo(() => ({ messages, theme }), [messages, theme]);
@@ -243,7 +247,7 @@ const VideoChatPage: React.FC = () => {
           </div>
           <div className={cn(
             'window-body flex-grow overflow-hidden relative',
-            theme === 'theme-98' ? 'p-0' : 'p-0' 
+            (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0'
           )}>
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
             { hasCameraPermission === false && (
@@ -272,7 +276,7 @@ const VideoChatPage: React.FC = () => {
           </div>
            <div className={cn(
             'window-body flex-grow overflow-hidden relative',
-             theme === 'theme-98' ? 'p-0' : 'p-0'
+             (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0'
           )}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
             {!isPartnerConnected && (
@@ -326,16 +330,16 @@ const VideoChatPage: React.FC = () => {
           </div>
           <div
             className={cn(
-              "p-2 flex-shrink-0", 
+              "p-2 flex-shrink-0",
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className="px-2"
+                className="px-2 mr-2"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -345,7 +349,7 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 px-2 py-1"
+                className="flex-1 px-2 py-1 mr-2"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">
