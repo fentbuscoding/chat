@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 'use client';
 
@@ -192,8 +193,8 @@ const ChatPage: React.FC = () => {
 
   const chatWindowStyle = useMemo(() => (
     chatType === 'video'
-    ? { width: '350px', height: '400px' }
-    : { width: '450px', height: '500px' }
+    ? { width: '350px', height: '400px' } // This case might not be used if video redirects to video-chat page
+    : { width: '450px', height: '600px' }
   ), [chatType]);
 
   const inputAreaHeight = 60;
@@ -262,7 +263,7 @@ const ChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 h-full">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}

@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 'use client';
 
@@ -184,7 +185,7 @@ const VideoChatPage: React.FC = () => {
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
-  const chatWindowStyle = useMemo(() => ({ width: '350px', height: '400px' }), []);
+  const chatWindowStyle = useMemo(() => ({ width: '350px', height: '500px' }), []);
   const inputAreaHeight = 60;
   const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
@@ -310,7 +311,7 @@ const VideoChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 h-full">
+            <div className="flex items-center gap-2">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
