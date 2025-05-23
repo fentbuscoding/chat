@@ -32,7 +32,7 @@ const ChatPage: React.FC = () => {
   const [isFindingPartner, setIsFindingPartner] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null); // Kept for potential future 'video' type logic here
   const localStreamRef = useRef<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
   const chatMessagesRef = useRef<HTMLUListElement>(null);
@@ -68,23 +68,25 @@ const ChatPage: React.FC = () => {
         localStreamRef.current = null;
     }
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    // If remoteVideoRef was used for 'video' type in this component:
+    // if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 }, []);
 
 
   useEffect(() => {
     let didCancel = false;
     const getInitialCameraStream = async () => {
+      // This page is primarily for 'text' chat, but might include 'video' logic in future or if chatType changes
       if (chatType === 'video' && typeof navigator.mediaDevices?.getUserMedia === 'function') {
         if (hasCameraPermission === undefined) {
-          console.log("ChatPage: Attempting to get initial user media for video chat.");
+          console.log("ChatPage: Attempting to get initial user media for video chat (if applicable).");
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             if (!didCancel) {
-              console.log("ChatPage: Initial camera access granted.");
+              console.log("ChatPage: Initial camera access granted (video chat).");
               setHasCameraPermission(true);
               localStreamRef.current = stream;
-              if (localVideoRef.current) {
+              if (localVideoRef.current) { // For a potential local preview if this page also handles video
                 localVideoRef.current.srcObject = stream;
               }
             } else {
@@ -93,7 +95,7 @@ const ChatPage: React.FC = () => {
             }
           } catch (error) {
             if (!didCancel) {
-              console.error('ChatPage: Error accessing camera initially:', error);
+              console.error('ChatPage: Error accessing camera initially (video chat):', error);
               setHasCameraPermission(false);
                toast({ 
                 variant: 'destructive',
@@ -105,13 +107,11 @@ const ChatPage: React.FC = () => {
         } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
           localVideoRef.current.srcObject = localStreamRef.current;
         }
-      } else if (chatType !== 'video' && localStreamRef.current) {
+      } else if (chatType !== 'video' && localStreamRef.current) { // Cleanup if switched from video to text
         if (!didCancel) {
-            console.log("ChatPage: Chat type is not video or unmounting, cleaning up local stream.");
-            localStreamRef.current.getTracks().forEach(track => track.stop());
-            localStreamRef.current = null;
-            if (localVideoRef.current) localVideoRef.current.srcObject = null;
-            if (!didCancel && chatType !== 'video') setHasCameraPermission(undefined); // Reset for text chat
+            console.log("ChatPage: Chat type is text or unmounting video, cleaning up local stream.");
+            cleanupConnections(); // Use the main cleanup function
+            if (!didCancel) setHasCameraPermission(undefined); 
         }
       } else if (chatType === 'video' && typeof navigator.mediaDevices?.getUserMedia !== 'function' && !didCancel){
          setHasCameraPermission(false);
@@ -124,19 +124,18 @@ const ChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("ChatPage: Cleanup for initial camera stream effect.");
-       // Only cleanup stream if it was for video and we are navigating away or changing type
-       if (localStreamRef.current && chatType === 'video') { 
-          console.log("ChatPage: Cleaning up local stream on effect unmount (video chat).");
+       if (localStreamRef.current) { 
+          console.log("ChatPage: Cleaning up local stream on effect unmount.");
           cleanupConnections();
        }
     };
-  }, [chatType, hasCameraPermission, cleanupConnections, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatType, hasCameraPermission, toast]); // Removed cleanupConnections from deps as it's stable
 
   useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (!isFindingPartner && ( (chatType === 'text') || (chatType === 'video' && hasCameraPermission !== undefined) ) ) {
-      // For video, only show "Not connected" if camera status is determined
       addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, chatType, hasCameraPermission, addMessage]);
@@ -161,7 +160,7 @@ const ChatPage: React.FC = () => {
     } else {
       if (isFindingPartner) return; 
 
-      if (chatType === 'video') {
+      if (chatType === 'video') { // Check specifically for video type if camera is mandatory
         if (hasCameraPermission === false) {
           toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
           return;
@@ -175,26 +174,27 @@ const ChatPage: React.FC = () => {
       setIsFindingPartner(true);
       addMessage('Searching for a partner...', 'system');
       
+      // Simulate finding a partner
       await new Promise(resolve => setTimeout(resolve, 2000)); 
 
-      const found = Math.random() > 0.3; 
+      const found = Math.random() > 0.3; // Simulate 70% chance of finding a partner
 
       if (found) {
         setIsPartnerConnected(true);
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
-        setIsPartnerConnected(false); // Explicitly set false if not found
+        setIsPartnerConnected(false);
       }
       setIsFindingPartner(false);
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, toast, chatType, hasCameraPermission]); 
 
 
-  const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
+  // Adjust styles based on chat type
   const chatWindowStyle = useMemo(() => (
-    chatType === 'video'
-    ? { width: '350px', height: '400px' } 
-    : { width: '450px', height: '500px' }
+    chatType === 'video' // This component might not primarily show video, but if it did:
+    ? { width: '350px', height: '400px' }  // Example style for video chat mode within this page
+    : { width: '450px', height: '500px' } // Style for text chat mode
   ), [chatType]);
 
   const inputAreaHeight = 60; 
@@ -205,76 +205,21 @@ const ChatPage: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
-      {chatType === 'video' && (
-        <div className="flex justify-center gap-4 mb-4 w-full">
-          <div
-            className={cn(
-              'window flex flex-col', // Added flex flex-col
-              theme === 'theme-7' && 'active glass', 
-              theme === 'theme-98' ? 'no-padding-window-body' : ''
-            )}
-            style={videoFeedStyle}
-          >
-            <div className={cn('title-bar flex-shrink-0', "text-sm")}> {/* Added flex-shrink-0 */}
-              <div className="title-bar-text">Your Video</div>
-            </div>
-            <div className={cn(
-              'window-body flex-grow overflow-hidden relative', // Added flex-grow
-              theme === 'theme-98' ? 'p-0' : 
-              (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
-            )}>
-              <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
-              {hasCameraPermission === false && (
-                <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
-                  <AlertTitle className="text-xs">Camera Denied</AlertTitle>
-                </Alert>
-              )}
-               {hasCameraPermission === undefined && chatType === 'video' && (
-                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                  <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            className={cn(
-              'window flex flex-col', // Added flex flex-col
-              theme === 'theme-7' && 'active glass', 
-              theme === 'theme-98' ? 'no-padding-window-body' : ''
-            )}
-            style={videoFeedStyle}
-          >
-            <div className={cn('title-bar flex-shrink-0', "text-sm")}> {/* Added flex-shrink-0 */}
-              <div className="title-bar-text">Partner's Video</div>
-            </div>
-             <div className={cn(
-              'window-body flex-grow overflow-hidden relative', // Added flex-grow
-              theme === 'theme-98' ? 'p-0' : 
-              (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
-            )}>
-              <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
-               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                  <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-                </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Optional: Video feeds could be rendered here if chatType === 'video' and this page handles it */}
+      {/* For now, focusing on text chat UI */}
 
       <div
-        className={cn('window flex flex-col', theme === 'theme-7' ? 'active glass' : '', 'mb-4')} // Added flex flex-col
+        className={cn('window flex flex-col', theme === 'theme-7' ? 'active glass' : '', 'mb-4')}
         style={chatWindowStyle}
       >
-        <div className={cn("title-bar", 'flex-shrink-0')}> {/* Added flex-shrink-0 */}
-          <div className="title-bar-text">Chat</div>
+        <div className={cn("title-bar", 'flex-shrink-0')}>
+          <div className="title-bar-text">{chatType === 'video' ? 'Video Chat' : 'Text Chat'}</div>
         </div>
         <div
           className={cn(
-            'window-body window-body-content flex-grow', // Added flex-grow
+            'window-body window-body-content flex-grow',
             theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
-           // Removed explicit height style
         >
           <ScrollArea
              ref={scrollAreaRef}
@@ -325,7 +270,7 @@ const ChatPage: React.FC = () => {
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}
-                className="h-full" 
+                className="" // Removed h-full
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -335,10 +280,10 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-grow h-full" 
+                className="flex-grow" // Removed h-full
                 disabled={!isPartnerConnected || isFindingPartner} 
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent h-full">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent"> {/* Removed h-full */}
                 Send
               </Button>
             </div>

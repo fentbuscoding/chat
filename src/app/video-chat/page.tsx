@@ -43,6 +43,7 @@ const VideoChatPage: React.FC = () => {
  const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      // Remove previous system messages about connection status before adding a new one
       if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg => 
           !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Not connected. Try finding a new partner') || msg.text.includes('Searching for a partner...')))
@@ -123,7 +124,8 @@ const VideoChatPage: React.FC = () => {
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
       cleanupConnections(true); 
     };
-  }, [hasCameraPermission, cleanupConnections, toast]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCameraPermission, toast]); 
 
   useEffect(() => {
     if (isPartnerConnected) {
@@ -150,7 +152,6 @@ const VideoChatPage: React.FC = () => {
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
-      // "Not connected" message will be added by the useEffect watching isPartnerConnected
     } else {
       if (isFindingPartner) return; 
 
@@ -167,16 +168,16 @@ const VideoChatPage: React.FC = () => {
       setIsFindingPartner(true);
       addMessage('Searching for a partner...', 'system');
       
+      // Simulate finding a partner
       await new Promise(resolve => setTimeout(resolve, 2000)); 
 
-      const found = Math.random() > 0.3; 
+      const found = Math.random() > 0.3; // Simulate 70% chance of finding a partner
 
       if (found) {
         setIsPartnerConnected(true);
-        // "Connected" message will be added by the useEffect watching isPartnerConnected
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
-        setIsPartnerConnected(false); // Explicitly set false if not found
+        setIsPartnerConnected(false); 
       }
       setIsFindingPartner(false);
     }
@@ -197,17 +198,17 @@ const VideoChatPage: React.FC = () => {
       <div className="flex justify-center gap-4 mb-4 w-full">
         <div
           className={cn(
-            'window flex flex-col', // Added flex flex-col
+            'window flex flex-col',
             theme === 'theme-7' && 'active glass', 
             theme === 'theme-98' ? 'no-padding-window-body' : ''
           )}
           style={videoFeedStyle}
         >
-          <div className={cn('title-bar flex-shrink-0', "text-sm")}> {/* Added flex-shrink-0 */}
+          <div className={cn('title-bar flex-shrink-0', "text-sm")}>
             <div className="title-bar-text">Your Video</div>
           </div>
           <div className={cn(
-            'window-body flex-grow overflow-hidden relative', // Added flex-grow, removed explicit height style
+            'window-body flex-grow overflow-hidden relative',
             theme === 'theme-98' ? 'p-0' : 
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
           )}>
@@ -227,42 +228,43 @@ const VideoChatPage: React.FC = () => {
 
         <div
           className={cn(
-            'window flex flex-col', // Added flex flex-col
+            'window flex flex-col',
             theme === 'theme-7' && 'active glass', 
             theme === 'theme-98' ? 'no-padding-window-body' : ''
           )}
           style={videoFeedStyle}
         >
-          <div className={cn('title-bar flex-shrink-0', "text-sm")}> {/* Added flex-shrink-0 */}
+          <div className={cn('title-bar flex-shrink-0', "text-sm")}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
            <div className={cn(
-            'window-body flex-grow overflow-hidden relative', // Added flex-grow, removed explicit height style
+            'window-body flex-grow overflow-hidden relative',
             theme === 'theme-98' ? 'p-0' : 
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
           )}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
-            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-              <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-            </div>
+            {!isPartnerConnected && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
+                </div>
+            )}
           </div>
         </div>
       </div>
 
       <div
-        className={cn('window', theme === 'theme-7' ? 'active glass' : '', 'mb-4 flex flex-col')} // Added flex flex-col
+        className={cn('window', theme === 'theme-7' ? 'active glass' : '', 'mb-4 flex flex-col')}
         style={chatWindowStyle}
       >
-        <div className={cn("title-bar", 'flex-shrink-0')}> {/* Added flex-shrink-0 */}
+        <div className={cn("title-bar", 'flex-shrink-0')}>
           <div className="title-bar-text">Chat</div>
         </div>
         <div
           className={cn(
-            'window-body window-body-content flex-grow', // Added flex-grow, window-body-content already handles flex layout
+            'window-body window-body-content flex-grow',
             theme === 'theme-98' ? 'p-0.5' : 
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
-          // Removed explicit height style here, window-body-content will fill
         >
           <ScrollArea
              ref={scrollAreaRef}
@@ -270,7 +272,7 @@ const VideoChatPage: React.FC = () => {
               "flex-grow", 
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
-            style={scrollableChatHeightStyle} // This style is for the ScrollArea's height within its parent
+            style={scrollableChatHeightStyle}
             theme={theme} 
           >
             <ul ref={chatMessagesListRef} className={cn('h-auto break-words', theme === 'theme-98' ? '' : 'space-y-1')}>
@@ -313,7 +315,7 @@ const VideoChatPage: React.FC = () => {
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className="h-full" // Use h-full to match input area's effective height
+                className="" // Removed h-full
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -323,10 +325,10 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-grow h-full" // Use h-full
+                className="flex-grow" // Removed h-full
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent h-full">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent"> {/* Removed h-full */}
                 Send
               </Button>
             </div>
