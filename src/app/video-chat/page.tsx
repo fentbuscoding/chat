@@ -45,7 +45,7 @@ const VideoChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
       if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Not connected. Try finding a new partner') || msg.text.includes('Searching for a partner...')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -129,7 +129,7 @@ const VideoChatPage: React.FC = () => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (!isFindingPartner && hasCameraPermission !== undefined) {
-       addMessage('Not connected. Try finding a new partner.', 'system');
+       // Removed the 'Not connected' message from here as per user request
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPartnerConnected, isFindingPartner, hasCameraPermission]);
@@ -185,7 +185,7 @@ const VideoChatPage: React.FC = () => {
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
-  const chatWindowStyle = useMemo(() => ({ width: '350px', height: '500px' }), []);
+  const chatWindowStyle = useMemo(() => ({ width: '450px', height: '500px' }), []);
   const inputAreaHeight = 60;
   const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
@@ -311,11 +311,11 @@ const VideoChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 h-full">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className=""
+                className="px-3"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -325,10 +325,10 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1"
+                className="flex-1 px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-3">
                 Send
               </Button>
             </div>

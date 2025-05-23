@@ -45,7 +45,7 @@ const ChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
       if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Not connected. Try finding a new partner') || msg.text.includes('Searching for a partner...')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -135,7 +135,7 @@ const ChatPage: React.FC = () => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (!isFindingPartner && ( (chatType === 'text') || (chatType === 'video' && hasCameraPermission !== undefined) ) ) {
-      addMessage('Not connected. Try finding a new partner.', 'system');
+      // Removed the 'Not connected' message from here as per user request
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPartnerConnected, isFindingPartner, chatType, hasCameraPermission]);
@@ -194,7 +194,7 @@ const ChatPage: React.FC = () => {
   const chatWindowStyle = useMemo(() => (
     chatType === 'video'
     ? { width: '350px', height: '400px' } // This case might not be used if video redirects to video-chat page
-    : { width: '450px', height: '600px' }
+    : { width: '550px', height: '600px' }
   ), [chatType]);
 
   const inputAreaHeight = 60;
@@ -256,18 +256,18 @@ const ChatPage: React.FC = () => {
               ))}
             </ul>
           </ScrollArea>
-          <div
+           <div
             className={cn(
               "p-2 flex-shrink-0",
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 h-full">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}
-                className=""
+                className="px-3" 
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -277,10 +277,10 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1"
+                className="flex-1 px-2 py-1" 
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-3">
                 Send
               </Button>
             </div>
