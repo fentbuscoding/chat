@@ -302,9 +302,6 @@ const ChatPage: React.FC = () => {
                 className="flex-1 px-2 py-1 mr-4"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">
-                Send
-              </Button>
             </div>
           </div>
         </div>
@@ -314,4 +311,3 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
-
