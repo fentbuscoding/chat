@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area'; 
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Message {
   id: string;
@@ -20,32 +20,30 @@ interface Message {
 
 const VideoChatPage: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams(); 
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { theme } = useTheme();
 
-  const chatType = 'video'; 
-  
+  const chatType = 'video';
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
 
-
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
-  const chatMessagesListRef = useRef<HTMLUListElement>(null); 
+  const chatMessagesListRef = useRef<HTMLUListElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
 
- const addMessage = useCallback((text: string, sender: Message['sender']) => {
+  const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-      // Remove previous system messages about connection status before adding a new one
       if (sender === 'system') {
-        const filteredMessages = prevMessages.filter(msg => 
+        const filteredMessages = prevMessages.filter(msg =>
           !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Not connected. Try finding a new partner') || msg.text.includes('Searching for a partner...')))
         );
         return [...filteredMessages, newMessageItem];
@@ -55,11 +53,11 @@ const VideoChatPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (chatMessagesListRef.current && scrollAreaRef.current) {
-        const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollViewport) {
-            scrollViewport.scrollTop = scrollViewport.scrollHeight;
-        }
+    if (scrollAreaRef.current) {
+      const scrollViewport = scrollAreaRef.current.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+          scrollViewport.scrollTop = scrollViewport.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -72,7 +70,7 @@ const VideoChatPage: React.FC = () => {
     }
      if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-}, []);
+  }, []);
 
 
   useEffect(() => {
@@ -86,7 +84,7 @@ const VideoChatPage: React.FC = () => {
         return;
       }
 
-      if (hasCameraPermission === undefined) { 
+      if (hasCameraPermission === undefined) {
         console.log("VideoChatPage: Attempting to get initial user media for video chat.");
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -105,11 +103,11 @@ const VideoChatPage: React.FC = () => {
           if (!didCancel) {
             console.error('VideoChatPage: Error accessing camera initially:', error);
             setHasCameraPermission(false);
-            toast({ 
-              variant: 'destructive',
-              title: 'Camera Access Denied',
-              description: 'Please enable camera permissions for video chat.',
-            });
+            // toast({
+            //   variant: 'destructive',
+            //   title: 'Camera Access Denied',
+            //   description: 'Please enable camera permissions for video chat.',
+            // });
           }
         }
       } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
@@ -118,22 +116,22 @@ const VideoChatPage: React.FC = () => {
     };
 
     getInitialCameraStream();
-    
+
     return () => {
       didCancel = true;
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
-      cleanupConnections(true); 
+      cleanupConnections(true);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasCameraPermission, toast]); 
+  }, [hasCameraPermission, toast, cleanupConnections]);
 
   useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (!isFindingPartner && hasCameraPermission !== undefined) { // Only show if camera status is known
+    } else if (!isFindingPartner && hasCameraPermission !== undefined) {
        addMessage('Not connected. Try finding a new partner.', 'system');
     }
-  }, [isPartnerConnected, isFindingPartner, hasCameraPermission, addMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPartnerConnected, isFindingPartner, hasCameraPermission]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -142,7 +140,7 @@ const VideoChatPage: React.FC = () => {
         toast({title: "Not Connected", description: "You must be connected to a partner to send messages.", variant: "default"});
         return;
     }
-    addMessage(newMessage, 'me'); 
+    addMessage(newMessage, 'me');
     setNewMessage('');
   }, [newMessage, addMessage, toast, isPartnerConnected]);
 
@@ -153,7 +151,7 @@ const VideoChatPage: React.FC = () => {
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
     } else {
-      if (isFindingPartner) return; 
+      if (isFindingPartner) return;
 
       if (hasCameraPermission === false) {
         toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
@@ -167,9 +165,9 @@ const VideoChatPage: React.FC = () => {
 
       setIsFindingPartner(true);
       addMessage('Searching for a partner...', 'system');
-      
+
       // Simulate finding a partner
-      await new Promise(resolve => setTimeout(resolve, 2000)); 
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const found = Math.random() > 0.3; // Simulate 70% chance of finding a partner
 
@@ -177,16 +175,17 @@ const VideoChatPage: React.FC = () => {
         setIsPartnerConnected(true);
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
-        setIsPartnerConnected(false); 
+        setIsPartnerConnected(false);
       }
       setIsFindingPartner(false);
     }
-  }, [isPartnerConnected, isFindingPartner, addMessage, toast, hasCameraPermission]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission]);
 
 
   const videoFeedStyle = useMemo(() => ({ width: '240px', height: '180px' }), []);
   const chatWindowStyle = useMemo(() => ({ width: '350px', height: '400px' }), []);
-  const inputAreaHeight = 60; 
+  const inputAreaHeight = 60;
   const scrollableChatHeightStyle = useMemo(() => ({
     height: `calc(100% - ${inputAreaHeight}px)`,
   }), [inputAreaHeight]);
@@ -199,7 +198,7 @@ const VideoChatPage: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col',
-            theme === 'theme-7' && 'active glass', 
+            theme === 'theme-7' && 'active glass',
             theme === 'theme-98' ? 'no-padding-window-body' : ''
           )}
           style={videoFeedStyle}
@@ -209,16 +208,16 @@ const VideoChatPage: React.FC = () => {
           </div>
           <div className={cn(
             'window-body flex-grow overflow-hidden relative',
-            theme === 'theme-98' ? 'p-0' : 
+            theme === 'theme-98' ? 'p-0' :
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
           )}>
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera video" />
-            {hasCameraPermission === false && ( 
+            {hasCameraPermission === false && (
               <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
                 <AlertTitle className="text-xs">Camera Denied</AlertTitle>
               </Alert>
             )}
-             {hasCameraPermission === undefined && ( 
+             {hasCameraPermission === undefined && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
                   <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
                 </div>
@@ -229,7 +228,7 @@ const VideoChatPage: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col',
-            theme === 'theme-7' && 'active glass', 
+            theme === 'theme-7' && 'active glass',
             theme === 'theme-98' ? 'no-padding-window-body' : ''
           )}
           style={videoFeedStyle}
@@ -239,7 +238,7 @@ const VideoChatPage: React.FC = () => {
           </div>
            <div className={cn(
             'window-body flex-grow overflow-hidden relative',
-            theme === 'theme-98' ? 'p-0' : 
+            theme === 'theme-98' ? 'p-0' :
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'p-0' : 'p-0') : 'p-0')
           )}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera video" />
@@ -262,18 +261,18 @@ const VideoChatPage: React.FC = () => {
         <div
           className={cn(
             'window-body window-body-content flex-grow',
-            theme === 'theme-98' ? 'p-0.5' : 
+            theme === 'theme-98' ? 'p-0.5' :
             (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
           <ScrollArea
              ref={scrollAreaRef}
              className={cn(
-              "flex-grow", 
+              "flex-grow",
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
             style={scrollableChatHeightStyle}
-            theme={theme} 
+            theme={theme}
           >
             <ul ref={chatMessagesListRef} className={cn('h-auto break-words', theme === 'theme-98' ? '' : 'space-y-1')}>
               {messages.map((msg) => (
@@ -306,7 +305,7 @@ const VideoChatPage: React.FC = () => {
           </ScrollArea>
           <div
             className={cn(
-              "p-2 flex-shrink-0", 
+              "p-2 flex-shrink-0",
               theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
@@ -315,7 +314,7 @@ const VideoChatPage: React.FC = () => {
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className="" // Removed h-full
+                className=""
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -325,10 +324,10 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-grow" // Removed h-full
+                className="flex-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent"> {/* Removed h-full */}
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent">
                 Send
               </Button>
             </div>
