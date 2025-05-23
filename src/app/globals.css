@@ -43,16 +43,15 @@ html, body, #__next {
   width: 100%; /* Ensure full width */
 }
 
-/* Styles for 7.css glass effect background - REMOVED for html.theme-7 to avoid full page coverage */
-/*
+/* Styles for 7.css theme background */
 html.theme-7 {
-    background-image: url("https://unpkg.com/7.css/img/background.svg");
+    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
 }
-*/
+
 
 /* Basic styling for the video elements */
 video {
