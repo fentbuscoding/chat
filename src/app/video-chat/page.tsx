@@ -311,11 +311,11 @@ const VideoChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center gap-2 h-full">
+            <div className="flex items-center gap-2">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className="px-3"
+                className="px-2"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -328,7 +328,7 @@ const VideoChatPage: React.FC = () => {
                 className="flex-1 px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-3">
+              <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2">
                 Send
               </Button>
             </div>
