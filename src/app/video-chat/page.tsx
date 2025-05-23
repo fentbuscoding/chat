@@ -81,7 +81,7 @@ const VideoChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -334,7 +334,7 @@ const VideoChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center">
+            <div className="flex items-center w-full">
                <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
@@ -348,7 +348,7 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 px-2 py-1"
+                className="flex-1 w-full px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
             </div>
