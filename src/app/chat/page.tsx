@@ -80,7 +80,7 @@ const ChatPage: React.FC = () => {
        if (sender === 'system') {
         // Remove previous system messages about connection status
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -166,11 +166,9 @@ const ChatPage: React.FC = () => {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.text.includes('You have disconnected'))) {
-      // This handles the case after a manual disconnect, ensuring "Not connected" doesn't immediately follow "You have disconnected"
-      // If no "You have disconnected" message, then show "Not connected"
-    } else if (!isFindingPartner && !isPartnerConnected) {
-       // addMessage('Not connected. Try finding a new partner.', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && !messages.some(m => m.text.includes('You have disconnected'))) {
+      // Show "Not connected" only if "You have disconnected" wasn't the last system message
+      // addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -210,15 +208,13 @@ const ChatPage: React.FC = () => {
       }
 
       setIsFindingPartner(true);
-      // "Searching for a partner..." message is handled by the useEffect above
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3; // Simulate finding a partner
+      const found = Math.random() > 0.3; 
 
       if (found) {
         setIsPartnerConnected(true);
-        // "Connected with a partner..." message is handled by the useEffect above
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
@@ -302,6 +298,13 @@ const ChatPage: React.FC = () => {
                 className="flex-1 w-full px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
+                className="px-2 ml-2"
+              >
+                Send
+              </Button>
             </div>
           </div>
         </div>

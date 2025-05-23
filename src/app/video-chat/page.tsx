@@ -81,7 +81,7 @@ const VideoChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -118,7 +118,7 @@ const VideoChatPage: React.FC = () => {
         return;
       }
 
-      if (hasCameraPermission === undefined) { // Only attempt if status is unknown
+      if (hasCameraPermission === undefined) { 
         console.log("VideoChatPage: Attempting to get initial user media for video chat.");
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -145,7 +145,6 @@ const VideoChatPage: React.FC = () => {
           }
         }
       } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
-        // If permission was already granted and stream exists, re-assign it (e.g., after a hot reload)
         localVideoRef.current.srcObject = localStreamRef.current;
       }
     };
@@ -155,19 +154,18 @@ const VideoChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
-      cleanupConnections(true); // Ensure local stream is stopped on unmount
+      cleanupConnections(true); 
     };
-  }, [hasCameraPermission, toast, cleanupConnections]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCameraPermission, toast]); // Removed cleanupConnections from dependency array as it's stable now.
 
    useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.text.includes('You have disconnected'))) {
-      // Prevents "Not connected" right after "You have disconnected"
-    } else if (!isFindingPartner && !isPartnerConnected ) {
-      // addMessage('Not connected. Try finding a new partner.', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && !messages.some(m => m.text.includes('You have disconnected'))) {
+        // addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -351,6 +349,13 @@ const VideoChatPage: React.FC = () => {
                 className="flex-1 w-full px-2 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
+                className="px-2 ml-2"
+              >
+                Send
+              </Button>
             </div>
           </div>
         </div>
