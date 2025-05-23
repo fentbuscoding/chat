@@ -299,7 +299,7 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 px-2 py-1 mr-2"
+                className="flex-1 px-2 py-1 mr-4"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button onClick={handleSendMessage} disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()} className="accent px-2 ml-auto">
@@ -314,3 +314,4 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
+
