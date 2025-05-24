@@ -172,7 +172,7 @@ const VideoChatPage: React.FC = () => {
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
     } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-      // addMessage('Not connected. Try finding a new partner.', 'system'); // Removed as per request
+      addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -238,7 +238,7 @@ const VideoChatPage: React.FC = () => {
           'window flex flex-col m-2',
           effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{width: '350px', height: '250px', minHeight: '150px'}}
+        style={{width: '200px', height: '200px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Your Video</div>
@@ -264,7 +264,7 @@ const VideoChatPage: React.FC = () => {
           'window flex flex-col m-2',
           effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{width: '350px', height: '250px', minHeight: '150px'}}
+        style={{width: '200px', height: '200px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Partner's Video</div>
