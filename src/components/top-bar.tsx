@@ -24,9 +24,9 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="flex justify-end p-2"> {/* Simplified container */}
+      <div className="flex p-2"> {/* Removed justify-end */}
         {/* Title bar removed */}
-        <div className="flex items-center space-x-2 bg-inherit"> {/* Simplified inner div, kept bg-inherit for potential theme effects */}
+        <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Added ml-auto, kept bg-inherit */}
           {/* Match the theme-98 path from the mounted state for SSR consistency */}
           <Label htmlFor="theme-select-native">Theme:</Label>
           <select
@@ -47,9 +47,9 @@ export function TopBar() {
   }
 
   return (
-    <div className="flex justify-end p-2"> {/* Simplified container */}
+    <div className="flex p-2"> {/* Removed justify-end */}
       {/* Title bar removed */}
-       <div className="flex items-center space-x-2 bg-inherit"> {/* Simplified inner div, kept bg-inherit */}
+       <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Added ml-auto, kept bg-inherit */}
 
         {theme === 'theme-98' ? (
           <>
