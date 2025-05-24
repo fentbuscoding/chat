@@ -24,14 +24,9 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="window-body top-bar-main-body" style={{ margin: 0 }}>
-        <div className="title-bar">
-          <div className="title-bar-text">Ballscord</div>
-          <div className="title-bar-controls">
-            {/* Optional: Add window controls if needed by the theme */}
-          </div>
-        </div>
-        <div className="flex items-center justify-end p-2 space-x-2 bg-inherit">
+      <div className="flex justify-end p-2"> {/* Removed window-body, top-bar-main-body, style */}
+        {/* Title bar removed */}
+        <div className="flex items-center space-x-2"> {/* Simplified inner div */}
           {/* Match the theme-98 path from the mounted state for SSR consistency */}
           <Label htmlFor="theme-select-native">Theme:</Label>
           <select
@@ -52,14 +47,9 @@ export function TopBar() {
   }
 
   return (
-    <div className="window-body top-bar-main-body" style={{margin:0}}>
-      <div className="title-bar">
-        <div className="title-bar-text">Ballscord</div>
-          <div className="title-bar-controls">
-            {/* Optional: Add window controls if needed by the theme */}
-          </div>
-      </div>
-       <div className="flex items-center justify-end p-2 space-x-2 bg-inherit">
+    <div className="flex justify-end p-2"> {/* Removed window-body, top-bar-main-body, style */}
+      {/* Title bar removed */}
+       <div className="flex items-center space-x-2 bg-inherit"> {/* Simplified inner div, kept bg-inherit */}
 
         {theme === 'theme-98' ? (
           <>
