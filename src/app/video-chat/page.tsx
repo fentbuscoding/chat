@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -232,50 +231,53 @@ const VideoChatPage: React.FC = () => {
 
   return (
     <>
-      {/* Your Video */}
-      <div
-        className={cn(
-          'window flex flex-col m-2',
-          effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
-        )}
-        style={{width: '250px', height: '200px', minHeight: '150px'}}
-      >
-        <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="title-bar-text">Your Video</div>
-        </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
-          <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
-          { hasCameraPermission === false && (
-            <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
-              <AlertTitle className="text-xs">Camera Denied</AlertTitle>
-            </Alert>
+      {/* Video Feeds Section - Centered and side-by-side */}
+      <div className="flex justify-center gap-4 mb-4">
+        {/* Your Video */}
+        <div
+          className={cn(
+            'window flex flex-col',
+            effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
-           { hasCameraPermission === undefined && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
-              </div>
+          style={{width: '250px', height: '200px', minHeight: '150px'}}
+        >
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+            <div className="title-bar-text">Your Video</div>
+          </div>
+          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+            <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
+            { hasCameraPermission === false && (
+              <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
+                <AlertTitle className="text-xs">Camera Denied</AlertTitle>
+              </Alert>
             )}
+             { hasCameraPermission === undefined && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                  <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
+                </div>
+              )}
+          </div>
         </div>
-      </div>
 
-      {/* Partner's Video */}
-      <div
-        className={cn(
-          'window flex flex-col m-2',
-          effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
-        )}
-        style={{width: '250px', height: '200px', minHeight: '150px'}}
-      >
-        <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="title-bar-text">Partner's Video</div>
-        </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
-          <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
-          {!isPartnerConnected && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-              <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-              </div>
+        {/* Partner's Video */}
+        <div
+          className={cn(
+            'window flex flex-col',
+            effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
+          style={{width: '250px', height: '200px', minHeight: '150px'}}
+        >
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+            <div className="title-bar-text">Partner's Video</div>
+          </div>
+          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+            <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
+            {!isPartnerConnected && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
+                </div>
+            )}
+          </div>
         </div>
       </div>
       {/* End of Video Feeds Section */}
@@ -284,10 +286,10 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative m-2',
+          'window flex flex-col flex-1 relative m-2', // Added m-2 for some spacing if it becomes a direct child of body
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
-        style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
+        style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }} // Added margin: '0 auto' for centering chat window
       >
         <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
@@ -372,4 +374,4 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
+    
