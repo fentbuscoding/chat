@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation'; // Removed useRouter as it's not used
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -231,14 +231,13 @@ const VideoChatPage: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
-      {/* Video Feeds Section - Container [D4] removed */}
       {/* Your Video */}
       <div
         className={cn(
           'window flex flex-col',
           effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
         )}
-        style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Your Video</div>
@@ -264,7 +263,7 @@ const VideoChatPage: React.FC = () => {
           'window flex flex-col',
           effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
         )}
-        style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Partner's Video</div>
@@ -372,3 +371,4 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
+
