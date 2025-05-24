@@ -2,6 +2,7 @@
 
 
 
+
 /* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
@@ -258,4 +259,9 @@ video {
   background-color: transparent;
 }
 
+/* Ensure title bar text is left-aligned */
+.title-bar-text {
+  text-align: left !important;
+}
     
+
