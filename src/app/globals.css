@@ -46,16 +46,17 @@ html, body, #__next {
 
 /* Styles for 7.css theme background */
 html.theme-7 {
-    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    /* Background properties removed from here */
+    /* Retain if other html.theme-7 specific (non-background) styles are needed */
 }
 
-/* Remove stars background from body when theme-7 is active */
+/* Apply Frutiger background directly to body for theme-7, overriding stars */
 html.theme-7 body {
-  background-image: none;
+  background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 
@@ -194,4 +195,31 @@ video {
 /* For 7.css, ensure title bar text is visible on glass */
 .theme-7 .window.glass .title-bar .title-bar-text {
     color: #000; /* Or a suitable contrast color */
+}
+
+/* Themed scrollbar styles */
+.themed-scrollbar-98 {
+  background-color: #c0c0c0; /* silver */
+}
+.themed-scrollbar-98 > [data-radix-scroll-area-thumb] {
+  background-color: #808080; /* gray, with button styles from 98.css it will look raised */
+  border-top: 1px solid #dfdfdf;
+  border-left: 1px solid #dfdfdf;
+  border-right: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+  box-shadow: inset 1px 1px 0px #ffffff, inset -1px -1px 0px #808080;
+}
+
+.themed-scrollbar-7 {
+  background: rgba(200, 200, 200, 0.5); /* Light gray, slightly transparent */
+}
+.themed-scrollbar-7 > [data-radix-scroll-area-thumb] {
+  background-color: #a0a0a0; /* Darker gray for the thumb */
+  border-radius: 3px;
+}
+.themed-scrollbar-7:hover {
+    background: rgba(180,180,180,0.7);
+}
+.themed-scrollbar-7 > [data-radix-scroll-area-thumb]:hover {
+    background-color: #808080;
 }
