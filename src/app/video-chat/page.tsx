@@ -364,7 +364,7 @@ const VideoChatPage: React.FC = () => {
         <img
           src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
           alt="Decorative Goldfish"
-          className="absolute top-[6px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          className="absolute top-[-24px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
           data-ai-hint="goldfish decoration"
         />
       </div>
