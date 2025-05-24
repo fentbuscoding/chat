@@ -24,12 +24,10 @@ export default function RootLayout({
           defaultTheme="theme-98"
           enableSystem={false}
         >
-          <div className="flex flex-col min-h-screen relative"> {/* Added relative for positioning context */}
-            <ConditionalTopBar />
-            <main className="flex-1 flex flex-col">{children}</main>
-            <Toaster />
-            {/* Goldfish image removed from here */}
-          </div>
+          {/* The div with className "flex flex-col min-h-screen relative" (labeled [D1]) has been removed */}
+          <ConditionalTopBar />
+          <main className="flex-1 flex flex-col">{children}</main>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
