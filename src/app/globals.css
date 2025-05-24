@@ -9,6 +9,27 @@
   outline: 1px solid red !important;
 }
 
+body {
+  counter-reset: div-debug-counter;
+}
+
+/* Add a number to divs for easier identification */
+/* This will only be visible if the div has some content or specific dimensions. */
+div::before {
+  counter-increment: div-debug-counter;
+  content: "[D" counter(div-debug-counter) "] "; /* "D" for Div */
+  font-size: 10px; /* Small font size */
+  font-weight: bold;
+  color: #0000FF; /* Blue color */
+  background-color: rgba(255, 255, 255, 0.8); /* Slight white background for readability */
+  padding: 0 2px;
+  margin-right: 3px; /* Space after the number */
+  border: 1px solid rgba(0, 0, 255, 0.6); /* Light blue border */
+  border-radius: 3px;
+  z-index: 10000; /* High z-index to try to keep it on top */
+  /* This adds content *inside* the div, before other child elements. */
+}
+
 
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
@@ -177,7 +198,7 @@ video {
 }
 
 .theme-7 .input-area {
-  border-top: 1px solid #adb5bd; /* A typical border color for 7.css */
+  /* border-top: 1px solid #adb5bd; */ /* A typical border color for 7.css */
   background-color: transparent; /* Make input area background transparent for theme-7 */
 }
 
