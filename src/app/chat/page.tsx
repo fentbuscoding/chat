@@ -86,7 +86,7 @@ const ChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected.')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -172,9 +172,9 @@ const ChatPage: React.FC = () => {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && messages.length > 0 && !messages.some(m => m.text.includes('You have disconnected'))) {
-      // Show "Not connected" only if "You have disconnected" wasn't the last system message
-      // addMessage('Not connected. Try finding a new partner.', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
+       // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
+      addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -217,7 +217,7 @@ const ChatPage: React.FC = () => {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3; 
+      const found = Math.random() > 0.3;
 
       if (found) {
         setIsPartnerConnected(true);
@@ -319,7 +319,7 @@ const ChatPage: React.FC = () => {
         <img
           src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
           alt="Decorative Goldfish"
-          className="absolute top-[-54px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          className="absolute top-[-30px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
           data-ai-hint="goldfish decoration"
         />
       </div>
@@ -328,4 +328,3 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
-

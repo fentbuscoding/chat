@@ -171,8 +171,9 @@ const VideoChatPage: React.FC = () => {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && messages.length > 0 && !messages.some(m => m.sender === 'system' && (m.text.includes('You have disconnected') || m.text.includes('Connected with a partner') || m.text.includes('Searching for a partner...')))) {
-      // addMessage('Not connected.', 'system');
+    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
+       // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
+      addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -285,7 +286,7 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative', 
+          'window flex flex-col flex-1 relative',
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
@@ -364,7 +365,7 @@ const VideoChatPage: React.FC = () => {
         <img
           src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
           alt="Decorative Goldfish"
-          className="absolute top-[-54px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          className="absolute top-[-30px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
           data-ai-hint="goldfish decoration"
         />
       </div>
@@ -373,4 +374,3 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
