@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -243,7 +242,7 @@ const VideoChatPage: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
       {/* Video Feeds Column/Section */}
-      <div className="flex flex-col gap-2 md:gap-4 w-full md:w-[260px] lg:w-[320px]">
+      <div className="flex flex-col gap-2 md:gap-4 w-full md:w-auto"> {/* Adjusted width for responsiveness */}
         {/* Your Video Window */}
         <div
           className={cn(
@@ -295,11 +294,17 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Window Column/Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1',
+          'window flex flex-col flex-1 relative', // Added relative for image positioning
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
       >
+        <img
+          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+          alt="Decorative Goldfish"
+          className="absolute top-2 right-2 w-10 h-10 object-contain pointer-events-none select-none z-10"
+          data-ai-hint="goldfish decoration"
+        />
         <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
@@ -377,6 +382,3 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
-
-    

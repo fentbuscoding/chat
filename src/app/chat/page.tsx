@@ -166,7 +166,7 @@ const ChatPage: React.FC = () => {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && !messages.some(m => m.text.includes('You have disconnected'))) {
+    } else if (!isFindingPartner && !isPartnerConnected && messages.length > 0 && !messages.some(m => m.text.includes('You have disconnected'))) {
       // Show "Not connected" only if "You have disconnected" wasn't the last system message
       // addMessage('Not connected. Try finding a new partner.', 'system');
     }
@@ -236,9 +236,15 @@ const ChatPage: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
       <div
-        className={cn('window flex flex-col', theme === 'theme-7' ? 'active glass' : '', 'mb-4')}
+        className={cn('window flex flex-col relative', theme === 'theme-7' ? 'active glass' : '', 'mb-4')}
         style={chatWindowStyle}
       >
+        <img
+          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+          alt="Decorative Goldfish"
+          className="absolute top-2 right-2 w-10 h-10 object-contain pointer-events-none select-none z-10"
+          data-ai-hint="goldfish decoration"
+        />
         <div className={cn("title-bar", 'flex-shrink-0')}>
           <div className="title-bar-text">Text Chat</div>
         </div>
@@ -314,4 +320,3 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
-
