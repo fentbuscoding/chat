@@ -1,6 +1,7 @@
 
 
 
+
 /* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
@@ -10,7 +11,27 @@
   outline: 1px solid red !important;
 }
 
-/* Debugging numbers for divs removed */
+/* Debugging: Numbered divs */
+body {
+  counter-reset: div-counter;
+}
+
+div::before {
+  counter-increment: div-counter;
+  content: "[D" counter(div-counter) "] ";
+  font-size: 8px;
+  color: blue;
+  /* Optional: Prevent selection and interference with layout */
+  display: inline-block; /* To allow margin/padding if needed and flow with text */
+  margin-right: 2px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  /* Ensure it doesn't break flex/grid layouts of the parent */
+  vertical-align: baseline; /* Or top, middle, as appropriate */
+}
+
 
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
