@@ -24,10 +24,9 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect.
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="flex justify-end items-center p-2"> {/* Outer container, styles adjusted */}
-        {/* Title bar removed */}
-        {/* Inner div removed, Label and select are direct children */}
-        <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+      <> {/* Outermost div removed */}
+        {/* Theme selector elements rendered directly */}
+        <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
         <select
           id="theme-select-native"
           value="theme-98" // Default theme value
@@ -40,18 +39,17 @@ export function TopBar() {
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-      </div>
+      </>
     );
   }
 
   // This block runs after client-side mounting
   return (
-    <div className="flex justify-end items-center p-2"> {/* Outer container, styles adjusted */}
-      {/* Title bar removed */}
-      {/* Inner div removed, Label and select/Select are direct children (wrapped in fragments for conditional rendering) */}
+    <> {/* Outermost div removed */}
+      {/* Theme selector elements rendered directly */}
       {theme === 'theme-98' ? (
         <>
-          <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+          <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
           <select
             id="theme-select-native"
             value={theme}
@@ -65,7 +63,7 @@ export function TopBar() {
         </>
       ) : (
         <>
-          <Label htmlFor="theme-select-custom" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+          <Label htmlFor="theme-select-custom" className="mr-2">Theme:</Label>
           <Select
             value={theme}
             onValueChange={(value: 'theme-98' | 'theme-7') => handleThemeChange(value)}
@@ -80,6 +78,6 @@ export function TopBar() {
           </Select>
         </>
       )}
-    </div>
+    </>
   );
 }
