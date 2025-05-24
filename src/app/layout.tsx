@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import './(fonts)/fonts.css'; // Import the font CSS
 import { ThemeProvider } from '@/components/theme-provider';
-import { TopBar } from '@/components/top-bar';
+import { ConditionalTopBar } from '@/components/conditional-top-bar'; // Changed import
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export default function RootLayout({
           enableSystem={false} // Disable system theme preference
         >
           <div className="flex flex-col min-h-screen">
-            <TopBar />
+            <ConditionalTopBar /> {/* Use ConditionalTopBar */}
             <main className="flex-1 flex flex-col">{children}</main>
             <Toaster />
           </div>
@@ -34,4 +34,3 @@ export default function RootLayout({
     </html>
   );
 }
-
