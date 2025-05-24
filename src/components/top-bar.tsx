@@ -68,8 +68,8 @@ export function TopBar() {
               id="theme-select-native"
               value={theme}
               onChange={(e) => handleThemeChange(e.target.value)}
-              className="w-[120px] field-row" 
-              style={{ height: '21px' }} 
+              className="w-[120px] field-row"
+              style={{ height: '21px' }}
             >
               <option value="theme-98">Windows 98</option>
               <option value="theme-7">Windows 7</option>
