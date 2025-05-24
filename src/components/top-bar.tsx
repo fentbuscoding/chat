@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/components/theme-provider';
-import { Label } from '@/components/ui/label-themed'; 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select-themed'; 
+import { Label } from '@/components/ui/label-themed';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select-themed';
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();
@@ -24,8 +24,8 @@ export function TopBar() {
     // Render a placeholder or null during server-side rendering and initial client-side hydration
     // This ensures the initial render matches the server output before client-side logic takes over.
     return (
-      <div className="window-body" style={{margin:0}}>
-        <div className="title-bar"> 
+      <div className="window-body top-bar-main-body" style={{margin:0}}> {/* Ensure top-bar-main-body for SSR consistency */}
+        <div className="title-bar">
           <div className="title-bar-text">Ballscord</div>
             <div className="title-bar-controls">
             </div>
@@ -33,14 +33,14 @@ export function TopBar() {
          <div className="flex items-center justify-end p-2 space-x-2 bg-inherit">
            <Label htmlFor="theme-select-placeholder">Theme:</Label>
            {/* Placeholder for the select element to match structure */}
-           <div id="theme-select-placeholder" className="w-[120px] h-[21px] border field-row bg-gray-200" /> 
+           <div id="theme-select-placeholder" className="w-[120px] h-[21px] border field-row" style={{ backgroundColor: 'var(--button-face, #c0c0c0)'}} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="window-body" style={{margin:0}}> {/* Use window-body for theme consistency */}
+    <div className="window-body top-bar-main-body" style={{margin:0}}> {/* Added top-bar-main-body */}
       <div className="title-bar">
         <div className="title-bar-text">Ballscord</div>
           <div className="title-bar-controls">
@@ -48,7 +48,7 @@ export function TopBar() {
           </div>
       </div>
        <div className="flex items-center justify-end p-2 space-x-2 bg-inherit"> {/* Use bg-inherit to respect theme */}
-        
+
         {theme === 'theme-98' ? (
           <>
             <Label htmlFor="theme-select-native">Theme:</Label>
@@ -84,4 +84,3 @@ export function TopBar() {
     </div>
   );
 }
-

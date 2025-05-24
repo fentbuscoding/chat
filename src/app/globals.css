@@ -46,7 +46,6 @@ html, body, #__next {
 
 /* Styles for 7.css theme background */
 html.theme-7 {
-    /* Background properties removed from here */
     /* Retain if other html.theme-7 specific (non-background) styles are needed */
 }
 
@@ -222,4 +221,9 @@ video {
 }
 .themed-scrollbar-7 > [data-radix-scroll-area-thumb]:hover {
     background-color: #808080;
+}
+
+/* Make the TopBar main background transparent for theme-7 */
+.theme-7 .top-bar-main-body {
+  background-color: transparent;
 }
