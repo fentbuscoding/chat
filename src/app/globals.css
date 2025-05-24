@@ -3,6 +3,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* For debugging purposes: outline all elements */
+/* * {
+  outline: 1px solid red !important;
+} */
+
+
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
 }
@@ -227,3 +233,5 @@ video {
 .theme-7 .top-bar-main-body {
   background-color: transparent;
 }
+
+    
