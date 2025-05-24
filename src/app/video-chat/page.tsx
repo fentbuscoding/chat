@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -171,7 +172,7 @@ const VideoChatPage: React.FC = () => {
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
     } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-      addMessage('Not connected. Try finding a new partner.', 'system');
+      // addMessage('Not connected. Try finding a new partner.', 'system'); // Removed as per request
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
 
@@ -234,10 +235,10 @@ const VideoChatPage: React.FC = () => {
       {/* Your Video */}
       <div
         className={cn(
-          'window flex flex-col m-2', // Added margin for spacing when independent
-          effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+          'window flex flex-col m-2',
+          effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}}
+        style={{width: '350px', height: '250px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Your Video</div>
@@ -260,10 +261,10 @@ const VideoChatPage: React.FC = () => {
       {/* Partner's Video */}
       <div
         className={cn(
-          'window flex flex-col m-2', // Added margin for spacing when independent
-          effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+          'window flex flex-col m-2',
+          effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}}
+        style={{width: '350px', height: '250px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Partner's Video</div>
@@ -283,7 +284,7 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative m-2', // Added margin for spacing when independent
+          'window flex flex-col flex-1 relative m-2',
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
@@ -371,4 +372,3 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
