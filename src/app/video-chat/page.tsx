@@ -230,19 +230,19 @@ const VideoChatPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
+    <>
       {/* Your Video */}
       <div
         className={cn(
-          'window flex flex-col',
+          'window flex flex-col m-2', // Added margin for spacing when independent
           effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
         )}
-        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Your Video</div>
         </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+        <div className={cn('window-body flex-grow overflow-hidden relative', 'p-0')}>
           <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
           { hasCameraPermission === false && (
             <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -260,15 +260,15 @@ const VideoChatPage: React.FC = () => {
       {/* Partner's Video */}
       <div
         className={cn(
-          'window flex flex-col',
+          'window flex flex-col m-2', // Added margin for spacing when independent
           effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
         )}
-        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+        style={{height: '250px', minHeight: '150px', aspectRatio: '4/3'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Partner's Video</div>
         </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+        <div className={cn('window-body flex-grow overflow-hidden relative', 'p-0')}>
           <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
           {!isPartnerConnected && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -283,7 +283,7 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative',
+          'window flex flex-col flex-1 relative m-2', // Added margin for spacing when independent
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
@@ -366,7 +366,7 @@ const VideoChatPage: React.FC = () => {
           data-ai-hint="goldfish decoration"
         />
       </div>
-    </div>
+    </>
   );
 };
 
