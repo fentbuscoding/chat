@@ -45,11 +45,16 @@ html, body, #__next {
 
 /* Styles for 7.css theme background */
 html.theme-7 {
-    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg");
+    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+}
+
+/* Remove stars background from body when theme-7 is active */
+html.theme-7 body {
+  background-image: none;
 }
 
 
