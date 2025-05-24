@@ -238,12 +238,12 @@ const VideoChatPage: React.FC = () => {
           'window flex flex-col m-2',
           effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{width: '200px', height: '200px', minHeight: '150px'}}
+        style={{width: '250px', height: '200px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Your Video</div>
         </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative', 'p-0')}>
+        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
           <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
           { hasCameraPermission === false && (
             <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -264,12 +264,12 @@ const VideoChatPage: React.FC = () => {
           'window flex flex-col m-2',
           effectiveTheme === 'theme-7' ? 'glass' : (effectiveTheme === 'theme-98' ? 'no-padding-window-body' : '')
         )}
-        style={{width: '200px', height: '200px', minHeight: '150px'}}
+        style={{width: '250px', height: '200px', minHeight: '150px'}}
       >
         <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Partner's Video</div>
         </div>
-        <div className={cn('window-body flex-grow overflow-hidden relative', 'p-0')}>
+        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
           <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
           {!isPartnerConnected && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -372,3 +372,4 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
+
