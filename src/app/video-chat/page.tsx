@@ -22,7 +22,7 @@ interface Message {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
   const msg = data.messages[index];
-  const currentTheme = data.theme; // theme is passed via itemData, already considering isMounted from parent
+  const currentTheme = data.theme;
 
   return (
     <li
@@ -162,9 +162,9 @@ const VideoChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
-      cleanupConnections(true); // Ensure local stream is stopped on unmount
+      cleanupConnections(true);
     };
-  }, [hasCameraPermission, toast, cleanupConnections]); // Added cleanupConnections
+  }, [hasCameraPermission, toast, cleanupConnections]);
 
    useEffect(() => {
     if (isPartnerConnected) {
@@ -184,45 +184,38 @@ const VideoChatPage: React.FC = () => {
         return;
     }
     addMessage(newMessage, 'me');
-    // Simulate partner reply for now
     setTimeout(() => {
         addMessage(`Partner: ${newMessage}`, 'partner');
     }, 1000);
     setNewMessage('');
-  }, [newMessage, addMessage, toast, isPartnerConnected]); // Added isPartnerConnected and toast
+  }, [newMessage, addMessage, toast, isPartnerConnected]);
 
 
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
-      // Disconnect logic
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
-      // Add any WebRTC cleanup logic here if needed (e.g., closing peer connection)
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null; // Clear remote video
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     } else {
-      // Connect logic
       if (isFindingPartner) return;
 
       if (hasCameraPermission === false) {
         toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
         return;
       }
-      if (hasCameraPermission === undefined) { // Camera check still pending
+      if (hasCameraPermission === undefined) {
          toast({ title: "Camera Initializing", description: "Please wait for camera access before finding a partner.", variant: "default"});
         return;
       }
 
       setIsFindingPartner(true);
-      // Simulate finding a partner
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const found = Math.random() > 0.3; // Simulate 70% chance of finding a partner
+      const found = Math.random() > 0.3;
 
       if (found) {
         setIsPartnerConnected(true);
-        // Simulate receiving remote stream (in a real app, this comes via WebRTC)
-        // For now, we'll just indicate connection
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
@@ -231,19 +224,15 @@ const VideoChatPage: React.FC = () => {
     }
   }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage]);
 
-  const inputAreaHeight = 60; // Approximate height of the input bar
-  // Calculate height available for the message list
+  const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
 
-  // Memoize itemData for the List component
   const itemData = useMemo(() => ({ messages, theme: effectiveTheme }), [messages, effectiveTheme]);
 
 
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
-      {/* Video Feeds Column/Section */}
-      <div className="flex flex-col gap-2 md:gap-4 w-full md:w-auto"> {/* Adjusted width for responsiveness */}
-        {/* Your Video Window */}
+      <div className="flex flex-col gap-2 md:gap-4 w-full md:w-auto">
         <div
           className={cn(
             'window flex flex-col',
@@ -269,7 +258,6 @@ const VideoChatPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Partner's Video Window */}
         <div
           className={cn(
             'window flex flex-col',
@@ -291,20 +279,13 @@ const VideoChatPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Chat Window Column/Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative', // Added relative for image positioning
+          'window flex flex-col flex-1',
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
       >
-        <img
-          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-          alt="Decorative Goldfish"
-          className="absolute top-2 right-2 w-10 h-10 object-contain pointer-events-none select-none z-10"
-          data-ai-hint="goldfish decoration"
-        />
         <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
@@ -329,8 +310,8 @@ const VideoChatPage: React.FC = () => {
                 itemCount={messages.length}
                 itemSize={itemHeight}
                 width={chatListContainerWidth}
-                itemData={itemData} // Pass memoized itemData including effectiveTheme
-                className="scroll-area-viewport" // Ensure this class is present if ScrollArea styles depend on it
+                itemData={itemData}
+                className="scroll-area-viewport"
               >
                 {Row}
               </List>

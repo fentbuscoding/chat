@@ -57,6 +57,13 @@ const ChatPage: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { theme } = useTheme();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const effectiveTheme = isMounted ? theme : 'theme-98';
 
   const chatType = useMemo(() => searchParams.get('type') as 'text' | 'video' || 'text', [searchParams]);
 
@@ -78,7 +85,6 @@ const ChatPage: React.FC = () => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
-        // Remove previous system messages about connection status
         const filteredMessages = prevMessages.filter(msg =>
           !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected. Try finding a new partner.')))
         );
@@ -231,34 +237,28 @@ const ChatPage: React.FC = () => {
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatContainerHeight > 0 ? chatContainerHeight - inputAreaHeight : 0;
 
-  const itemData = useMemo(() => ({ messages, theme }), [messages, theme]);
+  const itemData = useMemo(() => ({ messages, theme: effectiveTheme }), [messages, effectiveTheme]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
       <div
-        className={cn('window flex flex-col relative', theme === 'theme-7' ? 'active glass' : '', 'mb-4')}
+        className={cn('window flex flex-col', effectiveTheme === 'theme-7' ? 'active glass' : '', 'mb-4')}
         style={chatWindowStyle}
       >
-        <img
-          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-          alt="Decorative Goldfish"
-          className="absolute top-2 right-2 w-10 h-10 object-contain pointer-events-none select-none z-10"
-          data-ai-hint="goldfish decoration"
-        />
-        <div className={cn("title-bar", 'flex-shrink-0')}>
+        <div className={cn("title-bar", 'flex-shrink-0', effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Text Chat</div>
         </div>
         <div
           ref={chatContainerRef}
           className={cn(
             'window-body window-body-content flex-grow',
-            theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? (cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
+            effectiveTheme === 'theme-98' ? 'p-0.5' : (effectiveTheme === 'theme-7' ? (cn(effectiveTheme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
           <div
             className={cn(
               "flex-grow",
-              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
+              effectiveTheme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
             style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
@@ -276,14 +276,16 @@ const ChatPage: React.FC = () => {
               </List>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading messages...</p>
+                <p className={cn(effectiveTheme === 'theme-7' ? 'text-black' : 'text-gray-500 dark:text-gray-400')}>
+                  Loading messages...
+                </p>
               </div>
             )}
           </div>
            <div
             className={cn(
               "p-2 flex-shrink-0",
-              theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
+              effectiveTheme === 'theme-98' ? 'input-area status-bar' : (effectiveTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
