@@ -21,68 +21,65 @@ export function TopBar() {
   };
 
   if (!mounted) {
-    // This block runs on SSR and initial client render before useEffect
+    // This block runs on SSR and initial client render before useEffect.
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="flex p-2"> {/* Outer div structure */}
+      <div className="flex justify-end items-center p-2"> {/* Outer container, styles adjusted */}
         {/* Title bar removed */}
-        <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Inner div for theme selector, aligned right */}
-          {/* Match the theme-98 path from the mounted state for SSR consistency */}
-          <Label htmlFor="theme-select-native">Theme:</Label>
-          <select
-            id="theme-select-native"
-            value="theme-98" // Default theme value
-            disabled // Disable during SSR/pre-hydration
-            readOnly // Indicate it's not interactive yet
-            className="w-[120px] field-row" // Ensure class matches theme-98 version
-            style={{ height: '21px' }} // Ensure style matches theme-98 version
-            onChange={() => {}} // Dummy onChange to satisfy React, will be replaced client-side
-          >
-            <option value="theme-98">Windows 98</option>
-            <option value="theme-7">Windows 7</option>
-          </select>
-        </div>
+        {/* Inner div removed, Label and select are direct children */}
+        <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+        <select
+          id="theme-select-native"
+          value="theme-98" // Default theme value
+          disabled // Disable during SSR/pre-hydration
+          readOnly // Indicate it's not interactive yet
+          className="w-[120px] field-row" // Ensure class matches theme-98 version
+          style={{ height: '21px' }} // Ensure style matches theme-98 version
+          onChange={() => {}} // Dummy onChange to satisfy React, will be replaced client-side
+        >
+          <option value="theme-98">Windows 98</option>
+          <option value="theme-7">Windows 7</option>
+        </select>
       </div>
     );
   }
 
   // This block runs after client-side mounting
   return (
-    <div className="flex p-2"> {/* Outer div structure */}
+    <div className="flex justify-end items-center p-2"> {/* Outer container, styles adjusted */}
       {/* Title bar removed */}
-       <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Inner div for theme selector, aligned right */}
-        {theme === 'theme-98' ? (
-          <>
-            <Label htmlFor="theme-select-native">Theme:</Label>
-            <select
-              id="theme-select-native"
-              value={theme}
-              onChange={(e) => handleThemeChange(e.target.value)}
-              className="w-[120px] field-row"
-              style={{ height: '21px' }}
-            >
-              <option value="theme-98">Windows 98</option>
-              <option value="theme-7">Windows 7</option>
-            </select>
-          </>
-        ) : (
-          <>
-            <Label htmlFor="theme-select-custom">Theme:</Label>
-            <Select
-              value={theme}
-              onValueChange={(value: 'theme-98' | 'theme-7') => handleThemeChange(value)}
-            >
-              <SelectTrigger id="theme-select-custom" className="w-[120px]">
-                <SelectValue placeholder="Select theme" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="theme-98">Windows 98</SelectItem>
-                <SelectItem value="theme-7">Windows 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
-        )}
-      </div>
+      {/* Inner div removed, Label and select/Select are direct children (wrapped in fragments for conditional rendering) */}
+      {theme === 'theme-98' ? (
+        <>
+          <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+          <select
+            id="theme-select-native"
+            value={theme}
+            onChange={(e) => handleThemeChange(e.target.value)}
+            className="w-[120px] field-row"
+            style={{ height: '21px' }}
+          >
+            <option value="theme-98">Windows 98</option>
+            <option value="theme-7">Windows 7</option>
+          </select>
+        </>
+      ) : (
+        <>
+          <Label htmlFor="theme-select-custom" className="mr-2">Theme:</Label> {/* Added mr-2 for spacing */}
+          <Select
+            value={theme}
+            onValueChange={(value: 'theme-98' | 'theme-7') => handleThemeChange(value)}
+          >
+            <SelectTrigger id="theme-select-custom" className="w-[120px]">
+              <SelectValue placeholder="Select theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="theme-98">Windows 98</SelectItem>
+              <SelectItem value="theme-7">Windows 7</SelectItem>
+            </SelectContent>
+          </Select>
+        </>
+      )}
     </div>
   );
 }
