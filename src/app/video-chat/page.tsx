@@ -285,7 +285,7 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1 relative', // Added relative here
+          'window flex flex-col flex-1 relative', 
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
@@ -364,7 +364,7 @@ const VideoChatPage: React.FC = () => {
         <img
           src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
           alt="Decorative Goldfish"
-          className="absolute top-4 right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          className="absolute top-[6px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
           data-ai-hint="goldfish decoration"
         />
       </div>
@@ -373,3 +373,4 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
+
