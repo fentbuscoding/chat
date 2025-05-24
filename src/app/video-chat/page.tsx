@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
+
 interface Message {
   id: string;
   text: string;
@@ -267,7 +268,7 @@ const VideoChatPage: React.FC = () => {
       {/* Chat Window Column/Section */}
       <div 
         className={cn('window flex flex-col flex-1', theme === 'theme-7' ? 'glass' : '')} 
-        style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }} // Adjusted width for chat
+        style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
       >
         <div className={cn("title-bar", theme === 'theme-7' && 'glass' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
@@ -284,6 +285,7 @@ const VideoChatPage: React.FC = () => {
               "flex-grow",
               theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
+             style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
             {scrollableChatHeight > 0 && chatListContainerWidth > 0 ? (
               <List
@@ -310,11 +312,11 @@ const VideoChatPage: React.FC = () => {
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
-            <div className="flex items-center">
+            <div className="flex items-center w-full">
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || hasCameraPermission === undefined || hasCameraPermission === false}
-                className="px-2 mr-2"
+                className="px-1 mr-1"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -324,13 +326,13 @@ const VideoChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 w-full px-2 py-1"
+                className="flex-1 w-full px-1 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
-                className="px-2 ml-2"
+                className="px-1 ml-1"
               >
                 Send
               </Button>

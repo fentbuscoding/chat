@@ -285,7 +285,7 @@ const ChatPage: React.FC = () => {
               <Button
                 onClick={handleToggleConnection}
                 disabled={isFindingPartner || (chatType === 'video' && (hasCameraPermission === undefined || hasCameraPermission === false))}
-                className="px-2 mr-2"
+                className="px-1 mr-1"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -295,13 +295,13 @@ const ChatPage: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 w-full px-2 py-1"
+                className="flex-1 w-full px-1 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               <Button
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
-                className="px-2 ml-2"
+                className="px-1 ml-1"
               >
                 Send
               </Button>
@@ -314,3 +314,4 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
+
