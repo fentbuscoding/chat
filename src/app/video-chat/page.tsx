@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -22,7 +23,8 @@ interface Message {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
   const msg = data.messages[index];
-  const currentTheme = data.theme;
+  const currentTheme = data.theme; // theme is passed via itemData, already considering isMounted from parent
+
   return (
     <li
       key={msg.id}
@@ -64,6 +66,9 @@ const VideoChatPage: React.FC = () => {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const effectiveTheme = isMounted ? theme : 'theme-98';
+
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -158,9 +163,9 @@ const VideoChatPage: React.FC = () => {
     return () => {
       didCancel = true;
       console.log("VideoChatPage: Cleanup for initial camera stream effect.");
-      cleanupConnections(true);
+      cleanupConnections(true); // Ensure local stream is stopped on unmount
     };
-  }, [hasCameraPermission, toast, cleanupConnections]);
+  }, [hasCameraPermission, toast, cleanupConnections]); // Added cleanupConnections
 
    useEffect(() => {
     if (isPartnerConnected) {
@@ -180,38 +185,45 @@ const VideoChatPage: React.FC = () => {
         return;
     }
     addMessage(newMessage, 'me');
+    // Simulate partner reply for now
     setTimeout(() => {
         addMessage(`Partner: ${newMessage}`, 'partner');
     }, 1000);
     setNewMessage('');
-  }, [newMessage, addMessage, toast, isPartnerConnected]);
+  }, [newMessage, addMessage, toast, isPartnerConnected]); // Added isPartnerConnected and toast
 
 
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
+      // Disconnect logic
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      // Add any WebRTC cleanup logic here if needed (e.g., closing peer connection)
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null; // Clear remote video
     } else {
+      // Connect logic
       if (isFindingPartner) return;
 
       if (hasCameraPermission === false) {
         toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
         return;
       }
-      if (hasCameraPermission === undefined) {
+      if (hasCameraPermission === undefined) { // Camera check still pending
          toast({ title: "Camera Initializing", description: "Please wait for camera access before finding a partner.", variant: "default"});
         return;
       }
 
       setIsFindingPartner(true);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulate finding a partner
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
 
-      const found = Math.random() > 0.3;
+      const found = Math.random() > 0.3; // Simulate 70% chance of finding a partner
 
       if (found) {
         setIsPartnerConnected(true);
+        // Simulate receiving remote stream (in a real app, this comes via WebRTC)
+        // For now, we'll just indicate connection
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
@@ -220,58 +232,12 @@ const VideoChatPage: React.FC = () => {
     }
   }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage]);
 
-  const inputAreaHeight = 60;
+  const inputAreaHeight = 60; // Approximate height of the input bar
+  // Calculate height available for the message list
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-  const itemData = useMemo(() => ({ messages, theme }), [messages, theme]);
 
-
-  // Determine classes based on isMounted and theme
-  const videoWindowClasses = cn(
-    'window flex flex-col',
-    isMounted && theme === 'theme-7' ? 'glass' : '',
-    (!isMounted || theme === 'theme-98') && 'no-padding-window-body'
-  );
-  const videoTitleBarClasses = cn(
-    "title-bar text-sm",
-    isMounted && theme === 'theme-7' ? 'text-black' : ''
-  );
-  const videoBodyClasses = cn(
-    'window-body flex-grow overflow-hidden relative',
-    // p-0 is applied for both themes here, so no isMounted check needed for this specific part.
-    (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0'
-  );
-
-  const chatContainerWindowClasses = cn(
-    'window flex flex-col flex-1',
-    isMounted && theme === 'theme-7' ? 'glass' : ''
-  );
-  const chatContainerTitleBarClasses = cn(
-    "title-bar",
-    isMounted && theme === 'theme-7' ? 'text-black' : ''
-  );
-  const chatListContainerBodyClasses = cn(
-    'window-body window-body-content flex-grow',
-    !isMounted || theme === 'theme-98' ? 'p-0.5' :
-    theme === 'theme-7' ? 'glass-body-padding' :
-    'p-2' // Fallback
-  );
-  const messageListAreaClasses = cn(
-    "flex-grow",
-    !isMounted || theme === 'theme-98' ? 'sunken-panel tree-view p-1' :
-    theme === 'theme-7' ? 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80' :
-    '' // Fallback
-  );
-  const loadingMessagesTextClasses = cn(
-    !isMounted || theme === 'theme-98' ? "text-gray-500" :
-    theme === 'theme-7' ? 'text-black' :
-    "text-gray-500"
-  );
-  const inputAreaClasses = cn(
-    "p-2 flex-shrink-0",
-    !isMounted || theme === 'theme-98' ? 'input-area status-bar' :
-    theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' :
-    '' // Fallback
-  );
+  // Memoize itemData for the List component
+  const itemData = useMemo(() => ({ messages, theme: effectiveTheme }), [messages, effectiveTheme]);
 
 
   return (
@@ -280,13 +246,16 @@ const VideoChatPage: React.FC = () => {
       <div className="flex flex-col gap-2 md:gap-4 w-full md:w-[260px] lg:w-[320px]">
         {/* Your Video Window */}
         <div
-          className={videoWindowClasses}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+          className={cn(
+            'window flex flex-col',
+            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+          )}
+          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}}
         >
-          <div className={videoTitleBarClasses}>
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
           </div>
-          <div className={videoBodyClasses}>
+          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
             { hasCameraPermission === false && (
               <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -303,13 +272,16 @@ const VideoChatPage: React.FC = () => {
 
         {/* Partner's Video Window */}
         <div
-          className={videoWindowClasses}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+          className={cn(
+            'window flex flex-col',
+            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+          )}
+          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}}
         >
-          <div className={videoTitleBarClasses}>
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
-          <div className={videoBodyClasses}>
+          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
             {!isPartnerConnected && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -322,18 +294,27 @@ const VideoChatPage: React.FC = () => {
 
       {/* Chat Window Column/Section */}
       <div
-        className={chatContainerWindowClasses}
+        className={cn(
+          'window flex flex-col flex-1',
+          effectiveTheme === 'theme-7' ? 'glass' : ''
+        )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
       >
-        <div className={chatContainerTitleBarClasses}>
+        <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
         <div
           ref={chatListContainerRef}
-          className={chatListContainerBodyClasses}
+          className={cn(
+            'window-body window-body-content flex-grow',
+            effectiveTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
+          )}
         >
           <div
-            className={messageListAreaClasses}
+            className={cn(
+              "flex-grow",
+              effectiveTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
+            )}
              style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
             {scrollableChatHeight > 0 && chatListContainerWidth > 0 ? (
@@ -343,19 +324,24 @@ const VideoChatPage: React.FC = () => {
                 itemCount={messages.length}
                 itemSize={itemHeight}
                 width={chatListContainerWidth}
-                itemData={itemData}
-                className="scroll-area-viewport"
+                itemData={itemData} // Pass memoized itemData including effectiveTheme
+                className="scroll-area-viewport" // Ensure this class is present if ScrollArea styles depend on it
               >
                 {Row}
               </List>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className={loadingMessagesTextClasses}>Loading messages...</p>
+                <p className={cn(effectiveTheme === 'theme-7' ? 'text-black' : 'text-gray-500 dark:text-gray-400')}>
+                  Loading messages...
+                </p>
               </div>
             )}
           </div>
           <div
-            className={inputAreaClasses}
+            className={cn(
+              "p-2 flex-shrink-0",
+              effectiveTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+            )}
             style={{ height: `${inputAreaHeight}px` }}
           >
             <div className="flex items-center w-full">
@@ -391,3 +377,6 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
+
+
+    
