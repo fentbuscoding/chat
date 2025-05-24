@@ -1,12 +1,13 @@
 
+
 /* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
 
 /* For debugging purposes: outline all elements */
-/* * {
+* {
   outline: 1px solid red !important;
-} */
+}
 
 
 :root {
