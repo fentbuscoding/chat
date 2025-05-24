@@ -3,6 +3,7 @@
 
 
 
+
 /* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
@@ -261,7 +262,9 @@ video {
 
 /* Ensure title bar text is left-aligned */
 .title-bar-text {
-  text-align: left !important;
+  flex-grow: 1; /* Ensure it expands to fill available space in the title-bar flex container */
+  text-align: left !important; /* Align text within this element to the left */
 }
     
+
 
