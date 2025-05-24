@@ -45,7 +45,7 @@ html, body, #__next {
 
 /* Styles for 7.css theme background */
 html.theme-7 {
-    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
+    background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
