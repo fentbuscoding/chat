@@ -24,7 +24,7 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect.
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="flex justify-end items-center p-2"> {/* Restored outer div */}
+      <div className="flex justify-end items-center p-2"> {/* Outer container positions its direct children */}
         {/* Theme selector elements directly inside */}
         <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
         <select
@@ -45,7 +45,7 @@ export function TopBar() {
 
   // This block runs after client-side mounting
   return (
-    <div className="flex justify-end items-center p-2"> {/* Restored outer div */}
+    <div className="flex justify-end items-center p-2"> {/* Outer container positions its direct children */}
       {/* Theme selector elements directly inside */}
       {theme === 'theme-98' ? (
         <>
