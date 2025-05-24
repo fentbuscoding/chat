@@ -172,7 +172,7 @@ video {
 
 .theme-7 .input-area {
   border-top: 1px solid #adb5bd; /* A typical border color for 7.css */
-  background-color: rgba(240, 240, 240, 0.7); /* Slightly transparent background for 7.css input area */
+  background-color: transparent; /* Make input area background transparent for theme-7 */
 }
 
 /* Custom utility for very small text */
