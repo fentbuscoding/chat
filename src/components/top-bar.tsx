@@ -24,8 +24,8 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect.
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <> {/* Outermost div removed */}
-        {/* Theme selector elements rendered directly */}
+      <div className="flex justify-end items-center p-2"> {/* Restored outer div */}
+        {/* Theme selector elements directly inside */}
         <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
         <select
           id="theme-select-native"
@@ -39,14 +39,14 @@ export function TopBar() {
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-      </>
+      </div>
     );
   }
 
   // This block runs after client-side mounting
   return (
-    <> {/* Outermost div removed */}
-      {/* Theme selector elements rendered directly */}
+    <div className="flex justify-end items-center p-2"> {/* Restored outer div */}
+      {/* Theme selector elements directly inside */}
       {theme === 'theme-98' ? (
         <>
           <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
@@ -78,6 +78,6 @@ export function TopBar() {
           </Select>
         </>
       )}
-    </>
+    </div>
   );
 }
