@@ -59,6 +59,11 @@ const VideoChatPage: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { theme } = useTheme();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -71,7 +76,7 @@ const VideoChatPage: React.FC = () => {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
 
   const listRef = useRef<List>(null);
-  const chatListContainerRef = useRef<HTMLDivElement>(null); 
+  const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
   const itemHeight = 50;
 
@@ -215,23 +220,73 @@ const VideoChatPage: React.FC = () => {
     }
   }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage]);
 
-  const inputAreaHeight = 60; 
+  const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
   const itemData = useMemo(() => ({ messages, theme }), [messages, theme]);
+
+
+  // Determine classes based on isMounted and theme
+  const videoWindowClasses = cn(
+    'window flex flex-col',
+    isMounted && theme === 'theme-7' ? 'glass' : '',
+    (!isMounted || theme === 'theme-98') && 'no-padding-window-body'
+  );
+  const videoTitleBarClasses = cn(
+    "title-bar text-sm",
+    isMounted && theme === 'theme-7' ? 'text-black' : ''
+  );
+  const videoBodyClasses = cn(
+    'window-body flex-grow overflow-hidden relative',
+    // p-0 is applied for both themes here, so no isMounted check needed for this specific part.
+    (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0'
+  );
+
+  const chatContainerWindowClasses = cn(
+    'window flex flex-col flex-1',
+    isMounted && theme === 'theme-7' ? 'glass' : ''
+  );
+  const chatContainerTitleBarClasses = cn(
+    "title-bar",
+    isMounted && theme === 'theme-7' ? 'text-black' : ''
+  );
+  const chatListContainerBodyClasses = cn(
+    'window-body window-body-content flex-grow',
+    !isMounted || theme === 'theme-98' ? 'p-0.5' :
+    theme === 'theme-7' ? 'glass-body-padding' :
+    'p-2' // Fallback
+  );
+  const messageListAreaClasses = cn(
+    "flex-grow",
+    !isMounted || theme === 'theme-98' ? 'sunken-panel tree-view p-1' :
+    theme === 'theme-7' ? 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80' :
+    '' // Fallback
+  );
+  const loadingMessagesTextClasses = cn(
+    !isMounted || theme === 'theme-98' ? "text-gray-500" :
+    theme === 'theme-7' ? 'text-black' :
+    "text-gray-500"
+  );
+  const inputAreaClasses = cn(
+    "p-2 flex-shrink-0",
+    !isMounted || theme === 'theme-98' ? 'input-area status-bar' :
+    theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' :
+    '' // Fallback
+  );
+
 
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
       {/* Video Feeds Column/Section */}
       <div className="flex flex-col gap-2 md:gap-4 w-full md:w-[260px] lg:w-[320px]">
         {/* Your Video Window */}
-        <div 
-          className={cn('window flex flex-col', theme === 'theme-7' ? 'glass' : '', theme === 'theme-98' ? 'no-padding-window-body' : '')} 
+        <div
+          className={videoWindowClasses}
           style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
         >
-          <div className={cn("title-bar text-sm", theme === 'theme-7' && 'glass' ? 'text-black' : '')}>
+          <div className={videoTitleBarClasses}>
             <div className="title-bar-text">Your Video</div>
           </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative', (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0')}>
+          <div className={videoBodyClasses}>
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
             { hasCameraPermission === false && (
               <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -247,14 +302,14 @@ const VideoChatPage: React.FC = () => {
         </div>
 
         {/* Partner's Video Window */}
-        <div 
-          className={cn('window flex flex-col', theme === 'theme-7' ? 'glass' : '', theme === 'theme-98' ? 'no-padding-window-body' : '')} 
+        <div
+          className={videoWindowClasses}
           style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
         >
-          <div className={cn("title-bar text-sm", theme === 'theme-7' && 'glass' ? 'text-black' : '')}>
+          <div className={videoTitleBarClasses}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative', (theme === 'theme-98' || theme === 'theme-7') ? 'p-0' : 'p-0')}>
+          <div className={videoBodyClasses}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
             {!isPartnerConnected && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -266,25 +321,19 @@ const VideoChatPage: React.FC = () => {
       </div>
 
       {/* Chat Window Column/Section */}
-      <div 
-        className={cn('window flex flex-col flex-1', theme === 'theme-7' ? 'glass' : '')} 
+      <div
+        className={chatContainerWindowClasses}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
       >
-        <div className={cn("title-bar", theme === 'theme-7' && 'glass' ? 'text-black' : '')}>
+        <div className={chatContainerTitleBarClasses}>
           <div className="title-bar-text">Chat</div>
         </div>
         <div
           ref={chatListContainerRef}
-          className={cn(
-              'window-body window-body-content flex-grow',
-              theme === 'theme-98' ? 'p-0.5' : (theme === 'theme-7' ? ((cn(theme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space')) : 'p-2')
-          )}
+          className={chatListContainerBodyClasses}
         >
           <div
-            className={cn(
-              "flex-grow",
-              theme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
-            )}
+            className={messageListAreaClasses}
              style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
             {scrollableChatHeight > 0 && chatListContainerWidth > 0 ? (
@@ -301,15 +350,12 @@ const VideoChatPage: React.FC = () => {
               </List>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className={cn("text-gray-500", theme === 'theme-7' && 'glass' ? 'text-black' : 'dark:text-gray-400')}>Loading messages...</p>
+                <p className={loadingMessagesTextClasses}>Loading messages...</p>
               </div>
             )}
           </div>
           <div
-            className={cn(
-              "p-2 flex-shrink-0",
-              theme === 'theme-98' ? 'input-area status-bar' : (theme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
-            )}
+            className={inputAreaClasses}
             style={{ height: `${inputAreaHeight}px` }}
           >
             <div className="flex items-center w-full">
@@ -345,5 +391,3 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
-    
