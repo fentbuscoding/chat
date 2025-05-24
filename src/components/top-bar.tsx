@@ -24,9 +24,9 @@ export function TopBar() {
     // This block runs on SSR and initial client render before useEffect
     // It MUST match the structure of the mounted block for the DEFAULT THEME ('theme-98')
     return (
-      <div className="flex p-2"> {/* Removed justify-end */}
+      <div className="flex p-2"> {/* Outer div structure */}
         {/* Title bar removed */}
-        <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Added ml-auto, kept bg-inherit */}
+        <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Inner div for theme selector, aligned right */}
           {/* Match the theme-98 path from the mounted state for SSR consistency */}
           <Label htmlFor="theme-select-native">Theme:</Label>
           <select
@@ -34,8 +34,8 @@ export function TopBar() {
             value="theme-98" // Default theme value
             disabled // Disable during SSR/pre-hydration
             readOnly // Indicate it's not interactive yet
-            className="w-[120px] field-row"
-            style={{ height: '21px' }}
+            className="w-[120px] field-row" // Ensure class matches theme-98 version
+            style={{ height: '21px' }} // Ensure style matches theme-98 version
             onChange={() => {}} // Dummy onChange to satisfy React, will be replaced client-side
           >
             <option value="theme-98">Windows 98</option>
@@ -46,11 +46,11 @@ export function TopBar() {
     );
   }
 
+  // This block runs after client-side mounting
   return (
-    <div className="flex p-2"> {/* Removed justify-end */}
+    <div className="flex p-2"> {/* Outer div structure */}
       {/* Title bar removed */}
-       <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Added ml-auto, kept bg-inherit */}
-
+       <div className="flex items-center space-x-2 bg-inherit ml-auto"> {/* Inner div for theme selector, aligned right */}
         {theme === 'theme-98' ? (
           <>
             <Label htmlFor="theme-select-native">Theme:</Label>
