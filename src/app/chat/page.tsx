@@ -242,7 +242,7 @@ const ChatPage: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
       <div
-        className={cn('window flex flex-col', effectiveTheme === 'theme-7' ? 'active glass' : '', 'mb-4')}
+        className={cn('window flex flex-col relative', effectiveTheme === 'theme-7' ? 'active glass' : '', 'mb-4')}
         style={chatWindowStyle}
       >
         <div className={cn("title-bar", 'flex-shrink-0', effectiveTheme === 'theme-7' ? 'text-black' : '')}>
@@ -316,6 +316,12 @@ const ChatPage: React.FC = () => {
             </div>
           </div>
         </div>
+        <img
+          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+          alt="Decorative Goldfish"
+          className="absolute top-4 right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          data-ai-hint="goldfish decoration"
+        />
       </div>
     </div>
   );

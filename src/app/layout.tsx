@@ -28,12 +28,7 @@ export default function RootLayout({
             <ConditionalTopBar />
             <main className="flex-1 flex flex-col">{children}</main>
             <Toaster />
-            <img
-              src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-              alt="Decorative Goldfish"
-              className="absolute top-4 right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-50"
-              data-ai-hint="goldfish decoration"
-            />
+            {/* Goldfish image removed from here */}
           </div>
         </ThemeProvider>
       </body>

@@ -232,13 +232,15 @@ const VideoChatPage: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
+      {/* Video Feeds Section */}
       <div className="flex flex-col gap-2 md:gap-4 w-full md:w-auto">
+        {/* Your Video */}
         <div
           className={cn(
             'window flex flex-col',
             effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}}
+          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
         >
           <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
@@ -258,12 +260,13 @@ const VideoChatPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Partner's Video */}
         <div
           className={cn(
             'window flex flex-col',
             effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}}
+          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
         >
           <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
@@ -279,9 +282,10 @@ const VideoChatPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Chat Section */}
       <div
         className={cn(
-          'window flex flex-col flex-1',
+          'window flex flex-col flex-1 relative', // Added relative here
           effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px' }}
@@ -357,6 +361,12 @@ const VideoChatPage: React.FC = () => {
             </div>
           </div>
         </div>
+        <img
+          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+          alt="Decorative Goldfish"
+          className="absolute top-4 right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+          data-ai-hint="goldfish decoration"
+        />
       </div>
     </div>
   );
