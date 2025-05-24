@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation'; // Removed useRouter as it's not used
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -56,7 +56,6 @@ Row.displayName = 'Row';
 
 
 const VideoChatPage: React.FC = () => {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { theme } = useTheme();
@@ -172,7 +171,6 @@ const VideoChatPage: React.FC = () => {
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
     } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-       // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
       addMessage('Not connected. Try finding a new partner.', 'system');
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
@@ -233,55 +231,55 @@ const VideoChatPage: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-full p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
-      {/* Video Feeds Section */}
-      <div className="flex flex-col gap-2 md:gap-4 w-full md:w-auto">
-        {/* Your Video */}
-        <div
-          className={cn(
-            'window flex flex-col',
-            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
-          )}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
-        >
-          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text">Your Video</div>
-          </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
-            <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
-            { hasCameraPermission === false && (
-              <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
-                <AlertTitle className="text-xs">Camera Denied</AlertTitle>
-              </Alert>
-            )}
-             { hasCameraPermission === undefined && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                  <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
-                </div>
-              )}
-          </div>
+      {/* Video Feeds Section - Container [D4] removed */}
+      {/* Your Video */}
+      <div
+        className={cn(
+          'window flex flex-col',
+          effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+        )}
+        style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+      >
+        <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className="title-bar-text">Your Video</div>
         </div>
-
-        {/* Partner's Video */}
-        <div
-          className={cn(
-            'window flex flex-col',
-            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+          <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
+          { hasCameraPermission === false && (
+            <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
+              <AlertTitle className="text-xs">Camera Denied</AlertTitle>
+            </Alert>
           )}
-          style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
-        >
-          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text">Partner's Video</div>
-          </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
-            <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
-            {!isPartnerConnected && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-                </div>
+           { hasCameraPermission === undefined && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
+              </div>
             )}
-          </div>
         </div>
       </div>
+
+      {/* Partner's Video */}
+      <div
+        className={cn(
+          'window flex flex-col',
+          effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+        )}
+        style={{height: 'auto', minHeight: '150px', aspectRatio: '4/3'}} // Aspect ratio for video
+      >
+        <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className="title-bar-text">Partner's Video</div>
+        </div>
+        <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+          <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
+          {!isPartnerConnected && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+              <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
+              </div>
+          )}
+        </div>
+      </div>
+      {/* End of Video Feeds Section */}
+
 
       {/* Chat Section */}
       <div
@@ -374,4 +372,3 @@ const VideoChatPage: React.FC = () => {
 };
 
 export default VideoChatPage;
-
