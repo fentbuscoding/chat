@@ -1,15 +1,14 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
 
@@ -53,20 +52,18 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
 });
 Row.displayName = 'Row';
 
-const ChatPage: React.FC = () => {
-  const router = useRouter();
+
+const ChatPageContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Use currentTheme from the updated provider
+  const { currentTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // This effectivePageTheme is used for styling components on this page
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-
   const chatType = useMemo(() => searchParams.get('type') as 'text' | 'video' || 'text', [searchParams]);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -74,18 +71,17 @@ const ChatPage: React.FC = () => {
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
 
-  // Refs for text chat are simpler as no video elements are involved
   const listRef = useRef<List>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null); // For ScrollArea content, or List container
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatContainerWidth, height: chatContainerHeight } = useElementSize(chatContainerRef);
-  const itemHeight = 50; // Approximate height for a message row
+  const itemHeight = 50;
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected.')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -99,18 +95,16 @@ const ChatPage: React.FC = () => {
     }
   }, [messages]);
 
-
- useEffect(() => {
+  useEffect(() => {
     if (isPartnerConnected) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
     } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-       // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
-      addMessage('Not connected. Try finding a new partner.', 'system');
+      // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
+      // addMessage('Not connected. Try finding a new partner.', 'system'); // Removed as per user request
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
-
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim()) return;
@@ -119,13 +113,11 @@ const ChatPage: React.FC = () => {
         return;
     }
     addMessage(newMessage, 'me');
-    // Simulate partner reply for non-WebSocket version
     setTimeout(() => {
         addMessage(`Partner: ${newMessage}`, 'partner');
     }, 1000);
     setNewMessage('');
   }, [newMessage, isPartnerConnected, toast, addMessage]);
-
 
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
@@ -133,16 +125,10 @@ const ChatPage: React.FC = () => {
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
     } else {
-      if (isFindingPartner) return; // Already searching
-
-      // No camera check needed for text chat
-
+      if (isFindingPartner) return;
       setIsFindingPartner(true);
-      // Simulate finding partner
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
-
-      const found = Math.random() > 0.3; // Simulate 70% chance of finding partner
-
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const found = Math.random() > 0.3;
       if (found) {
         setIsPartnerConnected(true);
       } else {
@@ -153,51 +139,46 @@ const ChatPage: React.FC = () => {
     }
   }, [isPartnerConnected, isFindingPartner, toast, addMessage]);
 
-
   const chatWindowStyle = useMemo(() => (
-    // Apply fixed size to the chat window for text chat
     { width: '600px', height: '600px' }
   ), []);
 
-  const inputAreaHeight = 60; // Height of the input bar
-  // Calculate the height for the scrollable chat message area
+  const inputAreaHeight = 60;
   const scrollableChatHeight = chatContainerHeight > 0 ? chatContainerHeight - inputAreaHeight : 0;
-
   const itemData = useMemo(() => ({ messages, theme: effectivePageTheme }), [messages, effectivePageTheme]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
       <div
         className={cn('window flex flex-col relative', effectivePageTheme === 'theme-7' ? 'active glass' : '', 'mb-4')}
-        style={chatWindowStyle} // Apply the fixed size
+        style={chatWindowStyle}
       >
         <div className={cn("title-bar", 'flex-shrink-0', effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Text Chat</div>
         </div>
         <div
-          ref={chatContainerRef} // Ref for the entire window body to measure its height for list calculation
+          ref={chatContainerRef}
           className={cn(
-            'window-body window-body-content flex-grow', // flex-grow needed for the window body itself
+            'window-body window-body-content flex-grow',
             effectivePageTheme === 'theme-98' ? 'p-0.5' : (effectivePageTheme === 'theme-7' ? (cn(effectivePageTheme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
-          {/* This div is for the scrollable message list */}
           <div
             className={cn(
-              "flex-grow", // This inner div takes up space for messages
+              "flex-grow",
               effectivePageTheme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
-            style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }} // Set calculated height
+            style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
             {scrollableChatHeight > 0 && chatContainerWidth > 0 ? (
               <List
                 ref={listRef}
-                height={scrollableChatHeight} // Use the calculated height for the list
+                height={scrollableChatHeight}
                 itemCount={messages.length}
-                itemSize={itemHeight} // Use fixed item height
-                width={chatContainerWidth} // Use measured width of the container
-                itemData={itemData} // Pass messages and theme as itemData
-                className="scroll-area-viewport" // Important for ScrollArea styling if used, or general list styling
+                itemSize={itemHeight}
+                width={chatContainerWidth}
+                itemData={itemData}
+                className="scroll-area-viewport"
               >
                 {Row}
               </List>
@@ -209,18 +190,17 @@ const ChatPage: React.FC = () => {
               </div>
             )}
           </div>
-           {/* Input Area */}
            <div
             className={cn(
-              "p-2 flex-shrink-0", // flex-shrink-0 prevents this area from shrinking
+              "p-2 flex-shrink-0",
               effectivePageTheme === 'theme-98' ? 'input-area status-bar' : (effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
-            style={{ height: `${inputAreaHeight}px` }} // Fixed height for the input bar
+            style={{ height: `${inputAreaHeight}px` }}
           >
             <div className="flex items-center w-full">
               <Button
                 onClick={handleToggleConnection}
-                disabled={isFindingPartner} // No camera check for text chat
+                disabled={isFindingPartner}
                 className="px-1 mr-1"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
@@ -252,6 +232,18 @@ const ChatPage: React.FC = () => {
         />
       </div>
     </div>
+  );
+};
+
+const ChatPage: React.FC = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-1 items-center justify-center p-4">
+        <p>Loading chat interface...</p>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
   );
 };
 

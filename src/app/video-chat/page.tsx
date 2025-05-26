@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -9,10 +9,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-// import { ScrollArea } from '@/components/ui/scroll-area'; // ScrollArea removed
 import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
 import useElementSize from '@charlietango/use-element-size';
-
 
 interface Message {
   id: string;
@@ -56,7 +54,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
 Row.displayName = 'Row';
 
 
-const VideoChatPage: React.FC = () => {
+const VideoChatPageContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { currentTheme } = useTheme();
@@ -67,7 +65,6 @@ const VideoChatPage: React.FC = () => {
   }, []);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -89,7 +86,7 @@ const VideoChatPage: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected') || msg.text.includes('Not connected.')))
+          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -112,7 +109,6 @@ const VideoChatPage: React.FC = () => {
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   }, []);
 
-
   useEffect(() => {
     let didCancel = false;
     const getInitialCameraStream = async () => {
@@ -124,7 +120,7 @@ const VideoChatPage: React.FC = () => {
         return;
       }
 
-      if (hasCameraPermission === undefined) {
+      if (hasCameraPermission === undefined) { // Only try to get permission if status is unknown
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           if (!didCancel) {
@@ -134,6 +130,7 @@ const VideoChatPage: React.FC = () => {
               localVideoRef.current.srcObject = stream;
             }
           } else {
+            // If component unmounted or cancelled while getting stream, stop tracks
             stream.getTracks().forEach(track => track.stop());
           }
         } catch (error) {
@@ -148,6 +145,7 @@ const VideoChatPage: React.FC = () => {
           }
         }
       } else if (hasCameraPermission === true && localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+        // If permission was already granted and stream exists, but not set to video element (e.g., after re-render)
         localVideoRef.current.srcObject = localStreamRef.current;
       }
     };
@@ -156,9 +154,10 @@ const VideoChatPage: React.FC = () => {
 
     return () => {
       didCancel = true;
-      cleanupConnections(true);
+      // Do not stop local stream here if it's meant to persist across partner searches
+      // cleanupConnections(true); // Consider if stream should stop on unmount of this page
     };
-  }, [hasCameraPermission, toast, cleanupConnections]);
+  }, [hasCameraPermission, toast]); // Removed cleanupConnections from deps to avoid re-triggering stream stop
 
 
    useEffect(() => {
@@ -167,10 +166,9 @@ const VideoChatPage: React.FC = () => {
     } else if (isFindingPartner) {
       addMessage('Searching for a partner...', 'system');
     } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-      addMessage('Not connected. Try finding a new partner.', 'system');
+       // addMessage('Not connected. Try finding a new partner.', 'system'); // Removed per user request
     }
   }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
-
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim()) return;
@@ -185,13 +183,14 @@ const VideoChatPage: React.FC = () => {
     setNewMessage('');
   }, [newMessage, addMessage, toast, isPartnerConnected]);
 
-
   const handleToggleConnection = useCallback(async () => {
     if (isPartnerConnected) {
       addMessage('You have disconnected from the partner.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      // Don't stop local stream here, allow user to find new partner with same stream
+      // cleanupConnections(false); // only cleanup remote
     } else {
       if (isFindingPartner) return;
 
@@ -203,40 +202,64 @@ const VideoChatPage: React.FC = () => {
          toast({ title: "Camera Initializing", description: "Please wait for camera access before finding a partner.", variant: "default"});
         return;
       }
+      // Ensure local stream is active and set to video element
+      if (!localStreamRef.current && localVideoRef.current) {
+         try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            setHasCameraPermission(true);
+            localStreamRef.current = stream;
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = stream;
+            }
+          } catch (error) {
+            console.error('VideoChatPage: Error re-accessing camera:', error);
+            setHasCameraPermission(false);
+            toast({variant: 'destructive', title: 'Camera Re-Access Failed', description: 'Could not re-access camera.'});
+            return;
+          }
+      } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+      }
+
 
       setIsFindingPartner(true);
+      addMessage('Searching for a partner...', 'system');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const found = Math.random() > 0.3;
 
       if (found) {
         setIsPartnerConnected(true);
+        // Simulate remote stream for partner
+        if (remoteVideoRef.current) {
+            // In a real app, you'd get the remote stream via WebRTC
+            // For simulation, we can't just create a new getUserMedia here for remote
+            // So, remoteVideoRef will just show a black screen or placeholder
+            // You could set a placeholder image or style for remoteVideoRef
+        }
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
       }
       setIsFindingPartner(false);
     }
-  }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage]);
+  }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage, cleanupConnections]);
 
 
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-
   const itemData = useMemo(() => ({ messages, theme: effectivePageTheme }), [messages, effectivePageTheme]);
-
 
   return (
     <>
-      {/* Video Feeds Section */}
-      <div className="flex justify-center mx-auto gap-4 mb-4">
+      <div className="flex justify-center gap-4 mb-4 mx-auto">
         {/* Your Video */}
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
-          style={{width: '250px', height: '200px', minHeight: '150px'}}
+          style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
@@ -260,9 +283,9 @@ const VideoChatPage: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
-          style={{width: '250px', height: '200px', minHeight: '150px'}}
+          style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
@@ -277,10 +300,7 @@ const VideoChatPage: React.FC = () => {
           </div>
         </div>
       </div>
-      {/* End of Video Feeds Section */}
 
-
-      {/* Chat Section */}
       <div
         className={cn(
           'window flex flex-col flex-1 relative m-2',
@@ -370,5 +390,16 @@ const VideoChatPage: React.FC = () => {
   );
 };
 
+const VideoChatPage: React.FC = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-1 items-center justify-center p-4">
+        <p>Loading video chat interface...</p>
+      </div>
+    }>
+      <VideoChatPageContent />
+    </Suspense>
+  );
+};
+
 export default VideoChatPage;
-    
