@@ -64,7 +64,6 @@ const ChatPageClientContent: React.FC = () => {
   }, []);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-  // chatType is derived from searchParams, which is specific to this client component
   const chatType = useMemo(() => searchParams.get('type') as 'text' | 'video' || 'text', [searchParams]);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -82,7 +81,12 @@ const ChatPageClientContent: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (
+            msg.text.includes('Connected with a partner') ||
+            msg.text.includes('Searching for a partner...') ||
+            msg.text.includes('No partner found') ||
+            msg.text.includes('You have disconnected')
+          ))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -96,16 +100,21 @@ const ChatPageClientContent: React.FC = () => {
     }
   }, [messages]);
 
+  const prevIsPartnerConnected = useRef(isPartnerConnected);
+  const prevIsFindingPartner = useRef(isFindingPartner);
+
   useEffect(() => {
-    if (isPartnerConnected) {
+    if (isPartnerConnected && !prevIsPartnerConnected.current) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (isFindingPartner) {
+    } else if (isFindingPartner && !prevIsFindingPartner.current) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
-      // This condition ensures "Not connected" message is shown only after a disconnection and not initially or after "No partner found".
-      // addMessage('Not connected. Try finding a new partner.', 'system'); // Removed as per user request
     }
-  }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
+    // "Disconnected" and "No partner found" messages are handled directly in handleToggleConnection
+
+    prevIsPartnerConnected.current = isPartnerConnected;
+    prevIsFindingPartner.current = isFindingPartner;
+  }, [isPartnerConnected, isFindingPartner, addMessage]);
+
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim()) return;
@@ -128,18 +137,19 @@ const ChatPageClientContent: React.FC = () => {
     } else {
       if (isFindingPartner) return;
       setIsFindingPartner(true);
-      addMessage('Searching for a partner...', 'system');
+      // "Searching for partner" message will be added by the useEffect above
       await new Promise(resolve => setTimeout(resolve, 2000));
       const found = Math.random() > 0.3;
       if (found) {
         setIsPartnerConnected(true);
+         // "Connected with partner" message will be added by the useEffect above
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
       }
       setIsFindingPartner(false);
     }
-  }, [isPartnerConnected, isFindingPartner, toast, addMessage]);
+  }, [isPartnerConnected, isFindingPartner, addMessage]);
 
   const chatWindowStyle = useMemo(() => (
     { width: '600px', height: '600px' }

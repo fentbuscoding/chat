@@ -55,7 +55,7 @@ Row.displayName = 'Row';
 
 
 const VideoChatPageClientContent: React.FC = () => {
-  const searchParams = useSearchParams(); // Hook used here
+  const searchParams = useSearchParams(); 
   const { toast } = useToast();
   const { currentTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
@@ -86,7 +86,12 @@ const VideoChatPageClientContent: React.FC = () => {
       const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
        if (sender === 'system') {
         const filteredMessages = prevMessages.filter(msg =>
-          !(msg.sender === 'system' && (msg.text.includes('Connected with a partner') || msg.text.includes('Searching for a partner...') || msg.text.includes('No partner found') || msg.text.includes('You have disconnected')))
+          !(msg.sender === 'system' && (
+            msg.text.includes('Connected with a partner') ||
+            msg.text.includes('Searching for a partner...') ||
+            msg.text.includes('No partner found') ||
+            msg.text.includes('You have disconnected')
+            ))
         );
         return [...filteredMessages, newMessageItem];
       }
@@ -152,18 +157,27 @@ const VideoChatPageClientContent: React.FC = () => {
 
     return () => {
       didCancel = true;
+      // Cleanup stream on component unmount, regardless of connection status
+      // cleanupConnections(); // This was causing issues with stream stopping on disconnect
     };
-  }, [hasCameraPermission, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCameraPermission, toast]); // Removed cleanupConnections from deps
 
+
+  const prevIsPartnerConnected = useRef(isPartnerConnected);
+  const prevIsFindingPartner = useRef(isFindingPartner);
 
    useEffect(() => {
-    if (isPartnerConnected) {
+    if (isPartnerConnected && !prevIsPartnerConnected.current) {
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (isFindingPartner) {
+    } else if (isFindingPartner && !prevIsFindingPartner.current) {
       addMessage('Searching for a partner...', 'system');
-    } else if (!isFindingPartner && !isPartnerConnected && messages.some(m => m.sender === 'system' && m.text.includes('You have disconnected'))){
     }
-  }, [isPartnerConnected, isFindingPartner, addMessage, messages]);
+    // "Disconnected" and "No partner found" messages are handled directly in handleToggleConnection
+    
+    prevIsPartnerConnected.current = isPartnerConnected;
+    prevIsFindingPartner.current = isFindingPartner;
+  }, [isPartnerConnected, isFindingPartner, addMessage]);
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim()) return;
@@ -184,6 +198,8 @@ const VideoChatPageClientContent: React.FC = () => {
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      // Don't stop local stream on manual disconnect, user might want to find another partner
+      // cleanupConnections(false); // Only cleanup remote, not local
     } else {
       if (isFindingPartner) return;
 
@@ -195,10 +211,12 @@ const VideoChatPageClientContent: React.FC = () => {
          toast({ title: "Camera Initializing", description: "Please wait for camera access before finding a partner.", variant: "default"});
         return;
       }
+      
+      // Ensure local stream is active and displayed
       if (!localStreamRef.current && localVideoRef.current) {
          try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            setHasCameraPermission(true);
+            setHasCameraPermission(true); // Should already be true or set by initial useEffect
             localStreamRef.current = stream;
             if (localVideoRef.current) {
               localVideoRef.current.srcObject = stream;
@@ -210,25 +228,27 @@ const VideoChatPageClientContent: React.FC = () => {
             return;
           }
       } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+          // If stream exists but not assigned to video element, assign it.
           localVideoRef.current.srcObject = localStreamRef.current;
       }
 
 
       setIsFindingPartner(true);
-      addMessage('Searching for a partner...', 'system');
+      // "Searching for partner..." message will be added by the useEffect
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const found = Math.random() > 0.3;
 
       if (found) {
         setIsPartnerConnected(true);
+        // "Connected with partner..." message will be added by the useEffect
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
       }
       setIsFindingPartner(false);
     }
-  }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage, cleanupConnections]);
+  }, [isPartnerConnected, isFindingPartner, toast, hasCameraPermission, addMessage]);
 
 
   const inputAreaHeight = 60;
