@@ -1,7 +1,13 @@
 // This file can now be a Server Component or a default component.
 // It should NOT have 'use client' at the top of this specific file.
 import React, { Suspense } from 'react';
-import VideoChatPageClientContent from './VideoChatPageClientContent';
+import dynamic from 'next/dynamic';
+
+// Dynamically import the client component with SSR turned off
+const VideoChatPageClientContent = dynamic(
+  () => import('./VideoChatPageClientContent'),
+  { ssr: false }
+);
 
 export default function VideoChatPage() {
   return (
