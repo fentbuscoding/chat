@@ -1,6 +1,8 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 
 type Theme = 'theme-98' | 'theme-7';
 
@@ -8,37 +10,35 @@ interface ThemeProviderProps {
   children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  attribute?: string; // Keep attribute prop for potential future use or compatibility
-  enableSystem?: boolean; // Keep enableSystem prop
+  attribute?: string;
+  enableSystem?: boolean;
 }
 
-interface ThemeProviderState {
-  theme: Theme;
+// Updated state for the provider
+interface ThemeProviderContextState {
+  currentTheme: Theme; // The theme actually applied to the DOM
+  selectedTheme: Theme; // The theme user picked, stored in state/localStorage
   setTheme: (theme: Theme) => void;
 }
 
-const initialState: ThemeProviderState = {
-  theme: 'theme-98', // Default theme
-  setTheme: () => null,
-};
-
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext = createContext<ThemeProviderContextState | undefined>(undefined);
 
 export function ThemeProvider({
   children,
   defaultTheme = 'theme-98',
-  storageKey = 'vite-ui-theme', // Changed storage key slightly
-  attribute = 'class', // Keep attribute for potential future use
-  enableSystem = false, // Keep enableSystem
+  storageKey = 'vite-ui-theme',
+  attribute = 'class',
+  enableSystem = false,
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() => { // Renamed to avoid conflict with prop
+  const pathname = usePathname();
+
+  const [userSelectedTheme, setUserSelectedTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         try {
           const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
           if (storedTheme && (storedTheme === 'theme-98' || storedTheme === 'theme-7')) {
             return storedTheme;
           }
-          // System preference logic removed as enableSystem is false
         } catch (e) {
           console.error("Error reading localStorage:", e);
         }
@@ -46,7 +46,10 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
-  // Preload theme CSS files on mount
+  // Determine the theme to actually apply to the DOM
+  // Home page always gets 'theme-98'
+  const currentAppliedTheme = pathname === '/' ? 'theme-98' : userSelectedTheme;
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const preloadLink98 = document.createElement('link');
@@ -62,41 +65,33 @@ export function ThemeProvider({
       document.head.appendChild(preloadLink7);
 
       return () => {
-        // Clean up preload links if the component unmounts
         preloadLink98.remove();
         preloadLink7.remove();
       };
     }
-  }, []); // Empty dependency array means this effect runs only once on mount
+  }, []);
 
   useEffect(() => {
-    const root = window.document.documentElement; // Target the HTML element
-
-    // Remove previous theme classes from HTML element
+    const root = window.document.documentElement;
     root.classList.remove('theme-98', 'theme-7');
 
-    // Add current theme class to HTML element
-    if (theme) { // Ensure theme is not null/undefined
-        root.classList.add(theme);
+    if (currentAppliedTheme) {
+        root.classList.add(currentAppliedTheme);
     }
 
-
-    // Save theme to localStorage
-     try {
-        localStorage.setItem(storageKey, theme);
+    try {
+        localStorage.setItem(storageKey, userSelectedTheme); // Save user's actual selection
       } catch (e) {
         console.error("Error setting localStorage:", e);
       }
 
-    // Dynamically load/unload CSS files from CDN
     const loadThemeCss = (themeToLoad: Theme) => {
       const existingLink = document.getElementById(`theme-${themeToLoad}-css`);
-      if (existingLink) return; // Already loaded
+      if (existingLink) return;
 
       const link = document.createElement('link');
       link.id = `theme-${themeToLoad}-css`;
       link.rel = 'stylesheet';
-      // Load from unpkg CDN
       link.href = themeToLoad === 'theme-98'
         ? 'https://unpkg.com/98.css'
         : 'https://unpkg.com/7.css';
@@ -110,23 +105,22 @@ export function ThemeProvider({
       }
     };
 
-    // Initial load based on state
-    loadThemeCss(theme);
-    unloadThemeCss(theme === 'theme-98' ? 'theme-7' : 'theme-98');
+    loadThemeCss(currentAppliedTheme);
+    unloadThemeCss(currentAppliedTheme === 'theme-98' ? 'theme-7' : 'theme-98');
 
-  }, [theme, storageKey]);
+  }, [currentAppliedTheme, userSelectedTheme, storageKey]);
 
   const setThemeCallback = useCallback((newTheme: Theme) => {
     if (newTheme === 'theme-98' || newTheme === 'theme-7') {
-      setThemeState(newTheme);
+      setUserSelectedTheme(newTheme);
     }
   }, []);
 
-
   const value = useMemo(() => ({
-    theme,
+    currentTheme: currentAppliedTheme,
+    selectedTheme: userSelectedTheme,
     setTheme: setThemeCallback,
-  }), [theme, setThemeCallback]);
+  }), [currentAppliedTheme, userSelectedTheme, setThemeCallback]);
 
   return (
     <ThemeProviderContext.Provider value={value}>
@@ -135,11 +129,11 @@ export function ThemeProvider({
   );
 }
 
-export const useTheme = () => {
+export const useTheme = (): ThemeProviderContextState => {
   const context = useContext(ThemeProviderContext);
-
   if (context === undefined)
     throw new Error('useTheme must be used within a ThemeProvider');
-
   return context;
 };
+
+export type { Theme };
