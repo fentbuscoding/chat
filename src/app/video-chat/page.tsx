@@ -9,6 +9,8 @@ const VideoChatPageClientContent = dynamic(
   { ssr: false }
 );
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
+
 export default function VideoChatPage() {
   return (
     <Suspense fallback={

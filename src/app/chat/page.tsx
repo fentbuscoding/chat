@@ -9,6 +9,8 @@ const ChatPageClientContent = dynamic(
   { ssr: false }
 );
 
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
+
 export default function ChatPage() {
   return (
     <Suspense fallback={
