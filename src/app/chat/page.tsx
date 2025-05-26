@@ -1,12 +1,11 @@
 // This file can now be a Server Component or a default component.
 // It should NOT have 'use client' at the top of this specific file.
 import React, { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import dynamicNext from 'next/dynamic'; // Renamed import
 
-// Dynamically import the client component with SSR turned off
-const ChatPageClientContent = dynamic(
-  () => import('./ChatPageClientContent'),
-  { ssr: false }
+// Dynamically import the client component
+const ChatPageClientContent = dynamicNext(
+  () => import('./ChatPageClientContent')
 );
 
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
