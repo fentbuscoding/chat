@@ -1,164 +1,286 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-// import { useSearchParams } from 'next/navigation';
-// import { Button } from '@/components/ui/button-themed';
-// import { Input } from '@/components/ui/input-themed';
-// import { useToast } from '@/hooks/use-toast';
-// import { useTheme } from '@/components/theme-provider';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button-themed';
+import { Input } from '@/components/ui/input-themed';
+import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-// interface Message {
-//   id: string;
-//   text: string;
-//   sender: 'me' | 'partner' | 'system';
-//   timestamp: Date;
-// }
+interface Message {
+  id: string;
+  text: string;
+  sender: 'me' | 'partner' | 'system';
+  timestamp: Date;
+}
 
-// const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
-//   const msg = message;
-//   const currentTheme = theme;
-//   return (
-//     <li
-//       className={cn(
-//         "flex mb-1",
-//         msg.sender === "me" ? "justify-end" : "justify-start"
-//       )}
-//     >
-//       <div
-//         className={cn(
-//           "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
-//           msg.sender === "me"
-//             ? currentTheme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'
-//             : currentTheme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
-//           msg.sender === 'system' ? 'text-center w-full text-gray-500 dark:text-gray-400 italic text-xs' : ''
-//         )}
-//       >
-//         {msg.text}
-//       </div>
-//       {msg.sender !== "system" && (
-//         <span className={cn("text-xxs ml-1 self-end", currentTheme === 'theme-98' ? 'text-gray-700' : 'text-gray-400 dark:text-gray-500')}>
-//           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-//         </span>
-//       )}
-//     </li>
-//   );
-// });
-// Row.displayName = 'Row';
+const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
+  const msg = message;
+  const currentTheme = theme;
+  return (
+    <li
+      key={msg.id}
+      className={cn(
+        "flex mb-1",
+        msg.sender === "me" ? "justify-end" : "justify-start"
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
+          msg.sender === "me"
+            ? currentTheme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'
+            : currentTheme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
+          msg.sender === 'system' ? 'text-center w-full text-gray-500 dark:text-gray-400 italic text-xs' : ''
+        )}
+      >
+        {msg.text}
+      </div>
+      {msg.sender !== "system" && (
+        <span className={cn("text-xxs ml-1 self-end", currentTheme === 'theme-98' ? 'text-gray-700' : 'text-gray-400 dark:text-gray-500')}>
+          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
+    </li>
+  );
+});
+Row.displayName = 'Row';
 
 
 const ChatPageClientContent: React.FC = () => {
-  // const searchParams = useSearchParams();
-  // const { toast } = useToast();
-  // const { currentTheme } = useTheme();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+  const { currentTheme } = useTheme(); // Use currentTheme for actual applied theme
   const [isMounted, setIsMounted] = useState(false);
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isPartnerConnected, setIsPartnerConnected] = useState(false);
+  const [isFindingPartner, setIsFindingPartner] = useState(false);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  // const [partnerId, setPartnerId] = useState<string | null>(null); // Not strictly needed for text chat if room ID is used
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const interests = useMemo(() => searchParams.get('interests')?.split(',') || [], [searchParams]);
+
 
   useEffect(() => {
     setIsMounted(true);
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
+    if (!socketServerUrl) {
+        console.error("Socket server URL is not defined.");
+        toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
+        return;
+    }
+    const newSocket = io(socketServerUrl);
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+        console.log("ChatPage: Connected to socket server with ID:", newSocket.id);
+    });
+
+    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId }: { partnerId: string, roomId: string }) => {
+        setIsFindingPartner(false);
+        setIsPartnerConnected(true);
+        setRoomId(rId);
+        // setPartnerId(pId);
+        addMessage('Connected with a partner. You can start chatting!', 'system');
+    });
+
+    newSocket.on('waitingForPartner', () => {
+        // setIsFindingPartner(true); // Already set by handleFindOrDisconnectPartner
+        addMessage('Searching for a partner...', 'system');
+    });
+    
+    newSocket.on('noPartnerFound', () => {
+        setIsFindingPartner(false);
+        setIsPartnerConnected(false);
+        addMessage('No partner found at the moment. Try again later.', 'system');
+    });
+
+    newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
+        addMessage(receivedMessage, 'partner');
+    });
+
+    newSocket.on('partnerLeft', () => {
+        addMessage('Your partner has disconnected.', 'system');
+        setIsPartnerConnected(false);
+        setRoomId(null);
+        // setPartnerId(null);
+    });
+    
+    newSocket.on('disconnect', () => {
+        console.log("ChatPage: Disconnected from socket server.");
+        // addMessage('You have been disconnected from the server.', 'system');
+        // setIsPartnerConnected(false);
+        // setIsFindingPartner(false);
+        // setRoomId(null);
+    });
+    
+    newSocket.on('connect_error', (err) => {
+        console.error("ChatPage: Socket connection error:", err.message);
+        toast({
+            title: "Connection Error",
+            description: `Could not connect to chat server: ${err.message}. Please try again later.`,
+            variant: "destructive"
+        });
+        setIsFindingPartner(false);
+    });
+
+
+    return () => {
+      newSocket.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed interests from deps as it's memoized based on searchParams
+
+  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
+
+  const addMessage = useCallback((text: string, sender: Message['sender']) => {
+    setMessages((prevMessages) => {
+      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      return [...prevMessages, newMessageItem];
+    });
   }, []);
 
-  // const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-  // const chatType = useMemo(() => {
-  //   if (!isMounted) return 'text';
-  //   return searchParams.get('type') as 'text' | 'video' || 'text';
-  // }, [searchParams, isMounted]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = useCallback(() => {
+    if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
+    
+    socket.emit('sendMessage', { roomId, message: newMessage });
+    addMessage(newMessage, 'me');
+    setNewMessage('');
+  }, [newMessage, socket, roomId, isPartnerConnected, addMessage]);
+
+  const handleFindOrDisconnectPartner = useCallback(() => {
+    if (!socket) {
+        toast({ title: "Not Connected", description: "Not connected to the chat server.", variant: "destructive" });
+        return;
+    }
+
+    if (isPartnerConnected) { // Disconnect logic
+        socket.emit('leaveChat', { roomId });
+        addMessage('You have disconnected.', 'system');
+        setIsPartnerConnected(false);
+        setRoomId(null);
+        // setPartnerId(null);
+        setIsFindingPartner(false); // Ensure finding partner state is reset
+    } else if (isFindingPartner) { // Cancel finding
+        // To truly cancel, we might need a specific socket event or just reset client state
+        // For now, we'll just toggle the finding state locally. Server will eventually timeout or re-match.
+        // Or, disconnect and reconnect socket to clear server state.
+        // Let's emit a generic "stopLooking" or similar, if server supports it.
+        // For now, simple state reset and maybe a disconnect.
+        // socket.disconnect(); // This would require re-establishing connection.
+        // setSocket(null);
+        // The server handles a user being in waiting list and then disconnecting.
+        // Best might be to just let the server handle it if user disconnects socket.
+        // Or, if we want explicit "stop finding", server needs an event for it.
+        // For simplicity, we'll just update client state.
+        setIsFindingPartner(false);
+        addMessage('Stopped searching for a partner.', 'system');
+
+    } else { // Find partner logic
+        setIsFindingPartner(true);
+        addMessage('Searching for a partner...', 'system'); // Optimistic UI update
+        socket.emit('findPartner', { chatType: 'text', interests });
+    }
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, addMessage, toast]);
 
 
-  // const [messages, setMessages] = useState<Message[]>([]);
-  // const [newMessage, setNewMessage] = useState('');
-  // const [isPartnerConnected, setIsPartnerConnected] = useState(false);
-  // const [isFindingPartner, setIsFindingPartner] = useState(false);
+  const chatWindowStyle = useMemo(() => (
+    { width: '600px', height: '600px' }
+  ), []);
 
-  // const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // const addMessage = useCallback((text: string, sender: Message['sender']) => {
-  //   setMessages((prevMessages) => {
-  //     const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-  //     return [...prevMessages, newMessageItem];
-  //   });
-  // }, []);
-
-  // useEffect(() => {
-  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  // }, [messages]);
-
-  // const prevIsPartnerConnected = useRef(isPartnerConnected);
-  // const prevIsFindingPartner = useRef(isFindingPartner);
-
-  // This useEffect for system messages was problematic for builds
-  // useEffect(() => {
-  //   if (isMounted) { // Only run on client
-  //     if (isPartnerConnected && !prevIsPartnerConnected.current) {
-  //       addMessage('Connected with a partner. You can start chatting!', 'system');
-  //     } else if (!isPartnerConnected && prevIsPartnerConnected.current) {
-  //       // This handles disconnects or if partner was connected then isn't.
-  //       // Avoid adding "disconnected" if we were never connected or were just searching.
-  //       if(prevIsFindingPartner.current === false) { // only add if we were not in finding state before disconnect
-  //          addMessage('You have disconnected.', 'system');
-  //       }
-  //     }
-
-  //     if (isFindingPartner && !prevIsFindingPartner.current) {
-  //       addMessage('Searching for a partner...', 'system');
-  //     } else if (!isFindingPartner && prevIsFindingPartner.current && !isPartnerConnected) {
-  //       // If stopped finding and not connected, means no partner was found (or disconnected during search)
-  //       // addMessage('No partner found or search cancelled.', 'system');
-  //     }
-  //   }
-  //   prevIsPartnerConnected.current = isPartnerConnected;
-  //   prevIsFindingPartner.current = isFindingPartner;
-  // }, [isPartnerConnected, isFindingPartner, addMessage, isMounted]);
-
-
-  // const handleSendMessage = useCallback(() => {
-  //   if (!newMessage.trim()) return;
-  //   if (!isPartnerConnected) {
-  //       toast({title: "Not Connected", description: "You must be connected to a partner to send messages.", variant: "default"});
-  //       return;
-  //   }
-  //   addMessage(newMessage, 'me');
-  //   setTimeout(() => {
-  //       addMessage(`Partner: ${newMessage}`, 'partner');
-  //   }, 1000);
-  //   setNewMessage('');
-  // }, [newMessage, isPartnerConnected, toast, addMessage]);
-
-  // const handleToggleConnection = useCallback(async () => {
-  //   if (isPartnerConnected) {
-  //     // addMessage('You have disconnected from the partner.', 'system'); // Message handled by useEffect
-  //     setIsPartnerConnected(false);
-  //     setIsFindingPartner(false);
-  //   } else {
-  //     if (isFindingPartner) return;
-  //     setIsFindingPartner(true);
-  //     // addMessage('Searching for a partner...', 'system'); // Message handled by useEffect
-  //     await new Promise(resolve => setTimeout(resolve, 2000));
-  //     const found = Math.random() > 0.3;
-  //     if (found) {
-  //       setIsPartnerConnected(true);
-  //       // addMessage('Connected with a partner. You can start chatting!', 'system'); // Message handled by useEffect
-  //     } else {
-  //       // addMessage('No partner found at the moment. Try again later.', 'system'); // Message handled by useEffect
-  //       setIsPartnerConnected(false);
-  //     }
-  //     setIsFindingPartner(false);
-  //   }
-  // }, [isPartnerConnected, isFindingPartner, addMessage]);
-
-  // const chatWindowStyle = useMemo(() => (
-  //   { width: '600px', height: '600px' }
-  // ), []);
-
-  // const inputAreaHeight = 60;
+  const inputAreaHeight = 60;
 
   if (!isMounted) {
-    return <p>Loading client content...</p>; // Simple fallback for SSR/initial load
+    return (
+      <div className="flex flex-1 items-center justify-center p-4">
+        <p>Loading chat interface...</p>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
-      <h1>Simplified Chat Page Client Content</h1>
-       {/* Placeholder content, most original JSX removed */}
+       <div
+        className={cn(
+          'window flex flex-col',
+          effectivePageTheme === 'theme-7' ? 'glass' : ''
+        )}
+        style={chatWindowStyle}
+      >
+        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className="title-bar-text">Text Chat</div>
+        </div>
+        <div
+          className={cn(
+            'window-body window-body-content flex-grow',
+             effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
+          )}
+        >
+          <div
+            className={cn(
+              "flex-grow overflow-y-auto",
+              effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
+            )}
+            style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
+          >
+            <ul>
+              {messages.map((msg) => (
+                <Row key={msg.id} message={msg} theme={effectivePageTheme} />
+              ))}
+              <div ref={messagesEndRef} />
+            </ul>
+          </div>
+          <div
+            className={cn(
+              "p-2 flex-shrink-0",
+              effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+            )}
+            style={{ height: `${inputAreaHeight}px` }}
+          >
+            <div className="flex items-center w-full">
+              <Button
+                onClick={handleFindOrDisconnectPartner}
+                className="px-1 mr-1"
+              >
+                {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
+              </Button>
+              <Input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Type a message..."
+                className="flex-1 w-full px-1 py-1"
+                disabled={!isPartnerConnected || isFindingPartner}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
+                className="px-1 ml-1"
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
+         <img
+            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+            alt="Decorative Goldfish"
+            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+            data-ai-hint="goldfish decoration"
+          />
+      </div>
     </div>
   );
 };
