@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -68,7 +69,6 @@ const VideoChatPageClientContent: React.FC = () => {
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
-  // const [partnerId, setPartnerId] = useState<string | null>(null); // Can be useful for direct signaling if needed
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -82,6 +82,34 @@ const VideoChatPageClientContent: React.FC = () => {
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
   const itemHeight = 50; // Approximate height of a message item
+
+  const addMessage = useCallback((text: string, sender: Message['sender']) => {
+    setMessages((prevMessages) => {
+      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      return [...prevMessages, newMessageItem];
+    });
+  }, []);
+
+  const prevIsFindingPartnerRef = useRef(isFindingPartner);
+  const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
+
+  useEffect(() => {
+    if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
+      addMessage('Searching for a partner...', 'system');
+    }
+    if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
+      // Remove "Searching..." message if it exists and we just connected
+      setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+      addMessage('Connected with a partner. You can start chatting!', 'system');
+    }
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current) {
+      addMessage('Your partner has disconnected.', 'system');
+    }
+
+    prevIsFindingPartnerRef.current = isFindingPartner;
+    prevIsPartnerConnectedRef.current = isPartnerConnected;
+  }, [isFindingPartner, isPartnerConnected, addMessage]);
+
 
   useEffect(() => {
     setIsMounted(true);
@@ -102,13 +130,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
         setRoomId(rId);
-        // setPartnerId(pId);
-        addMessage('Connected with a partner. You can start chatting!', 'system');
         setupWebRTC(newSocket, rId, true); // This client is an initiator
     });
 
     newSocket.on('waitingForPartner', () => {
-        addMessage('Searching for a partner...', 'system');
+        // System message for "Searching..." is handled by the other useEffect
     });
     
     newSocket.on('noPartnerFound', () => {
@@ -123,13 +149,9 @@ const VideoChatPageClientContent: React.FC = () => {
     
     newSocket.on('webrtcSignal', async (signalData: any) => {
         if (!peerConnectionRef.current) {
-            // If partner initiated, setup WebRTC here before processing signal
-            // This might happen if this client wasn't the first to call setupWebRTC
-            // For simplicity, assume setupWebRTC is called on 'partnerFound' for both,
-            // and only one acts as initiator for offer.
-             if (isPartnerConnected && roomId && !peerConnectionRef.current) {
+             if (isPartnerConnected && roomId && !peerConnectionRef.current && newSocket) {
                 console.log("VideoChatPage: Receiving signal before local PC setup, attempting setup now (non-initiator).");
-                await setupWebRTC(newSocket, roomId, false); // This client is not the initiator
+                await setupWebRTC(newSocket, roomId, false); 
             }
             if (!peerConnectionRef.current) {
                 console.error("VideoChatPage: PeerConnection not initialized, cannot handle signal", signalData);
@@ -157,20 +179,13 @@ const VideoChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
-        addMessage('Your partner has disconnected.', 'system');
-        cleanupConnections(false); // Keep local stream for finding new partner
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null);
-        // setPartnerId(null);
     });
 
     newSocket.on('disconnect', () => {
         console.log("VideoChatPage: Disconnected from socket server.");
-        // addMessage('You have been disconnected from the server.', 'system');
-        // cleanupConnections(true); // Full cleanup
-        // setIsPartnerConnected(false);
-        // setIsFindingPartner(false);
-        // setRoomId(null);
     });
      newSocket.on('connect_error', (err) => {
         console.error("VideoChatPage: Socket connection error:", err.message);
@@ -191,12 +206,6 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
-  const addMessage = useCallback((text: string, sender: Message['sender']) => {
-    setMessages((prevMessages) => {
-      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-      return [...prevMessages, newMessageItem];
-    });
-  }, []);
 
   useEffect(() => {
     if (listRef.current && messages.length > 0) {
@@ -220,7 +229,7 @@ const VideoChatPageClientContent: React.FC = () => {
   }, []);
 
   const getCameraStream = useCallback(async () => {
-    if (localStreamRef.current) { // If stream already exists, use it
+    if (localStreamRef.current) { 
         if (localVideoRef.current && !localVideoRef.current.srcObject) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
@@ -254,16 +263,9 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (isMounted && hasCameraPermission === undefined) { // Only try to get permission if not yet determined
+    if (isMounted && hasCameraPermission === undefined) { 
         getCameraStream();
     }
-    // Cleanup stream on component unmount if it was acquired by this instance
-    return () => {
-        if (localStreamRef.current) {
-            // Only stop if not connected, or if full cleanup is intended
-            // cleanupConnections will handle this based on its stopLocalStream flag
-        }
-    };
   }, [isMounted, hasCameraPermission, getCameraStream]);
 
 
@@ -274,7 +276,7 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
-        setIsFindingPartner(false); // Reset finding state
+        setIsFindingPartner(false); 
         setIsPartnerConnected(false); 
         return;
     }
@@ -285,7 +287,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
 
     const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Example STUN server
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
     });
     peerConnectionRef.current = pc;
 
@@ -307,12 +309,6 @@ const VideoChatPageClientContent: React.FC = () => {
     
     pc.oniceconnectionstatechange = () => {
         console.log("VideoChatPage: ICE connection state change:", pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
-            // Handle connection failure/closure
-            // addMessage('Video connection lost or failed.', 'system');
-            // cleanupConnections(false); // Attempt to preserve local stream
-            // setIsPartnerConnected(false);
-        }
     };
 
 
@@ -326,7 +322,7 @@ const VideoChatPageClientContent: React.FC = () => {
             console.error("VideoChatPage: Error creating offer:", error);
         }
     }
-  }, [getCameraStream, toast]); // Added getCameraStream and toast to dependencies
+  }, [getCameraStream, toast]); 
 
 
   const handleSendMessage = useCallback(() => {
@@ -344,33 +340,28 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected) {
         socket.emit('leaveChat', { roomId });
-        addMessage('You have disconnected.', 'system');
-        cleanupConnections(false); // Keep local stream
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null);
-        // setPartnerId(null);
         setIsFindingPartner(false);
     } else if (isFindingPartner) {
-        // Similar to text chat, true cancel might need server event.
-        // For now, reset client state. User can disconnect socket if they want to fully stop.
         setIsFindingPartner(false);
-        addMessage('Stopped searching for a partner.', 'system');
-        // If user was in waiting list, server handles disconnect.
+        // Note: The server currently doesn't have an explicit "stop finding" event.
+        // Client stops displaying "Searching...", if user disconnects, server cleans up.
     } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) { // Still waiting for permission
-            const stream = await getCameraStream(); // Attempt to get permission now
-            if (!stream) return; // getCameraStream will show toast on failure
+        if (hasCameraPermission === undefined) { 
+            const stream = await getCameraStream(); 
+            if (!stream) return; 
         }
         
         setIsFindingPartner(true);
-        addMessage('Searching for a partner...', 'system'); // Optimistic UI update
         socket.emit('findPartner', { chatType: 'video', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, addMessage, toast, hasCameraPermission, cleanupConnections, getCameraStream]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, hasCameraPermission, cleanupConnections, getCameraStream]);
 
 
   const inputAreaHeight = 60;
@@ -425,10 +416,15 @@ const VideoChatPageClientContent: React.FC = () => {
           </div>
           <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
-            {!isPartnerConnected && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+            {isFindingPartner && !isPartnerConnected && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                <p className="text-white text-center p-2 text-sm">Searching for partner...</p>
+              </div>
+            )}
+            {!isFindingPartner && !isPartnerConnected && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
                 <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-                </div>
+              </div>
             )}
           </div>
         </div>
@@ -488,7 +484,7 @@ const VideoChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
                <Button
                 onClick={handleFindOrDisconnectPartner}
-                disabled={hasCameraPermission === undefined && !isPartnerConnected} // Disable if camera status unknown and not connected
+                disabled={hasCameraPermission === undefined && !isPartnerConnected} 
                 className="px-1 mr-1"
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
