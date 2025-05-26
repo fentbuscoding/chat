@@ -10,8 +10,6 @@ import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-// Removed: import { FixedSizeList as List, type ListChildComponentProps } from 'react-window';
-// Removed: import useElementSize from '@charlietango/use-element-size';
 
 interface Message {
   id: string;
@@ -78,7 +76,6 @@ const ChatPageClientContent: React.FC = () => {
   const [isFindingPartner, setIsFindingPartner] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Removed: listRef, chatContainerRef (for sizing), chatContainerWidth, chatContainerHeight, itemHeight
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -96,24 +93,24 @@ const ChatPageClientContent: React.FC = () => {
       }
       return [...prevMessages, newMessageItem];
     });
-  }, []);
+  }, []); // Empty dependency array means addMessage is stable
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const prevIsPartnerConnected = useRef(isPartnerConnected);
-  const prevIsFindingPartner = useRef(isFindingPartner);
+  // const prevIsPartnerConnected = useRef(isPartnerConnected);
+  // const prevIsFindingPartner = useRef(isFindingPartner);
 
-  useEffect(() => {
-    if (isPartnerConnected && !prevIsPartnerConnected.current) {
-      addMessage('Connected with a partner. You can start chatting!', 'system');
-    } else if (isFindingPartner && !prevIsFindingPartner.current) {
-      addMessage('Searching for a partner...', 'system');
-    }
-    prevIsPartnerConnected.current = isPartnerConnected;
-    prevIsFindingPartner.current = isFindingPartner;
-  }, [isPartnerConnected, isFindingPartner, addMessage]);
+  // useEffect(() => {
+  //   if (isPartnerConnected && !prevIsPartnerConnected.current) {
+  //     addMessage('Connected with a partner. You can start chatting!', 'system');
+  //   } else if (isFindingPartner && !prevIsFindingPartner.current) {
+  //     addMessage('Searching for a partner...', 'system');
+  //   }
+  //   prevIsPartnerConnected.current = isPartnerConnected;
+  //   prevIsFindingPartner.current = isFindingPartner;
+  // }, [isPartnerConnected, isFindingPartner, addMessage]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -138,12 +135,12 @@ const ChatPageClientContent: React.FC = () => {
     } else {
       if (isFindingPartner) return;
       setIsFindingPartner(true);
-      // "Searching for partner" message will be added by the useEffect above
+      addMessage('Searching for a partner...', 'system'); // Add message immediately
       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate search
       const found = Math.random() > 0.3; // Simulate finding a partner
       if (found) {
         setIsPartnerConnected(true);
-         // "Connected with partner" message will be added by the useEffect above
+         addMessage('Connected with a partner. You can start chatting!', 'system'); // Add message immediately
       } else {
         addMessage('No partner found at the moment. Try again later.', 'system');
         setIsPartnerConnected(false);
@@ -162,7 +159,7 @@ const ChatPageClientContent: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
       <div
         className={cn(
-          'window flex flex-col relative', // Ensure this is relative for the goldfish
+          'window flex flex-col relative', 
           effectivePageTheme === 'theme-7' ? 'active glass' : '',
           'mb-4'
         )}
@@ -172,27 +169,23 @@ const ChatPageClientContent: React.FC = () => {
           <div className="title-bar-text">Text Chat</div>
         </div>
         <div
-          // This ref was for useElementSize, can be removed if not used for other purposes
-          // ref={chatContainerRef} 
           className={cn(
-            'window-body window-body-content flex-grow', // window-body-content handles flex direction
+            'window-body window-body-content flex-grow', 
             effectivePageTheme === 'theme-98' ? 'p-0.5' : (effectivePageTheme === 'theme-7' ? (cn(effectivePageTheme === 'theme-7' ? 'glass' : '').includes('glass') ? 'glass-body-padding' : 'has-space') : 'p-2')
           )}
         >
-          {/* Message list area - flex-grow makes it take available space */}
           <div
             className={cn(
-              "flex-grow overflow-y-auto", // Added overflow-y-auto here
+              "flex-grow overflow-y-auto", 
               effectivePageTheme === 'theme-98' ? 'sunken-panel tree-view p-1' : 'border p-2 bg-white bg-opacity-80 dark:bg-gray-700 dark:bg-opacity-80'
             )}
-            // Height will be determined by flex-grow
           >
             {isMounted ? (
-              <ul className="p-2"> {/* Added some padding to the ul */}
+              <ul className="p-2"> 
                 {messages.map((msg) => (
                   <Row key={msg.id} message={msg} theme={effectivePageTheme} />
                 ))}
-                <div ref={messagesEndRef} /> {/* For scrolling to bottom */}
+                <div ref={messagesEndRef} /> 
               </ul>
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -202,10 +195,9 @@ const ChatPageClientContent: React.FC = () => {
               </div>
             )}
           </div>
-           {/* Input area */}
            <div
             className={cn(
-              "p-2 flex-shrink-0", // flex-shrink-0 prevents it from shrinking
+              "p-2 flex-shrink-0", 
               effectivePageTheme === 'theme-98' ? 'input-area status-bar' : (effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : '')
             )}
             style={{ height: `${inputAreaHeight}px` }}
