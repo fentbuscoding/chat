@@ -1,17 +1,10 @@
-
-
-
-
-
-
-/* @tailwind base; */
 @tailwind components;
 @tailwind utilities;
 
 /* For debugging purposes: outline all elements */
-* {
+/* * {
   outline: 1px solid red !important;
-}
+} */
 
 /* Debugging: Numbered divs */
 body {
@@ -266,5 +259,3 @@ video {
   text-align: left !important; /* Align text within this element to the left */
 }
     
-
-
