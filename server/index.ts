@@ -84,16 +84,31 @@ io.on('connection', (socket: Socket) => {
       if (partnerSocket) {
         partnerSocket.join(roomId);
         console.log(`Partner found for ${currentUser.id} and ${matchedPartner.id}. Room: ${roomId}`);
-        socket.emit('partnerFound', { partnerId: matchedPartner.id, roomId });
-        partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId });
+        // Emit to current socket and partner socket, include interests
+        socket.emit('partnerFound', { partnerId: matchedPartner.id, roomId, interests: matchedPartner.interests });
+        partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
-        // Should not happen if matchedPartner was from waitingUsers and still connected
-        console.error(`Could not find socket for matched partner ${matchedPartner.id}`);
-        waitingUsers[chatType].push(currentUser); // Put current user back in waiting list
-        socket.emit('noPartnerFound');
+        // This case means a partner was found in the waiting list and removed (by findMatch's splice),
+        // but their socket connection no longer exists.
+        console.error(`Could not find socket for matched partner ${matchedPartner.id}. Matched partner might have disconnected.`);
+        
+        // Add the matchedPartner back to the waiting list because they were removed by splice.
+        if (matchedPartner) { 
+             const type = matchedPartner.chatType || currentUser.chatType; 
+             waitingUsers[type].unshift(matchedPartner); // Add to front to attempt re-match sooner
+             console.log(`Re-added ${matchedPartner.id} to waiting list for ${type}.`);
+        }
+
+        // The current user did not find a usable partner, so they should also be put in waiting.
+        const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
+        if (!isCurrentUserWaiting) {
+          waitingUsers[currentUser.chatType].push(currentUser);
+        }
+        console.log(`User ${currentUser.id} (who was looking for a partner) added to waiting list for ${currentUser.chatType}.`);
+        socket.emit('waitingForPartner'); // Inform current user they are now waiting
       }
     } else {
-      // Check if user is already waiting to avoid duplicates
+      // No partner found, add current user to waiting list
       const isAlreadyWaiting = waitingUsers[chatType].some(user => user.id === socket.id);
       if (!isAlreadyWaiting) {
         waitingUsers[chatType].push(currentUser);
@@ -169,3 +184,4 @@ server.listen(PORT, () => {
 });
 
 export {}; // To make this a module
+
