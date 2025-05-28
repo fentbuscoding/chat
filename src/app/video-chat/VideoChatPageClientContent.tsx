@@ -13,20 +13,16 @@ import { FixedSizeList as List, type ListChildComponentProps } from 'react-windo
 import useElementSize from '@charlietango/use-element-size';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-import { listEmojis } from '@/ai/flows/list-emojis-flow'; // Import the Genkit flow
+import { listEmojis } from '@/ai/flows/list-emojis-flow';
 
-
-// Constants for Emojis (Display Icon)
+// Constants for Emojis
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
-// Static list for the hover-cycle display icon
-const STATIC_DISPLAY_EMOJI_FILENAMES = [
+const STATIC_DISPLAY_EMOJI_FILENAMES = [ // For the hover-cycle display icon
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
   'cry.png', 'embarrassed.png', 'kiss.png', 'moneymouth.png', 'sad.png',
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png'; // Default display icon
-
-// Base URL for picker emojis (fetched dynamically)
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 
@@ -125,7 +121,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
 
-    // Emoji Feature State
+  // Emoji Feature State
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
@@ -151,7 +147,6 @@ const VideoChatPageClientContent: React.FC = () => {
     }
 
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
-       // Remove previous "Searching", "disconnected", or "stopped searching" messages
       setMessages(prev => prev.filter(msg =>
         !(msg.sender === 'system' &&
           (msg.text.toLowerCase().includes('searching for a partner') ||
@@ -270,12 +265,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     });
 
-    // Fetch emojis for the picker
     const fetchPickerEmojis = async () => {
       try {
         setEmojisLoading(true);
         const emojiList = await listEmojis();
-        setPickerEmojiFilenames(emojiList);
+        setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
       } catch (error) {
         console.error("Failed to fetch emojis for picker:", error);
         toast({
@@ -283,6 +277,7 @@ const VideoChatPageClientContent: React.FC = () => {
           description: "Could not load emojis for the picker.",
           variant: "destructive",
         });
+        setPickerEmojiFilenames([]);
       } finally {
         setEmojisLoading(false);
       }
@@ -449,14 +444,12 @@ const VideoChatPageClientContent: React.FC = () => {
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
-        addMessage('You have disconnected.', 'system'); // Message for the user who clicked disconnect
+        addMessage('You have disconnected.', 'system'); 
         
-        setIsFindingPartner(true); // Start searching again automatically
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
 
     } else if (isFindingPartner) { 
-        // socket.emit('leaveChat', { roomId: null }); // No room to leave if just searching
-        // Potentially tell server to remove from waiting list
         setIsFindingPartner(false);
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
@@ -479,10 +472,9 @@ const VideoChatPageClientContent: React.FC = () => {
       hasCameraPermission, cleanupConnections, getCameraStream, addMessage
     ]);
 
-  // Emoji Feature Logic
   const handleEmojiIconHover = () => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
-    if (STATIC_DISPLAY_EMOJI_FILENAMES.length === 0) return; // Guard against empty list
+    if (STATIC_DISPLAY_EMOJI_FILENAMES.length === 0) return;
 
     hoverIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * STATIC_DISPLAY_EMOJI_FILENAMES.length);
@@ -603,6 +595,14 @@ const VideoChatPageClientContent: React.FC = () => {
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
+        {effectivePageTheme === 'theme-7' && (
+          <img
+            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+            alt="Decorative Goldfish"
+            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+            data-ai-hint="goldfish decoration"
+          />
+        )}
         <div
           ref={chatListContainerRef}
           className={cn(
@@ -684,43 +684,43 @@ const VideoChatPageClientContent: React.FC = () => {
                     onClick={toggleEmojiPicker}
                     data-ai-hint="emoji icon"
                   />
-                  {isEmojiPickerOpen && pickerEmojiFilenames.length > 0 && (
+                  {isEmojiPickerOpen && (
                     <div
                       ref={emojiPickerRef}
-                      className="absolute bottom-full right-0 mb-2 w-48 h-auto p-2 bg-silver border border-raised grid grid-cols-4 gap-1 z-30 window"
+                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
-                      {pickerEmojiFilenames.map((filename) => (
-                        <img
-                          key={filename}
-                          src={`${EMOJI_BASE_URL_PICKER}${filename}`}
-                          alt={filename.split('.')[0]}
-                          className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
-                           onClick={() => {
-                            setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
-                            // setIsEmojiPickerOpen(false); // Optionally close picker on selection
-                          }}
-                          data-ai-hint="emoji symbol"
-                        />
-                      ))}
+                      {pickerEmojiFilenames.length > 0 ? (
+                        <div className="h-auto grid grid-cols-4 gap-1">
+                          {pickerEmojiFilenames.map((filename) => (
+                            <img
+                              key={filename}
+                              src={`${EMOJI_BASE_URL_PICKER}${filename}`}
+                              alt={filename.split('.')[0]}
+                              className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
+                              onClick={() => {
+                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
+                              }}
+                              data-ai-hint="emoji symbol"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                         <p className="text-center w-full text-xs">No emojis available.</p>
+                      )}
                     </div>
                   )}
-                  {isEmojiPickerOpen && emojisLoading && (
-                     <div className="absolute bottom-full right-0 mb-2 p-2 bg-silver border">Loading emojis...</div>
-                   )}
                 </div>
+              )}
+              {/* Placeholder for when emojis are initially loading for theme-98 */}
+              {effectivePageTheme === 'theme-98' && emojisLoading && (
+                 <div className="relative ml-1 flex-shrink-0">
+                    <p className="text-xs p-1">...</p>
+                 </div>
               )}
             </div>
           </div>
         </div>
-        {effectivePageTheme === 'theme-7' && (
-          <img
-            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-            alt="Decorative Goldfish"
-            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
-            data-ai-hint="goldfish decoration"
-          />
-        )}
       </div>
     </div>
   );
