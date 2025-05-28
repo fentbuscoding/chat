@@ -24,32 +24,31 @@ interface Message {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
   const msg = data.messages[index];
-  const currentTheme = data.theme;
+  // const currentTheme = data.theme; // Theme prop is available if needed for system messages or future styling
+
+  if (msg.sender === 'system') {
+    return (
+      <li style={style} className="mb-1"> {/* Apply style to li */}
+        <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
+          {msg.text}
+        </div>
+      </li>
+    );
+  }
 
   return (
-    <li
-      key={msg.id}
-      className={cn(
-        "flex mb-1",
-        msg.sender === "me" ? "justify-end" : "justify-start"
+    <li style={style} className="mb-1 break-words"> {/* Apply style to li */}
+      {msg.sender === 'me' && (
+        <>
+          <span className="text-blue-600 font-bold mr-1">You:</span>
+          <span>{msg.text}</span>
+        </>
       )}
-      style={style}
-    >
-      <div
-        className={cn(
-          "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
-          msg.sender === "me"
-            ? currentTheme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'
-            : currentTheme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
-          msg.sender === 'system' ? 'text-center w-full text-gray-500 dark:text-gray-400 italic text-xs' : ''
-        )}
-      >
-        {msg.text}
-      </div>
-      {msg.sender !== "system" && (
-        <span className={cn("text-xxs ml-1 self-end", currentTheme === 'theme-98' ? 'text-gray-700' : 'text-gray-400 dark:text-gray-500')}>
-          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
+      {msg.sender === 'partner' && (
+        <>
+          <span className="text-red-600 font-bold mr-1">Stranger:</span>
+          <span>{msg.text}</span>
+        </>
       )}
     </li>
   );
@@ -81,7 +80,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const listRef = useRef<List>(null);
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 50; 
+  const itemHeight = 30; // Adjusted for potentially shorter text lines
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -388,21 +387,20 @@ const VideoChatPageClientContent: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
       <div className="flex justify-center gap-4 mb-4 mx-auto">
-        <div // [D7] Your Video Window
+        <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
+            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
           </div>
-          <div // [D9] Your Video Window Body
+          <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative',
-              'p-0',
-              effectivePageTheme === 'theme-7' && 'bg-white/30'
+              'window-body flex-grow overflow-hidden relative p-0',
+               effectivePageTheme === 'theme-7' && 'bg-white/30'
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -419,20 +417,19 @@ const VideoChatPageClientContent: React.FC = () => {
           </div>
         </div>
 
-        <div // [D10] Partner's Video Window
+        <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
+            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
-          <div // [D12] Partner's Video Window Body
+          <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative', 
-              'p-0',
+              'window-body flex-grow overflow-hidden relative p-0', 
               effectivePageTheme === 'theme-7' && 'bg-white/30'
               )}
           >
@@ -451,7 +448,7 @@ const VideoChatPageClientContent: React.FC = () => {
         </div>
       </div>
 
-      <div // Chat Window
+      <div
         className={cn(
           'window flex flex-col flex-1 relative m-2', 
           effectivePageTheme === 'theme-7' ? 'glass' : ''
@@ -541,6 +538,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-
-
-    

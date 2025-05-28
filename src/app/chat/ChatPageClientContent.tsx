@@ -20,30 +20,31 @@ interface Message {
 
 const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
   const msg = message;
-  const currentTheme = theme;
+  // const currentTheme = theme; // Theme prop is available if needed for system messages or future styling
+
+  if (msg.sender === 'system') {
+    return (
+      <li className="mb-1">
+        <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
+          {msg.text}
+        </div>
+      </li>
+    );
+  }
+
   return (
-    <li
-      key={msg.id}
-      className={cn(
-        "flex mb-1",
-        msg.sender === "me" ? "justify-end" : "justify-start"
+    <li className="mb-1 break-words">
+      {msg.sender === 'me' && (
+        <>
+          <span className="text-blue-600 font-bold mr-1">You:</span>
+          <span>{msg.text}</span>
+        </>
       )}
-    >
-      <div
-        className={cn(
-          "rounded-lg px-3 py-1 max-w-xs lg:max-w-md break-words",
-          msg.sender === "me"
-            ? currentTheme === 'theme-98' ? 'bg-blue-500 text-white px-1' : 'bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100'
-            : currentTheme === 'theme-98' ? 'bg-gray-300 px-1' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
-          msg.sender === 'system' ? 'text-center w-full text-gray-500 dark:text-gray-400 italic text-xs' : ''
-        )}
-      >
-        {msg.text}
-      </div>
-      {msg.sender !== "system" && (
-        <span className={cn("text-xxs ml-1 self-end", currentTheme === 'theme-98' ? 'text-gray-700' : 'text-gray-400 dark:text-gray-500')}>
-          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
+      {msg.sender === 'partner' && (
+        <>
+          <span className="text-red-600 font-bold mr-1">Stranger:</span>
+          <span>{msg.text}</span>
+        </>
       )}
     </li>
   );
@@ -54,7 +55,7 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); 
+  const { currentTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -85,7 +86,7 @@ const ChatPageClientContent: React.FC = () => {
       setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
       addMessage('Connected with a partner. You can start chatting!', 'system');
     }
-    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId) { // Only show if they were previously connected
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId) { 
       addMessage('Your partner has disconnected.', 'system');
     }
 
@@ -104,7 +105,7 @@ const ChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'] // Explicitly define transports
+      transports: ['websocket', 'polling'] 
     });
     setSocket(newSocket);
 
@@ -141,10 +142,8 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
         if (reason === 'io server disconnect') {
-            // the disconnection was initiated by the server, you need to reconnect manually
             newSocket.connect();
         }
-        // else the socket will automatically try to reconnect
     });
     
     newSocket.on('connect_error', (err) => {
