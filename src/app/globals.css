@@ -259,4 +259,53 @@ video {
   flex-grow: 1; /* Ensure it expands to fill available space in the title-bar flex container */
   text-align: left !important; /* Align text within this element to the left */
 }
+
+/* Glassmorphism Button for Theme 7 */
+.theme-7 button.glass-button-styled {
+  background: rgba(255, 255, 255, 0.15); /* Lighter, more translucent base */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px); /* Safari */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px; /* Curved corners */
+  color: #ffffff; /* White text */
+  padding: 6px 12px; /* Custom padding */
+  font-size: 0.875rem; /* 14px */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* Subtle text shadow for readability */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), /* Softer outer shadow */
+              inset 0 1px 0 rgba(255, 255, 255, 0.25), /* Inner highlight for 3D effect */
+              inset 0 -1px 0 rgba(0, 0, 0, 0.1); /* Inner bottom shadow */
+  transition: background 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.1s ease-out;
+  cursor: pointer;
+  display: inline-flex; 
+  align-items: center;
+  justify-content: center;
+  outline: none; 
+}
+
+.theme-7 button.glass-button-styled:hover {
+  background: rgba(255, 255, 255, 0.25); 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.theme-7 button.glass-button-styled:active {
+  background: rgba(255, 255, 255, 0.1); 
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 
+              inset 0 1px 0 rgba(255, 255, 255, 0.2),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  transform: translateY(1px); 
+}
+
+.theme-7 button.glass-button-styled:disabled,
+.theme-7 button.glass-button-styled[disabled] {
+  background: rgba(255, 255, 255, 0.05); 
+  color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px); 
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: none;
+  cursor: not-allowed;
+  text-shadow: none;
+}
     
