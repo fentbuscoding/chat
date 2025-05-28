@@ -35,7 +35,10 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
   if (currentMessage.sender === 'system') {
     return (
       <div style={style} className="mb-2">
-        <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
+        <div className={cn(
+          "text-center w-full text-gray-500 dark:text-gray-400 italic text-xs",
+          theme === 'theme-7' && 'theme-7-text-shadow' // Apply shadow for theme-7
+        )}>
           {currentMessage.text}
         </div>
       </div>
@@ -563,7 +566,8 @@ const VideoChatPageClientContent: React.FC = () => {
                 onClick={handleFindOrDisconnectPartner}
                 disabled={hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner} 
                 className={cn(
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled mr-1' : 'px-1 py-1 mr-1'
+                  'mr-1',
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
                 {isPartnerConnected ? 'Disconnect' : (isFindingPartner ? 'Stop Searching' : 'Find Partner')}
@@ -581,7 +585,8 @@ const VideoChatPageClientContent: React.FC = () => {
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
                 className={cn(
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled ml-1' : 'px-1 py-1 ml-1'
+                  'ml-1',
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
                 Send
@@ -603,3 +608,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+

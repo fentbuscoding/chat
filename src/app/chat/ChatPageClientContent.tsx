@@ -28,7 +28,10 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
   if (message.sender === 'system') {
     return (
       <div className="mb-2">
-        <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
+        <div className={cn(
+          "text-center w-full text-gray-500 dark:text-gray-400 italic text-xs",
+          theme === 'theme-7' && 'theme-7-text-shadow' // Apply shadow for theme-7
+        )}>
           {message.text}
         </div>
       </div>
@@ -318,7 +321,8 @@ const ChatPageClientContent: React.FC = () => {
               <Button
                 onClick={handleFindOrDisconnectPartner}
                 className={cn(
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled mr-1' : 'px-1 py-1 mr-1'
+                  'mr-1',
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
                 {isPartnerConnected ? 'Disconnect' : (isFindingPartner ? 'Stop Searching' : 'Find Partner')}
@@ -336,7 +340,8 @@ const ChatPageClientContent: React.FC = () => {
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
                 className={cn(
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled ml-1' : 'px-1 py-1 ml-1'
+                  'ml-1',
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
                 Send
@@ -358,3 +363,4 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
+
