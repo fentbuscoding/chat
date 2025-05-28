@@ -120,7 +120,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'] // Explicitly define transports
+      transports: ['websocket', 'polling'] 
     });
     setSocket(newSocket);
 
@@ -276,7 +276,7 @@ const VideoChatPageClientContent: React.FC = () => {
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted, getCameraStream]); // Removed hasCameraPermission to avoid loop if getCameraStream updates it
+  }, [isMounted, getCameraStream]); 
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -388,7 +388,7 @@ const VideoChatPageClientContent: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
       <div className="flex justify-center gap-4 mb-4 mx-auto">
-        <div
+        <div // [D7] Your Video Window
           className={cn(
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
@@ -398,7 +398,13 @@ const VideoChatPageClientContent: React.FC = () => {
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
           </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+          <div // [D9] Your Video Window Body
+            className={cn(
+              'window-body flex-grow overflow-hidden relative',
+              'p-0',
+              effectivePageTheme === 'theme-7' && 'bg-white/30'
+            )}
+          >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
             { hasCameraPermission === false && (
               <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
@@ -413,7 +419,7 @@ const VideoChatPageClientContent: React.FC = () => {
           </div>
         </div>
 
-        <div
+        <div // [D10] Partner's Video Window
           className={cn(
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
@@ -423,7 +429,13 @@ const VideoChatPageClientContent: React.FC = () => {
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
-          <div className={cn('window-body flex-grow overflow-hidden relative p-0')}>
+          <div // [D12] Partner's Video Window Body
+            className={cn(
+              'window-body flex-grow overflow-hidden relative', 
+              'p-0',
+              effectivePageTheme === 'theme-7' && 'bg-white/30'
+              )}
+          >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
             {isFindingPartner && !isPartnerConnected && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
@@ -439,7 +451,7 @@ const VideoChatPageClientContent: React.FC = () => {
         </div>
       </div>
 
-      <div
+      <div // Chat Window
         className={cn(
           'window flex flex-col flex-1 relative m-2', 
           effectivePageTheme === 'theme-7' ? 'glass' : ''
@@ -529,3 +541,6 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
+
+    
