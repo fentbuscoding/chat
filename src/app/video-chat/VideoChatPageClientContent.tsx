@@ -24,20 +24,19 @@ interface Message {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
   const msg = data.messages[index];
-  // const currentTheme = data.theme; // Theme prop is available if needed for system messages or future styling
 
   if (msg.sender === 'system') {
     return (
-      <li style={style} className="mb-1"> {/* Apply style to li */}
+      <div style={style} className="mb-1"> {/* Changed from li to div */}
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {msg.text}
         </div>
-      </li>
+      </div>
     );
   }
 
   return (
-    <li style={style} className="mb-1 break-words"> {/* Apply style to li */}
+    <div style={style} className="mb-1 break-words"> {/* Changed from li to div */}
       {msg.sender === 'me' && (
         <>
           <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -50,7 +49,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
           <span>{msg.text}</span>
         </>
       )}
-    </li>
+    </div>
   );
 });
 Row.displayName = 'Row';
@@ -59,7 +58,7 @@ Row.displayName = 'Row';
 const VideoChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams(); 
   const { toast } = useToast();
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useTheme(); // Changed from `theme` to `currentTheme`
   const [isMounted, setIsMounted] = useState(false);
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -80,7 +79,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const listRef = useRef<List>(null);
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 30; // Adjusted for potentially shorter text lines
+  const itemHeight = 30; 
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -212,7 +211,7 @@ const VideoChatPageClientContent: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
+  const effectiveTheme = isMounted ? currentTheme : 'theme-98';
 
 
   useEffect(() => {
@@ -374,7 +373,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme }), [messages, effectivePageTheme]);
+  const itemData = useMemo(() => ({ messages, theme: effectiveTheme }), [messages, effectiveTheme]);
 
   if (!isMounted) {
     return (
@@ -390,17 +389,17 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
           </div>
           <div
             className={cn(
               'window-body flex-grow overflow-hidden relative p-0',
-               effectivePageTheme === 'theme-7' && 'bg-white/30'
+               effectiveTheme === 'theme-7' && 'bg-white/30'
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -420,17 +419,17 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
           <div
             className={cn(
               'window-body flex-grow overflow-hidden relative p-0', 
-              effectivePageTheme === 'theme-7' && 'bg-white/30'
+              effectiveTheme === 'theme-7' && 'bg-white/30'
               )}
           >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
@@ -451,24 +450,24 @@ const VideoChatPageClientContent: React.FC = () => {
       <div
         className={cn(
           'window flex flex-col flex-1 relative m-2', 
-          effectivePageTheme === 'theme-7' ? 'glass' : ''
+          effectiveTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
       >
-        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+        <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
         <div
           ref={chatListContainerRef}
           className={cn(
             'window-body window-body-content flex-grow',
-            effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
+            effectiveTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
           )}
         >
           <div
             className={cn(
               "flex-grow",
-              effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
+              effectiveTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
              style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
@@ -486,7 +485,7 @@ const VideoChatPageClientContent: React.FC = () => {
               </List>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className={cn(effectivePageTheme === 'theme-7' ? 'text-black' : 'text-gray-500 dark:text-gray-400')}>
+                <p className={cn(effectiveTheme === 'theme-7' ? 'text-black' : 'text-gray-500 dark:text-gray-400')}>
                   Loading messages...
                 </p>
               </div>
@@ -495,7 +494,7 @@ const VideoChatPageClientContent: React.FC = () => {
            <div
             className={cn(
               "p-2 flex-shrink-0",
-              effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+              effectiveTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
@@ -526,12 +525,14 @@ const VideoChatPageClientContent: React.FC = () => {
             </div>
           </div>
         </div>
-        <img
-          src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-          alt="Decorative Goldfish"
-          className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
-          data-ai-hint="goldfish decoration"
-        />
+        {effectiveTheme === 'theme-7' && (
+          <img
+            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+            alt="Decorative Goldfish"
+            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+            data-ai-hint="goldfish decoration"
+          />
+        )}
       </div>
     </div>
   );

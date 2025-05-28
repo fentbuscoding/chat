@@ -6,7 +6,7 @@
   outline: 1px solid red !important;
 } */
 
-/* Debugging: Numbered divs */
+/* Debugging: Numbered divs - REMOVED
 body {
   counter-reset: div-counter;
 }
@@ -16,16 +16,15 @@ div::before {
   content: "[D" counter(div-counter) "] ";
   font-size: 8px;
   color: blue;
-  /* Optional: Prevent selection and interference with layout */
-  display: inline-block; /* To allow margin/padding if needed and flow with text */
+  display: inline-block; 
   margin-right: 2px;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  /* Ensure it doesn't break flex/grid layouts of the parent */
-  vertical-align: baseline; /* Or top, middle, as appropriate */
+  vertical-align: baseline; 
 }
+*/
 
 
 :root {
@@ -97,13 +96,15 @@ video {
 .theme-98 .tree-view {
   background-color: white;
   padding: 4px;
-  list-style: none;
+  /* list-style: none; REMOVED as we are moving away from ul/li for chat messages */
   margin: 0;
 }
 
+/* REMOVED as Row component will render divs now
 .theme-98 .tree-view li {
   padding: 1px 0;
 }
+*/
 
 /* Styles for 7.css window body padding helper */
 .theme-7 .window-body.has-space {

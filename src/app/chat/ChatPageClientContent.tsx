@@ -20,20 +20,19 @@ interface Message {
 
 const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
   const msg = message;
-  // const currentTheme = theme; // Theme prop is available if needed for system messages or future styling
 
   if (msg.sender === 'system') {
     return (
-      <li className="mb-1">
+      <div className="mb-1"> {/* Changed from li to div */}
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {msg.text}
         </div>
-      </li>
+      </div>
     );
   }
 
   return (
-    <li className="mb-1 break-words">
+    <div className="mb-1 break-words"> {/* Changed from li to div */}
       {msg.sender === 'me' && (
         <>
           <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -46,7 +45,7 @@ const Row = React.memo(({ message, theme }: { message: Message, theme: string })
           <span>{msg.text}</span>
         </>
       )}
-    </li>
+    </div>
   );
 });
 Row.displayName = 'Row';
@@ -241,12 +240,12 @@ const ChatPageClientContent: React.FC = () => {
             )}
             style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
           >
-            <ul>
+            <div> {/* Changed from ul to div */}
               {messages.map((msg) => (
                 <Row key={msg.id} message={msg} theme={effectivePageTheme} />
               ))}
               <div ref={messagesEndRef} />
-            </ul>
+            </div>
           </div>
           <div
             className={cn(
@@ -281,12 +280,14 @@ const ChatPageClientContent: React.FC = () => {
             </div>
           </div>
         </div>
-         <img
+        {effectivePageTheme === 'theme-7' && (
+          <img
             src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
             alt="Decorative Goldfish"
             className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
             data-ai-hint="goldfish decoration"
           />
+        )}
       </div>
     </div>
   );
