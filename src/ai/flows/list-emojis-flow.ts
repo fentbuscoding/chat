@@ -14,14 +14,17 @@ import {z} from 'genkit';
 const ListEmojisOutputSchema = z.array(z.string()).describe('A list of emoji filenames ending with .png or .gif.');
 export type ListEmojisOutput = z.infer<typeof ListEmojisOutputSchema>;
 
+// Define an empty object schema for the input
+const EmptyInputSchema = z.object({});
+
 // This is the actual flow that will be registered with Genkit
 const listEmojisFlowInternal = ai.defineFlow(
   {
     name: 'listEmojisFlow',
-    inputSchema: z.undefined(), // No input needed for this specific case
+    inputSchema: EmptyInputSchema, // Use the empty object schema
     outputSchema: ListEmojisOutputSchema,
   },
-  async () => { // The input parameter is implicitly undefined here
+  async (input) => { // Input will be an empty object, not used by the logic
     const storage = new Storage();
     const bucketName = 'chat_emoticons'; // Your bucket name
     const prefix = 'emotes_98/';       // The folder path within the bucket
@@ -53,5 +56,5 @@ const listEmojisFlowInternal = ai.defineFlow(
 
 // Exported async wrapper function to call the flow
 export async function listEmojis(): Promise<ListEmojisOutput> {
-  return listEmojisFlowInternal(undefined); // Explicitly pass undefined
+  return listEmojisFlowInternal({}); // Pass an empty object
 }
