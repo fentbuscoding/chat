@@ -6,7 +6,7 @@
  * - listEmojis - A function that lists emoji filenames.
  * - ListEmojisOutput - The return type for the listEmojis function.
  */
-
+process.env.GOOGLE_APPLICATION_CREDENTIALS = './chitchatconnect-aqa0w-c9e0b73cf349.json';
 import {ai} from '@/ai/ai-instance'; // Assuming your global ai instance is here
 import {Storage} from '@google-cloud/storage';
 import {z} from 'genkit';

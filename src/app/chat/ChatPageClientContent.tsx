@@ -438,7 +438,7 @@ const ChatPageClientContent: React.FC = () => {
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
                       {pickerEmojiFilenames.length > 0 ? (
-                        <div className="h-auto grid grid-cols-4 gap-1">
+                        <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1"> {/* Apply fixed height and scroll */}
                           {pickerEmojiFilenames.map((filename) => (
                             <img
                               key={filename}
