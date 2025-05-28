@@ -11,7 +11,7 @@ import {ai} from '@/ai/ai-instance'; // Assuming your global ai instance is here
 import {Storage} from '@google-cloud/storage';
 import {z} from 'genkit';
 
-const ListEmojisOutputSchema = z.array(z.string()).describe('A list of emoji filenames.');
+const ListEmojisOutputSchema = z.array(z.string()).describe('A list of emoji filenames ending with .png or .gif.');
 export type ListEmojisOutput = z.infer<typeof ListEmojisOutputSchema>;
 
 // This is the actual flow that will be registered with Genkit
@@ -32,10 +32,15 @@ const listEmojisFlowInternal = ai.defineFlow(
         .map(file => {
           // Remove the prefix from the filename
           const name = file.name.startsWith(prefix) ? file.name.substring(prefix.length) : file.name;
-          // Filter out any "empty" filenames that might result from the prefix itself being listed
           return name;
         })
-        .filter(name => name && name.length > 0 && !name.endsWith('/')); // Ensure it's not a folder entry
+        .filter(name => {
+          if (!name || name.length === 0 || name.endsWith('/')) {
+            return false; // Filter out empty names or folder entries
+          }
+          const lowerName = name.toLowerCase();
+          return lowerName.endsWith('.png') || lowerName.endsWith('.gif'); // Keep only .png or .gif files
+        });
 
       return filenames;
     } catch (error) {
