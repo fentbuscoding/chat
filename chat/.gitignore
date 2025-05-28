@@ -1,34 +1,52 @@
-# Service Account Keys
-chitchatconnect-aqa0w-c9e0b73cf349.json
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Firebase
+.firebase
+firebase.json
+database.rules.json
+storage.rules
+
+# Dependencies
+node_modules
+jspm_packages
+bower_components
 
 # Next.js
 .next/
 out/
 build/
 
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# TypeScript
+*.tsbuildinfo
+*.js
+*.js.map
+*.jsx
 
-# IDE / Editor specific
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# OS generated files
+# Misc
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+*.pem
+*.log
+*.orig
 
-# Environment files
+# Environment Variables
 .env
-.env*.local
-!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Service Account Keys
+chitchatconnect-aqa0w-c9e0b73cf349.json
+
+# IDE config
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Test Results
+coverage

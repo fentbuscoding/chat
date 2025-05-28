@@ -25,7 +25,7 @@ const listEmojisFlowInternal = ai.defineFlow(
     outputSchema: ListEmojisOutputSchema,
   },
   async (input) => { // Input will be an empty object, not used by the logic
-    const storage = new Storage();
+    const storage = new Storage(); // This will use Application Default Credentials
     const bucketName = 'chat_emoticons'; // Your bucket name
     const prefix = 'emotes_98/';       // The folder path within the bucket
 
@@ -46,8 +46,8 @@ const listEmojisFlowInternal = ai.defineFlow(
         });
 
       return filenames;
-    } catch (error) {
-      console.error('Error listing emojis from GCS:', error);
+    } catch (error: any) {
+      console.error('Error listing emojis from GCS:', error.message || error); // Log more detailed error
       // In a real app, you might want to throw a more specific error or return an empty array
       throw new Error('Failed to list emojis from GCS.');
     }
@@ -58,3 +58,4 @@ const listEmojisFlowInternal = ai.defineFlow(
 export async function listEmojis(): Promise<ListEmojisOutput> {
   return listEmojisFlowInternal({}); // Pass an empty object
 }
+
