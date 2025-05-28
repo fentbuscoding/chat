@@ -2,17 +2,38 @@
 import http from 'http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 
+const allowedOrigin = "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app";
+
 const server = http.createServer((req, res) => {
-  // This is just a basic HTTP server, Next.js handles the frontend routing
+  // Set CORS headers for all responses from this HTTP server.
+  // This is crucial for Socket.IO's polling mechanism and general CORS compliance
+  // when credentials are included, especially when behind a proxy like Cloud Run.
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  // Common headers needed for Socket.IO and general requests.
+  // Add any other custom headers your client might send.
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle CORS Preflight requests (OPTIONS method)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204); // No Content
+    res.end();
+    return;
+  }
+
+  // For other requests (e.g., the basic HTTP server check, or initial Socket.IO handshake if it hits this path)
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Socket.IO Server\n');
+  res.end('Socket.IO Server is running and configured for CORS.\n');
 });
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Specific origin for your frontend
+    origin: allowedOrigin,
     methods: ["GET", "POST"],
     credentials: true
+    // Socket.IO's cors option handles aspects of the WebSocket handshake and initial polling.
+    // The HTTP server headers above ensure all HTTP traffic is correctly handled by Cloud Run's proxy.
   }
 });
 
@@ -38,12 +59,9 @@ const rooms: { [roomId: string]: Room } = {};
 
 const findMatch = (currentUser: User): User | null => {
   const allWaitingForType = waitingUsers[currentUser.chatType];
-  if (allWaitingForType.length === 0) {
-    return null;
-  }
-
   // Create a pool of potential partners excluding the current user
   const potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
+
   if (potentialPartners.length === 0) {
     return null;
   }
@@ -101,6 +119,7 @@ io.on('connection', (socket: Socket) => {
       if (partnerSocket) {
         partnerSocket.join(roomId);
         console.log(`Partner found for ${currentUser.id} and ${matchedPartner.id}. Room: ${roomId}`);
+        // Send partner's interests along with other details
         socket.emit('partnerFound', { partnerId: matchedPartner.id, roomId, interests: matchedPartner.interests });
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
@@ -110,12 +129,12 @@ io.on('connection', (socket: Socket) => {
         waitingUsers[type].unshift(matchedPartner); // Add back to front of queue
         console.log(`Re-added ${matchedPartner.id} to waiting list for ${type}.`);
         
-        // Put current user back in waiting list as well
+        // Put current user back in waiting list as well if not already there
         const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
         if (!isCurrentUserWaiting) {
           waitingUsers[currentUser.chatType].push(currentUser);
         }
-        console.log(`User ${currentUser.id} (who was looking for a partner) added to waiting list for ${currentUser.chatType}.`);
+        console.log(`User ${currentUser.id} (who was looking for a partner) added/kept in waiting list for ${currentUser.chatType}.`);
         socket.emit('waitingForPartner'); // Or noPartnerFound to reset client state
       }
     } else {
@@ -195,3 +214,5 @@ server.listen(PORT, () => {
 });
 
 export {};
+
+    
