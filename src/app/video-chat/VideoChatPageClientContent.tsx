@@ -33,15 +33,61 @@ interface Message {
   timestamp: Date;
 }
 
+const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
+  if (!emojiFilenames || emojiFilenames.length === 0) {
+    return [text];
+  }
+
+  const parts = [];
+  let lastIndex = 0;
+  const regex = /:([a-zA-Z0-9_.-]+?):/g; 
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+
+    const shortcodeName = match[1];
+    const matchedFilename = emojiFilenames.find(
+      (filename) => filename.split('.')[0].toLowerCase() === shortcodeName.toLowerCase()
+    );
+
+    if (matchedFilename) {
+      parts.push(
+        <img
+          key={`${match.index}-${shortcodeName}`}
+          src={`${baseUrl}${matchedFilename}`}
+          alt={shortcodeName}
+          className="inline h-5 w-5 mx-0.5 align-middle"
+          data-ai-hint="chat emoji"
+        />
+      );
+    } else {
+      parts.push(match[0]);
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  return parts.length > 0 ? parts : [text];
+};
+
+
 interface ItemDataForVideoChat {
   messages: Message[];
   theme: string;
+  pickerEmojiFilenames: string[];
 }
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemDataForVideoChat>) => {
   const currentMessage = data.messages[index];
   const previousSender = index > 0 ? data.messages[index - 1]?.sender : undefined;
   const theme = data.theme;
+  const pickerEmojiFilenames = data.pickerEmojiFilenames;
 
   if (currentMessage.sender === 'system') {
     return (
@@ -62,6 +108,10 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
     (previousSender === 'me' || previousSender === 'partner') &&
     (currentMessage.sender === 'me' || currentMessage.sender === 'partner') &&
     currentMessage.sender !== previousSender;
+  
+  const messageContent = theme === 'theme-98'
+    ? renderMessageWithEmojis(currentMessage.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
+    : [currentMessage.text];
 
   return (
     <div style={style} className="mb-2">
@@ -75,13 +125,13 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
         {currentMessage.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
-            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{currentMessage.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
         {currentMessage.sender === 'partner' && (
           <>
             <span className="text-red-600 font-bold mr-1">Stranger:</span>
-            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{currentMessage.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
       </div>
@@ -511,7 +561,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme }), [messages, effectivePageTheme]);
+  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
 
   if (!isMounted) {
     return (
@@ -631,7 +681,7 @@ const VideoChatPageClientContent: React.FC = () => {
               </List>
             ) : (
                messages.map((msg, index) => (
-                   <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme }} />
+                   <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                 ))
             )}
           </div>

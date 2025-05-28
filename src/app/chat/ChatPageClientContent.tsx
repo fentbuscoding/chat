@@ -30,13 +30,58 @@ interface Message {
   timestamp: Date;
 }
 
+const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
+  if (!emojiFilenames || emojiFilenames.length === 0) {
+    return [text];
+  }
+
+  const parts = [];
+  let lastIndex = 0;
+  const regex = /:([a-zA-Z0-9_.-]+?):/g; // Capture name like :smile: or :_cat-crying:
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+
+    const shortcodeName = match[1];
+    const matchedFilename = emojiFilenames.find(
+      (filename) => filename.split('.')[0].toLowerCase() === shortcodeName.toLowerCase()
+    );
+
+    if (matchedFilename) {
+      parts.push(
+        <img
+          key={`${match.index}-${shortcodeName}`}
+          src={`${baseUrl}${matchedFilename}`}
+          alt={shortcodeName}
+          className="inline h-5 w-5 mx-0.5 align-middle"
+          data-ai-hint="chat emoji"
+        />
+      );
+    } else {
+      parts.push(match[0]);
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  return parts.length > 0 ? parts : [text];
+};
+
+
 interface RowProps {
   message: Message;
   theme: string;
   previousMessageSender?: Message['sender'];
+  pickerEmojiFilenames: string[];
 }
 
-const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => {
+const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames }: RowProps) => {
   if (message.sender === 'system') {
     return (
       <div className="mb-2">
@@ -57,6 +102,11 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
     (message.sender === 'me' || message.sender === 'partner') &&
     message.sender !== previousMessageSender;
 
+  const messageContent = theme === 'theme-98' 
+    ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
+    : [message.text];
+
+
   return (
     <div className="mb-2">
       {showDivider && (
@@ -69,13 +119,13 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
         {message.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
-            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{message.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
         {message.sender === 'partner' && (
           <>
             <span className="text-red-600 font-bold mr-1">Stranger:</span>
-            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{message.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
       </div>
@@ -377,7 +427,7 @@ const ChatPageClientContent: React.FC = () => {
           >
             <div> {/* Container for messages */}
               {messages.map((msg, index) => (
-                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} />
+                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} />
               ))}
               <div ref={messagesEndRef} />
             </div>
