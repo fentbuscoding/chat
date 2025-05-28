@@ -82,12 +82,15 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const interests = useMemo(() => searchParams.get('interests')?.split(',') || [], [searchParams]);
+  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
+  const prevRoomIdRef = useRef<string | null>(null);
+
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -96,21 +99,37 @@ const ChatPageClientContent: React.FC = () => {
     });
   }, []);
 
- useEffect(() => {
+  useEffect(() => {
+    // User starts finding a partner
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
+
+    // Partner is found
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
-      setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+      // Remove any "Searching..." or "Partner has disconnected" or "Stopped searching..." messages
+      setMessages(prev => prev.filter(msg =>
+        !(msg.sender === 'system' &&
+          (msg.text.toLowerCase().includes('searching for a partner') ||
+           msg.text.toLowerCase().includes('your partner has disconnected') ||
+           msg.text.toLowerCase().includes('stopped searching for a partner')
+           ))
+      ));
       addMessage('Connected with a partner. You can start chatting!', 'system');
-    }
-    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId) { 
-      addMessage('Your partner has disconnected.', 'system');
+
+      // Display common interests
+      if (interests.length > 0 && partnerInterests.length > 0) {
+        const common = interests.filter(interest => partnerInterests.includes(interest));
+        if (common.length > 0) {
+          addMessage(`You both like ${common.join(', ')}.`, 'system');
+        }
+      }
     }
 
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-  }, [isFindingPartner, isPartnerConnected, addMessage, roomId]);
+    prevRoomIdRef.current = roomId;
+  }, [isFindingPartner, isPartnerConnected, roomId, addMessage, interests, partnerInterests]);
 
 
   useEffect(() => {
@@ -131,10 +150,11 @@ const ChatPageClientContent: React.FC = () => {
         console.log("ChatPage: Connected to socket server with ID:", newSocket.id);
     });
 
-    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: partnerInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
+    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
         setRoomId(rId);
+        setPartnerInterests(pInterests || []);
     });
 
     newSocket.on('waitingForPartner', () => {
@@ -143,7 +163,7 @@ const ChatPageClientContent: React.FC = () => {
     
     newSocket.on('noPartnerFound', () => { 
         setIsFindingPartner(false); 
-        if (!isFindingPartner && !isPartnerConnected) {
+        if (!isFindingPartner && !isPartnerConnected) { // If not already searching or connected, start searching
              setIsFindingPartner(true); 
         }
     });
@@ -153,13 +173,15 @@ const ChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
+        addMessage('Your partner has disconnected.', 'system');
         setIsPartnerConnected(false);
         setRoomId(null);
+        setPartnerInterests([]);
     });
     
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
-        if (reason === 'io server disconnect') {
+        if (reason === 'io server disconnect') { // The server initiated the disconnect
             newSocket.connect();
         }
     });
@@ -205,21 +227,34 @@ const ChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { 
+    if (isPartnerConnected) { // User clicks "Disconnect"
         socket.emit('leaveChat', { roomId });
         setIsPartnerConnected(false);
         setRoomId(null);
-        setIsFindingPartner(false); 
-    } else if (isFindingPartner) { 
-        // Logic to stop finding partner - currently just sets state
-        // Consider emitting an event to the server if needed to remove from waiting list
-        socket.emit('leaveChat', { roomId: null }); // Inform server to remove from any waiting lists
+        setPartnerInterests([]); 
+
+        // Remove previous connection/interest messages
+        setMessages(prev => prev.filter(msg =>
+          !(msg.sender === 'system' &&
+            (msg.text.toLowerCase().includes('connected with a partner') ||
+             msg.text.toLowerCase().includes('you both like')))
+        ));
+        
+        // Automatically find a new partner for the skipper
+        setIsFindingPartner(true); // "Searching..." message will be added by useEffect
+        socket.emit('findPartner', { chatType: 'text', interests });
+
+    } else if (isFindingPartner) { // User clicks "Stop Searching"
+        socket.emit('leaveChat', { roomId: null }); 
         setIsFindingPartner(false);
-    } else { 
+        setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+        addMessage('Stopped searching for a partner.', 'system');
+    } else { // User clicks "Find Partner"
         setIsFindingPartner(true);
+        // "Searching for a partner..." message will be added by useEffect
         socket.emit('findPartner', { chatType: 'text', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage]);
 
 
   const chatWindowStyle = useMemo(() => (
@@ -263,7 +298,7 @@ const ChatPageClientContent: React.FC = () => {
           >
             <div> {/* Container for messages */}
               {messages.map((msg, index) => (
-                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={messages[index-1]?.sender} />
+                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -282,7 +317,7 @@ const ChatPageClientContent: React.FC = () => {
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled mr-1' : 'px-1 py-1 mr-1'
                 )}
               >
-                {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
+                {isPartnerConnected ? 'Disconnect' : (isFindingPartner ? 'Stop Searching' : 'Find Partner')}
               </Button>
               <Input
                 type="text"
