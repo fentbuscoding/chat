@@ -601,7 +601,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full"> 
+              <div className="flex flex-col h-full"> {/* Ensure this div takes full height */}
                 {messages.map((msg, index) => ( 
                    <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme }} />
                 ))}
@@ -618,7 +618,7 @@ const VideoChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
                <Button
                 onClick={handleFindOrDisconnectPartner}
-                disabled={hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner} 
+                disabled={(hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner) || !socket} 
                 className={cn(
                   'mr-1',
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
@@ -647,11 +647,11 @@ const VideoChatPageClientContent: React.FC = () => {
               </Button>
               {/* Emoji Icon and Picker - Only for theme-98 */}
               {effectivePageTheme === 'theme-98' && (
-                <div className="relative ml-1 flex-shrink-0"> {/* Added flex-shrink-0 */}
+                <div className="relative ml-1 flex-shrink-0"> {/* Emoji Wrapper */}
                   <img
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-6 h-6 cursor-pointer inline-block" // Added inline-block
+                    className="w-6 h-6 cursor-pointer inline-block" 
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -670,8 +670,7 @@ const VideoChatPageClientContent: React.FC = () => {
                           alt={filename.split('.')[0]}
                           className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
                            onClick={() => {
-                            setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); // Placeholder for actual emoji insertion
-                            // setIsEmojiPickerOpen(false); // Optionally close picker on selection
+                            setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
                           }}
                           data-ai-hint="emoji symbol"
                         />
@@ -697,3 +696,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+    
