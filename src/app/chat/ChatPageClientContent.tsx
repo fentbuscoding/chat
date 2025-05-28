@@ -10,16 +10,21 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
+import { listEmojis } from '@/ai/flows/list-emojis-flow'; // Import the Genkit flow
 
-// Constants for Emojis
+// Constants for Emojis (Display Icon)
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
-const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
-const EMOJI_FILENAMES = [
+// Static list for the hover-cycle display icon
+const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
   'cry.png', 'embarrassed.png', 'kiss.png', 'moneymouth.png', 'sad.png',
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
-const SMILE_EMOJI_FILENAME = 'smile.png'; // Default icon
+const SMILE_EMOJI_FILENAME = 'smile.png'; // Default display icon
+
+// Base URL for picker emojis (fetched dynamically)
+const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
+
 
 interface Message {
   id: string;
@@ -39,8 +44,8 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
     return (
       <div className="mb-2">
         <div className={cn(
-          "text-center w-full text-gray-500 dark:text-gray-400 italic text-xs",
-          theme === 'theme-7' && 'theme-7-text-shadow'
+          "text-center w-full text-xs italic",
+          theme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
         )}>
           {message.text}
         </div>
@@ -56,7 +61,7 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
     message.sender !== previousMessageSender;
 
   return (
-    <div className="mb-2"> {/* Increased bottom margin for spacing */}
+    <div className="mb-2">
       {showDivider && (
         <div
           className="h-[2px] mb-1 border border-[#CEDCE5] bg-[#64B2CF]"
@@ -102,11 +107,12 @@ const ChatPageClientContent: React.FC = () => {
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
-  const prevRoomIdRef = useRef<string | null>(null);
 
   // Emoji Feature State
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
+  const [emojisLoading, setEmojisLoading] = useState(true);
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -123,11 +129,12 @@ const ChatPageClientContent: React.FC = () => {
     });
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
+      // Remove previous "Searching", "disconnected", or "stopped searching" messages
       setMessages(prev => prev.filter(msg =>
         !(msg.sender === 'system' &&
           (msg.text.toLowerCase().includes('searching for a partner') ||
@@ -145,7 +152,6 @@ const ChatPageClientContent: React.FC = () => {
     }
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-    prevRoomIdRef.current = roomId;
   }, [isFindingPartner, isPartnerConnected, addMessage, interests, partnerInterests]);
 
 
@@ -213,6 +219,26 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     });
 
+    // Fetch emojis for the picker
+    const fetchPickerEmojis = async () => {
+      try {
+        setEmojisLoading(true);
+        const emojiList = await listEmojis();
+        setPickerEmojiFilenames(emojiList);
+      } catch (error) {
+        console.error("Failed to fetch emojis for picker:", error);
+        toast({
+          title: "Emoji Error",
+          description: "Could not load emojis for the picker.",
+          variant: "destructive",
+        });
+      } finally {
+        setEmojisLoading(false);
+      }
+    };
+    fetchPickerEmojis();
+
+
     return () => {
       if (newSocket.connected && roomId) {
         newSocket.emit('leaveChat', { roomId });
@@ -256,10 +282,12 @@ const ChatPageClientContent: React.FC = () => {
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
-        setIsFindingPartner(true); 
+        addMessage('You have disconnected.', 'system'); // Message for the user who clicked disconnect
+        setIsFindingPartner(true); // Start searching again automatically
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) { // User clicks "Stop Searching"
-        socket.emit('leaveChat', { roomId: null }); 
+        // socket.emit('leaveChat', { roomId: null }); // No room to leave if just searching
+        // Potentially tell server to remove from waiting list if that's a feature
         setIsFindingPartner(false);
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
@@ -272,9 +300,11 @@ const ChatPageClientContent: React.FC = () => {
   // Emoji Feature Logic
   const handleEmojiIconHover = () => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
+    if (STATIC_DISPLAY_EMOJI_FILENAMES.length === 0) return; // Guard against empty list
+
     hoverIntervalRef.current = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * EMOJI_FILENAMES.length);
-      setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${EMOJI_FILENAMES[randomIndex]}`);
+      const randomIndex = Math.floor(Math.random() * STATIC_DISPLAY_EMOJI_FILENAMES.length);
+      setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${STATIC_DISPLAY_EMOJI_FILENAMES[randomIndex]}`);
     }, 300); // Change emoji every 300ms
   };
 
@@ -388,8 +418,8 @@ const ChatPageClientContent: React.FC = () => {
               >
                 Send
               </Button>
-              {/* Emoji Icon and Picker - Only for theme-98 */}
-              {effectivePageTheme === 'theme-98' && (
+              {/* Emoji Icon and Picker - Only for theme-98 and if emojis are loaded */}
+              {effectivePageTheme === 'theme-98' && !emojisLoading && (
                 <div className="relative ml-1 flex-shrink-0"> {/* Emoji Wrapper */}
                   <img
                     src={currentEmojiIconUrl}
@@ -400,13 +430,13 @@ const ChatPageClientContent: React.FC = () => {
                     onClick={toggleEmojiPicker}
                     data-ai-hint="emoji icon"
                   />
-                  {isEmojiPickerOpen && (
+                  {isEmojiPickerOpen && pickerEmojiFilenames.length > 0 && (
                     <div
                       ref={emojiPickerRef}
                       className="absolute bottom-full right-0 mb-2 w-48 h-auto p-2 bg-silver border border-raised grid grid-cols-4 gap-1 z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
-                      {EMOJI_FILENAMES.map((filename) => (
+                      {pickerEmojiFilenames.map((filename) => (
                         <img
                           key={filename}
                           src={`${EMOJI_BASE_URL_PICKER}${filename}`}
@@ -414,12 +444,16 @@ const ChatPageClientContent: React.FC = () => {
                           className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
                           onClick={() => {
                             setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
+                            // setIsEmojiPickerOpen(false); // Optionally close picker on selection
                           }}
                           data-ai-hint="emoji symbol"
                         />
                       ))}
                     </div>
                   )}
+                   {isEmojiPickerOpen && emojisLoading && (
+                     <div className="absolute bottom-full right-0 mb-2 p-2 bg-silver border">Loading emojis...</div>
+                   )}
                 </div>
               )}
             </div>
