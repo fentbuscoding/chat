@@ -77,7 +77,7 @@ const ChatPageClientContent: React.FC = () => {
     });
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
@@ -103,7 +103,8 @@ const ChatPageClientContent: React.FC = () => {
         return;
     }
     const newSocket = io(socketServerUrl, {
-      withCredentials: true // Added for robust XHR polling
+      withCredentials: true,
+      transports: ['websocket', 'polling'] // Explicitly define transports
     });
     setSocket(newSocket);
 
@@ -121,11 +122,10 @@ const ChatPageClientContent: React.FC = () => {
         // System message for "Searching..." handled by other useEffect
     });
     
-    newSocket.on('noPartnerFound', () => { // This may be emitted if server puts user back in waiting
-        setIsFindingPartner(false); // Stop "Searching..." if server explicitly says no one found now
-        // If not already finding, this could trigger "Searching for partner..."
+    newSocket.on('noPartnerFound', () => { 
+        setIsFindingPartner(false); 
         if (!isFindingPartner && !isPartnerConnected) {
-             setIsFindingPartner(true); // Show searching if we are told to wait by server
+             setIsFindingPartner(true); 
         }
     });
 
@@ -134,13 +134,17 @@ const ChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
-        // addMessage('Your partner has disconnected.', 'system'); // Handled by state change effect
         setIsPartnerConnected(false);
         setRoomId(null);
     });
     
-    newSocket.on('disconnect', () => {
-        console.log("ChatPage: Disconnected from socket server.");
+    newSocket.on('disconnect', (reason) => {
+        console.log("ChatPage: Disconnected from socket server. Reason:", reason);
+        if (reason === 'io server disconnect') {
+            // the disconnection was initiated by the server, you need to reconnect manually
+            newSocket.connect();
+        }
+        // else the socket will automatically try to reconnect
     });
     
     newSocket.on('connect_error', (err) => {
@@ -186,19 +190,14 @@ const ChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
-        // addMessage('You have disconnected.', 'system'); // Handled by state change effect
         setIsPartnerConnected(false);
         setRoomId(null);
         setIsFindingPartner(false); 
     } else if (isFindingPartner) { 
-        // To truly cancel, server needs to handle client disconnecting while in waiting list
-        // For now, just resetting client state. Server will timeout user from waiting list on disconnect.
         setIsFindingPartner(false);
         addMessage('Stopped searching for a partner.', 'system');
-
     } else { 
         setIsFindingPartner(true);
-        // addMessage('Searching for a partner...', 'system'); // Handled by state change effect
         socket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, addMessage, toast]);
@@ -222,7 +221,7 @@ const ChatPageClientContent: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
        <div
         className={cn(
-          'window flex flex-col relative', // Added relative for image positioning
+          'window flex flex-col relative', 
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={chatWindowStyle}

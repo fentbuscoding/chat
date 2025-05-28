@@ -119,7 +119,8 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
     const newSocket = io(socketServerUrl, {
-      withCredentials: true // Added for robust XHR polling
+      withCredentials: true,
+      transports: ['websocket', 'polling'] // Explicitly define transports
     });
     setSocket(newSocket);
 
@@ -186,8 +187,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setRoomId(null);
     });
 
-    newSocket.on('disconnect', () => {
-        console.log("VideoChatPage: Disconnected from socket server.");
+    newSocket.on('disconnect', (reason) => {
+        console.log("VideoChatPage: Disconnected from socket server. Reason:", reason);
+         if (reason === 'io server disconnect') {
+            newSocket.connect();
+        }
     });
      newSocket.on('connect_error', (err) => {
         console.error("VideoChatPage: Socket connection error:", err.message);
@@ -271,7 +275,8 @@ const VideoChatPageClientContent: React.FC = () => {
     if (isMounted && hasCameraPermission === undefined) { 
         getCameraStream();
     }
-  }, [isMounted, hasCameraPermission, getCameraStream]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMounted, getCameraStream]); // Removed hasCameraPermission to avoid loop if getCameraStream updates it
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -436,7 +441,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
       <div
         className={cn(
-          'window flex flex-col flex-1 relative m-2', // Added relative for image positioning
+          'window flex flex-col flex-1 relative m-2', 
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
