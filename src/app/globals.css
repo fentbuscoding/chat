@@ -1,3 +1,4 @@
+
 @tailwind components;
 @tailwind utilities;
 
@@ -6,37 +7,19 @@
   outline: 1px solid red !important;
 } */
 
-/* Debugging: Numbered divs - REMOVED
-body {
-  counter-reset: div-counter;
-}
-
-div::before {
-  counter-increment: div-counter;
-  content: "[D" counter(div-counter) "] ";
-  font-size: 8px;
-  color: blue;
-  display: inline-block;
-  margin-right: 2px;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  vertical-align: baseline;
-}
-*/
-
-
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
 }
 
-body {
-  /* Base font settings - these might be overridden by 98.css/7.css */
-  font-family: sans-serif;
-  margin: 0;
+html, body {
+  height: 100%;
+  margin: 0; /* Ensure no default margin */
   padding: 0;
   box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
   /* Default background/foreground, will be overridden by themes */
   background-color: #fff;
   color: #000;
@@ -46,7 +29,19 @@ body {
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
   overflow: hidden; /* Prevent scrollbars due to absolute positioning */
+  
+  /* Make body a flex container to manage its direct children (like #__next) */
+  display: flex;
+  flex-direction: column;
 }
+
+#__next { /* This is the root div Next.js typically injects */
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Make #__next take all available space in body */
+  width: 100%; /* Ensure #__next also takes full width */
+}
+
 
 *, *::before, *::after {
   box-sizing: inherit;
@@ -60,12 +55,6 @@ button.accent, a.accent {
 
 button.accent:hover, a.accent:hover {
   filter: brightness(1.1); /* Slight interaction feedback */
-}
-
-/* Ensure layout containers fill height */
-html, body, #__next {
-  height: 100%;
-  width: 100%; /* Ensure full width */
 }
 
 /* Styles for 7.css theme background */
@@ -96,15 +85,8 @@ video {
 .theme-98 .tree-view {
   background-color: white;
   padding: 4px;
-  /* list-style: none; REMOVED as we are moving away from ul/li for chat messages */
   margin: 0;
 }
-
-/* REMOVED as Row component will render divs now
-.theme-98 .tree-view li {
-  padding: 1px 0;
-}
-*/
 
 /* Styles for 7.css window body padding helper */
 .theme-7 .window-body.has-space {
@@ -196,7 +178,6 @@ video {
 }
 
 .theme-7 .input-area {
-  /* border-top: 1px solid #adb5bd; */ /* A typical border color for 7.css */
   background-color: transparent; /* Make input area background transparent for theme-7 */
 }
 
@@ -309,3 +290,22 @@ video {
   text-shadow: none;
 }
     
+/* Debugging: Numbered divs - REMOVED
+body {
+  counter-reset: div-counter;
+}
+
+div::before {
+  counter-increment: div-counter;
+  content: "[D" counter(div-counter) "] ";
+  font-size: 8px;
+  color: blue;
+  display: inline-block;
+  margin-right: 2px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  vertical-align: baseline;
+}
+*/
