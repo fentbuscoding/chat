@@ -21,7 +21,7 @@ const listEmojisFlowInternal = ai.defineFlow(
     inputSchema: z.undefined(), // No input needed for this specific case
     outputSchema: ListEmojisOutputSchema,
   },
-  async () => {
+  async () => { // The input parameter is implicitly undefined here
     const storage = new Storage();
     const bucketName = 'chat_emoticons'; // Your bucket name
     const prefix = 'emotes_98/';       // The folder path within the bucket
@@ -48,5 +48,5 @@ const listEmojisFlowInternal = ai.defineFlow(
 
 // Exported async wrapper function to call the flow
 export async function listEmojis(): Promise<ListEmojisOutput> {
-  return listEmojisFlowInternal();
+  return listEmojisFlowInternal(undefined); // Explicitly pass undefined
 }
