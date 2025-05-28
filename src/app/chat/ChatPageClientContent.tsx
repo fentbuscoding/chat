@@ -98,7 +98,7 @@ const ChatPageClientContent: React.FC = () => {
   const [isFindingPartner, setIsFindingPartner] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
@@ -116,11 +116,11 @@ const ChatPageClientContent: React.FC = () => {
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
-      const newMessageItem = { 
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
-        text, 
-        sender, 
-        timestamp: new Date() 
+      const newMessageItem = {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        text,
+        sender,
+        timestamp: new Date()
       };
       return [...prevMessages, newMessageItem];
     });
@@ -161,7 +161,7 @@ const ChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'] 
+      transports: ['websocket', 'polling']
     });
     setSocket(newSocket);
 
@@ -179,11 +179,11 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('waitingForPartner', () => {
       // System message for "Searching..." handled by other useEffect
     });
-    
-    newSocket.on('noPartnerFound', () => { 
-        setIsFindingPartner(false); 
-        if (!isFindingPartner && !isPartnerConnected) { 
-             setIsFindingPartner(true); 
+
+    newSocket.on('noPartnerFound', () => {
+        setIsFindingPartner(false);
+        if (!isFindingPartner && !isPartnerConnected) {
+             setIsFindingPartner(true);
         }
     });
 
@@ -197,14 +197,14 @@ const ChatPageClientContent: React.FC = () => {
         setRoomId(null);
         setPartnerInterests([]);
     });
-    
+
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
-        if (reason === 'io server disconnect') { 
+        if (reason === 'io server disconnect') {
             newSocket.connect();
         }
     });
-    
+
     newSocket.on('connect_error', (err) => {
         console.error("ChatPage: Socket connection error:", err.message);
         toast({
@@ -245,7 +245,7 @@ const ChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -256,7 +256,7 @@ const ChatPageClientContent: React.FC = () => {
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
-    
+
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
@@ -272,14 +272,14 @@ const ChatPageClientContent: React.FC = () => {
         socket.emit('leaveChat', { roomId });
         setIsPartnerConnected(false);
         setRoomId(null);
-        setPartnerInterests([]); 
+        setPartnerInterests([]);
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
-        addMessage('You have disconnected.', 'system'); 
-        setIsFindingPartner(true); 
+        addMessage('You have disconnected.', 'system');
+        setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) { // User clicks "Stop Searching"
         setIsFindingPartner(false);
@@ -298,7 +298,7 @@ const ChatPageClientContent: React.FC = () => {
     hoverIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * STATIC_DISPLAY_EMOJI_FILENAMES.length);
       setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${STATIC_DISPLAY_EMOJI_FILENAMES[randomIndex]}`);
-    }, 300); 
+    }, 300);
   };
 
   const stopEmojiCycle = () => {
@@ -306,7 +306,7 @@ const ChatPageClientContent: React.FC = () => {
       clearInterval(hoverIntervalRef.current);
       hoverIntervalRef.current = null;
     }
-    setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`); 
+    setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   };
 
   const toggleEmojiPicker = () => {
@@ -346,7 +346,7 @@ const ChatPageClientContent: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
        <div
         className={cn(
-          'window flex flex-col relative', 
+          'window flex flex-col relative',
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={chatWindowStyle}
@@ -425,7 +425,7 @@ const ChatPageClientContent: React.FC = () => {
                   <img
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-6 h-6 cursor-pointer inline-block" 
+                    className="w-6 h-6 cursor-pointer inline-block"
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -446,7 +446,7 @@ const ChatPageClientContent: React.FC = () => {
                               alt={filename.split('.')[0]}
                               className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
-                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
+                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                               }}
                               data-ai-hint="emoji symbol"
                             />

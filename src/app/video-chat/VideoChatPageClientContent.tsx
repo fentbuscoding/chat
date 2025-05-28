@@ -92,7 +92,7 @@ Row.displayName = 'Row';
 
 
 const VideoChatPageClientContent: React.FC = () => {
-  const searchParams = useSearchParams(); 
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { currentTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
@@ -116,7 +116,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const listRef = useRef<List>(null);
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 30; 
+  const itemHeight = 30;
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
@@ -131,11 +131,11 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
-      const newMessageItem = { 
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
-        text, 
-        sender, 
-        timestamp: new Date() 
+      const newMessageItem = {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        text,
+        sender,
+        timestamp: new Date()
       };
       return [...prevMessages, newMessageItem];
     });
@@ -163,7 +163,7 @@ const VideoChatPageClientContent: React.FC = () => {
         }
       }
     }
-    
+
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
   }, [isFindingPartner, isPartnerConnected, addMessage, interests, partnerInterests]);
@@ -179,7 +179,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'] 
+      transports: ['websocket', 'polling']
     });
     setSocket(newSocket);
 
@@ -192,13 +192,13 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(true);
         setRoomId(rId);
         setPartnerInterests(pInterests || []);
-        setupWebRTC(newSocket, rId, true); 
+        setupWebRTC(newSocket, rId, true);
     });
 
     newSocket.on('waitingForPartner', () => {
         // System message for "Searching..." is handled by the other useEffect
     });
-    
+
     newSocket.on('noPartnerFound', () => {
         setIsFindingPartner(false);
         if (!isFindingPartner && !isPartnerConnected) {
@@ -209,12 +209,12 @@ const VideoChatPageClientContent: React.FC = () => {
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
         addMessage(receivedMessage, 'partner');
     });
-    
+
     newSocket.on('webrtcSignal', async (signalData: any) => {
         if (!peerConnectionRef.current) {
              if (isPartnerConnected && roomId && !peerConnectionRef.current && newSocket) {
                 console.log("VideoChatPage: Receiving signal before local PC setup, attempting setup now (non-initiator).");
-                await setupWebRTC(newSocket, roomId, false); 
+                await setupWebRTC(newSocket, roomId, false);
             }
             if (!peerConnectionRef.current) {
                 console.error("VideoChatPage: PeerConnection not initialized, cannot handle signal", signalData);
@@ -243,7 +243,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     newSocket.on('partnerLeft', () => {
         addMessage('Your partner has disconnected.', 'system');
-        cleanupConnections(false); 
+        cleanupConnections(false);
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
@@ -295,7 +295,7 @@ const VideoChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -322,7 +322,7 @@ const VideoChatPageClientContent: React.FC = () => {
   }, []);
 
   const getCameraStream = useCallback(async () => {
-    if (localStreamRef.current) { 
+    if (localStreamRef.current) {
         if (localVideoRef.current && !localVideoRef.current.srcObject) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
@@ -356,11 +356,11 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (isMounted && hasCameraPermission === undefined) { 
+    if (isMounted && hasCameraPermission === undefined) {
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]); 
+  }, [isMounted]);
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -370,8 +370,8 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
-        setIsFindingPartner(false); 
-        setIsPartnerConnected(false); 
+        setIsFindingPartner(false);
+        setIsPartnerConnected(false);
         return;
     }
 
@@ -381,7 +381,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
 
     const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
     peerConnectionRef.current = pc;
 
@@ -400,7 +400,7 @@ const VideoChatPageClientContent: React.FC = () => {
             remoteVideoRef.current.srcObject = event.streams[0];
         }
     };
-    
+
     pc.oniceconnectionstatechange = () => {
         console.log("VideoChatPage: ICE connection state change:", pc.iceConnectionState);
     };
@@ -416,7 +416,7 @@ const VideoChatPageClientContent: React.FC = () => {
             console.error("VideoChatPage: Error creating offer:", error);
         }
     }
-  }, [getCameraStream, toast]); 
+  }, [getCameraStream, toast]);
 
 
   const handleSendMessage = useCallback(() => {
@@ -432,9 +432,9 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { 
+    if (isPartnerConnected) {
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false); 
+        cleanupConnections(false);
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
@@ -444,31 +444,31 @@ const VideoChatPageClientContent: React.FC = () => {
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
-        addMessage('You have disconnected.', 'system'); 
-        
-        setIsFindingPartner(true); 
+        addMessage('You have disconnected.', 'system');
+
+        setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) { 
+    } else if (isFindingPartner) {
         setIsFindingPartner(false);
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
 
-    } else { 
+    } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) { 
-            const stream = await getCameraStream(); 
-            if (!stream) return; 
+        if (hasCameraPermission === undefined) {
+            const stream = await getCameraStream();
+            if (!stream) return;
         }
-        
+
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
     }
   }, [
-      socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, 
+      socket, isPartnerConnected, isFindingPartner, roomId, interests, toast,
       hasCameraPermission, cleanupConnections, getCameraStream, addMessage
     ]);
 
@@ -566,7 +566,7 @@ const VideoChatPageClientContent: React.FC = () => {
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative p-0', 
+              'window-body flex-grow overflow-hidden relative p-0',
               effectivePageTheme === 'theme-7' && 'bg-white/30'
               )}
           >
@@ -587,7 +587,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
       <div
         className={cn(
-          'window flex flex-col flex-1 relative m-2', 
+          'window flex flex-col flex-1 relative m-2',
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
@@ -630,7 +630,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-               messages.map((msg, index) => ( 
+               messages.map((msg, index) => (
                    <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme }} />
                 ))
             )}
@@ -645,7 +645,7 @@ const VideoChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
                <Button
                 onClick={handleFindOrDisconnectPartner}
-                disabled={(hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner) || !socket} 
+                disabled={(hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner) || !socket}
                 className={cn(
                   'mr-1',
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
@@ -678,7 +678,7 @@ const VideoChatPageClientContent: React.FC = () => {
                   <img
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-6 h-6 cursor-pointer inline-block" 
+                    className="w-6 h-6 cursor-pointer inline-block"
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -699,7 +699,7 @@ const VideoChatPageClientContent: React.FC = () => {
                               alt={filename.split('.')[0]}
                               className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
-                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); 
+                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                               }}
                               data-ai-hint="emoji symbol"
                             />
