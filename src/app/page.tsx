@@ -79,7 +79,7 @@ export default function SelectionLobby() {
         // For text chat, if params already has 'interests', 'type=text' will be added.
         // If params is empty, it will just be 'type=text'.
         const textParams = new URLSearchParams(queryString); // Create new params to avoid modifying original for video
-        textParams.append('type', 'text');
+        textParams.append('type', 'text'); // Keep 'type' parameter for text chat for clarity or future use
         const textQueryString = textParams.toString();
         path = `/chat${textQueryString ? `?${textQueryString}` : ''}`;
     }
