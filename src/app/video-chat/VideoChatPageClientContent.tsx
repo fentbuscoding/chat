@@ -81,7 +81,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const listRef = useRef<List>(null);
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 50; // Approximate height of a message item
+  const itemHeight = 50; 
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -98,17 +98,16 @@ const VideoChatPageClientContent: React.FC = () => {
       addMessage('Searching for a partner...', 'system');
     }
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
-      // Remove "Searching..." message if it exists and we just connected
       setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
       addMessage('Connected with a partner. You can start chatting!', 'system');
     }
-    if (!isPartnerConnected && prevIsPartnerConnectedRef.current) {
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId) { 
       addMessage('Your partner has disconnected.', 'system');
     }
 
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-  }, [isFindingPartner, isPartnerConnected, addMessage]);
+  }, [isFindingPartner, isPartnerConnected, addMessage, roomId]);
 
 
   useEffect(() => {
@@ -119,18 +118,20 @@ const VideoChatPageClientContent: React.FC = () => {
         toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
         return;
     }
-    const newSocket = io(socketServerUrl);
+    const newSocket = io(socketServerUrl, {
+      withCredentials: true // Added for robust XHR polling
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
         console.log("VideoChatPage: Connected to socket server with ID:", newSocket.id);
     });
 
-    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId }: { partnerId: string, roomId: string }) => {
+    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: partnerInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
         setRoomId(rId);
-        setupWebRTC(newSocket, rId, true); // This client is an initiator
+        setupWebRTC(newSocket, rId, true); 
     });
 
     newSocket.on('waitingForPartner', () => {
@@ -139,8 +140,9 @@ const VideoChatPageClientContent: React.FC = () => {
     
     newSocket.on('noPartnerFound', () => {
         setIsFindingPartner(false);
-        setIsPartnerConnected(false);
-        addMessage('No partner found at the moment. Try again later.', 'system');
+        if (!isFindingPartner && !isPartnerConnected) {
+             setIsFindingPartner(true);
+        }
     });
 
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
@@ -199,6 +201,9 @@ const VideoChatPageClientContent: React.FC = () => {
 
     return () => {
       cleanupConnections(true);
+      if (newSocket.connected && roomId) {
+        newSocket.emit('leaveChat', { roomId });
+      }
       newSocket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -346,8 +351,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        // Note: The server currently doesn't have an explicit "stop finding" event.
-        // Client stops displaying "Searching...", if user disconnects, server cleans up.
+        addMessage('Stopped searching for a partner.', 'system');
     } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
@@ -361,7 +365,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, hasCameraPermission, cleanupConnections, getCameraStream]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, hasCameraPermission, cleanupConnections, getCameraStream, addMessage]);
 
 
   const inputAreaHeight = 60;
@@ -432,7 +436,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
       <div
         className={cn(
-          'window flex flex-col flex-1 relative m-2',
+          'window flex flex-col flex-1 relative m-2', // Added relative for image positioning
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}

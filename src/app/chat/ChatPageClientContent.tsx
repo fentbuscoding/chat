@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -53,7 +54,7 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Use currentTheme for actual applied theme
+  const { currentTheme } = useTheme(); 
   const [isMounted, setIsMounted] = useState(false);
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -62,10 +63,35 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
-  // const [partnerId, setPartnerId] = useState<string | null>(null); // Not strictly needed for text chat if room ID is used
-
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const interests = useMemo(() => searchParams.get('interests')?.split(',') || [], [searchParams]);
+
+  const prevIsFindingPartnerRef = useRef(isFindingPartner);
+  const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
+
+  const addMessage = useCallback((text: string, sender: Message['sender']) => {
+    setMessages((prevMessages) => {
+      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      return [...prevMessages, newMessageItem];
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
+      addMessage('Searching for a partner...', 'system');
+    }
+    if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
+      setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+      addMessage('Connected with a partner. You can start chatting!', 'system');
+    }
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId) { // Only show if they were previously connected
+      addMessage('Your partner has disconnected.', 'system');
+    }
+
+    prevIsFindingPartnerRef.current = isFindingPartner;
+    prevIsPartnerConnectedRef.current = isPartnerConnected;
+  }, [isFindingPartner, isPartnerConnected, addMessage, roomId]);
 
 
   useEffect(() => {
@@ -76,30 +102,31 @@ const ChatPageClientContent: React.FC = () => {
         toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
         return;
     }
-    const newSocket = io(socketServerUrl);
+    const newSocket = io(socketServerUrl, {
+      withCredentials: true // Added for robust XHR polling
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
         console.log("ChatPage: Connected to socket server with ID:", newSocket.id);
     });
 
-    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId }: { partnerId: string, roomId: string }) => {
+    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: partnerInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
         setRoomId(rId);
-        // setPartnerId(pId);
-        addMessage('Connected with a partner. You can start chatting!', 'system');
     });
 
     newSocket.on('waitingForPartner', () => {
-        // setIsFindingPartner(true); // Already set by handleFindOrDisconnectPartner
-        addMessage('Searching for a partner...', 'system');
+        // System message for "Searching..." handled by other useEffect
     });
     
-    newSocket.on('noPartnerFound', () => {
-        setIsFindingPartner(false);
-        setIsPartnerConnected(false);
-        addMessage('No partner found at the moment. Try again later.', 'system');
+    newSocket.on('noPartnerFound', () => { // This may be emitted if server puts user back in waiting
+        setIsFindingPartner(false); // Stop "Searching..." if server explicitly says no one found now
+        // If not already finding, this could trigger "Searching for partner..."
+        if (!isFindingPartner && !isPartnerConnected) {
+             setIsFindingPartner(true); // Show searching if we are told to wait by server
+        }
     });
 
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
@@ -107,18 +134,13 @@ const ChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
-        addMessage('Your partner has disconnected.', 'system');
+        // addMessage('Your partner has disconnected.', 'system'); // Handled by state change effect
         setIsPartnerConnected(false);
         setRoomId(null);
-        // setPartnerId(null);
     });
     
     newSocket.on('disconnect', () => {
         console.log("ChatPage: Disconnected from socket server.");
-        // addMessage('You have been disconnected from the server.', 'system');
-        // setIsPartnerConnected(false);
-        // setIsFindingPartner(false);
-        // setRoomId(null);
     });
     
     newSocket.on('connect_error', (err) => {
@@ -133,19 +155,16 @@ const ChatPageClientContent: React.FC = () => {
 
 
     return () => {
+      if (newSocket.connected && roomId) {
+        newSocket.emit('leaveChat', { roomId });
+      }
       newSocket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed interests from deps as it's memoized based on searchParams
+  }, []); 
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
-  const addMessage = useCallback((text: string, sender: Message['sender']) => {
-    setMessages((prevMessages) => {
-      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
-      return [...prevMessages, newMessageItem];
-    });
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -165,31 +184,21 @@ const ChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { // Disconnect logic
+    if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
-        addMessage('You have disconnected.', 'system');
+        // addMessage('You have disconnected.', 'system'); // Handled by state change effect
         setIsPartnerConnected(false);
         setRoomId(null);
-        // setPartnerId(null);
-        setIsFindingPartner(false); // Ensure finding partner state is reset
-    } else if (isFindingPartner) { // Cancel finding
-        // To truly cancel, we might need a specific socket event or just reset client state
-        // For now, we'll just toggle the finding state locally. Server will eventually timeout or re-match.
-        // Or, disconnect and reconnect socket to clear server state.
-        // Let's emit a generic "stopLooking" or similar, if server supports it.
-        // For now, simple state reset and maybe a disconnect.
-        // socket.disconnect(); // This would require re-establishing connection.
-        // setSocket(null);
-        // The server handles a user being in waiting list and then disconnecting.
-        // Best might be to just let the server handle it if user disconnects socket.
-        // Or, if we want explicit "stop finding", server needs an event for it.
-        // For simplicity, we'll just update client state.
+        setIsFindingPartner(false); 
+    } else if (isFindingPartner) { 
+        // To truly cancel, server needs to handle client disconnecting while in waiting list
+        // For now, just resetting client state. Server will timeout user from waiting list on disconnect.
         setIsFindingPartner(false);
         addMessage('Stopped searching for a partner.', 'system');
 
-    } else { // Find partner logic
+    } else { 
         setIsFindingPartner(true);
-        addMessage('Searching for a partner...', 'system'); // Optimistic UI update
+        // addMessage('Searching for a partner...', 'system'); // Handled by state change effect
         socket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, addMessage, toast]);
@@ -213,7 +222,7 @@ const ChatPageClientContent: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
        <div
         className={cn(
-          'window flex flex-col',
+          'window flex flex-col relative', // Added relative for image positioning
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={chatWindowStyle}
