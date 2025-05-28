@@ -28,7 +28,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
 
   if (msg.sender === 'system') {
     return (
-      <div style={style} className="mb-1">
+      <div style={style} className="mb-2"> {/* Increased margin */}
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {msg.text}
         </div>
@@ -37,7 +37,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
   }
 
   return (
-    <div style={style} className="mb-1"> {/* Root div for each message row, handles bottom margin */}
+    <div style={style} className="mb-2"> {/* Root div for each message row, handles bottom margin - Increased margin */}
       <div className="break-words"> {/* Contains the actual message content */}
         {msg.sender === 'me' && (
           <>
@@ -52,9 +52,9 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
           </>
         )}
       </div>
-      {theme === 'theme-7' && (
+      {theme === 'theme-7' && msg.sender !== 'system' && (
         <div
-          className="h-[2px] mt-1 border border-gray-400 bg-blue-800"
+          className="h-[2px] mt-1 border border-[#CEDCE5] bg-[#64B2CF]" // Updated divider colors
           aria-hidden="true"
         ></div>
       )}
@@ -363,7 +363,6 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        // addMessage('Stopped searching for a partner.', 'system'); // Message handled by state change effect
     } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
@@ -495,10 +494,9 @@ const VideoChatPageClientContent: React.FC = () => {
             ) : (
               <div className="flex items-center justify-center h-full"> {/* Fallback when List cannot render */}
                 {/* This is where messages would map directly if List wasn't used, or a loading/empty state */}
-                {messages.map((msg) => (
-                   <Row key={msg.id} index={0} style={{}} data={{messages: [msg], theme: effectivePageTheme }} />
+                {messages.map((msg, index) => ( // Added index for key
+                   <Row key={msg.id} index={index} style={{}} data={{messages: messages, theme: effectivePageTheme }} />
                 ))}
-                 <div ref={messagesEndRef} />
               </div>
             )}
           </div>

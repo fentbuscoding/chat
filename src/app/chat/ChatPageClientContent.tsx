@@ -21,7 +21,7 @@ interface Message {
 const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
   if (message.sender === 'system') {
     return (
-      <div className="mb-1">
+      <div className="mb-2"> {/* Increased margin */}
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {message.text}
         </div>
@@ -30,7 +30,7 @@ const Row = React.memo(({ message, theme }: { message: Message, theme: string })
   }
 
   return (
-    <div className="mb-1"> {/* Root div for each message row, handles bottom margin */}
+    <div className="mb-2"> {/* Root div for each message row, handles bottom margin - Increased margin */}
       <div className="break-words"> {/* Contains the actual message content */}
         {message.sender === 'me' && (
           <>
@@ -45,9 +45,9 @@ const Row = React.memo(({ message, theme }: { message: Message, theme: string })
           </>
         )}
       </div>
-      {theme === 'theme-7' && (
+      {theme === 'theme-7' && message.sender !== 'system' && (
         <div
-          className="h-[2px] mt-1 border border-gray-400 bg-blue-800"
+          className="h-[2px] mt-1 border border-[#CEDCE5] bg-[#64B2CF]" // Updated divider colors
           aria-hidden="true"
         ></div>
       )}
@@ -199,8 +199,6 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false); 
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-        // No need to add "Stopped searching..." message if it's cleared by findingPartner state change
-        // addMessage('Stopped searching for a partner.', 'system');
     } else { 
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
