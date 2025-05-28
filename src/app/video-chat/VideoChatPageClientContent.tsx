@@ -25,7 +25,6 @@ interface Message {
 interface ItemDataForVideoChat {
   messages: Message[];
   theme: string;
-  // No need for previousMessageSender here as react-window Row gets index
 }
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemDataForVideoChat>) => {
@@ -62,13 +61,13 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
         {currentMessage.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
-            <span>{currentMessage.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{currentMessage.text}</span>
           </>
         )}
         {currentMessage.sender === 'partner' && (
           <>
             <span className="text-red-600 font-bold mr-1">Stranger:</span>
-            <span>{currentMessage.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{currentMessage.text}</span>
           </>
         )}
       </div>
@@ -111,20 +110,22 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
-      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      const newMessageItem = { 
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
+        text, 
+        sender, 
+        timestamp: new Date() 
+      };
       return [...prevMessages, newMessageItem];
     });
   }, []);
 
   useEffect(() => {
-    // User starts finding a partner
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
 
-    // Partner is found
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
-      // Remove any "Searching..." or "Partner has disconnected" or "Stopped searching..." messages
       setMessages(prev => prev.filter(msg =>
         !(msg.sender === 'system' &&
           (msg.text.toLowerCase().includes('searching for a partner') ||
@@ -134,7 +135,6 @@ const VideoChatPageClientContent: React.FC = () => {
       ));
       addMessage('Connected with a partner. You can start chatting!', 'system');
 
-      // Display common interests
       if (interests.length > 0 && partnerInterests.length > 0) {
         const common = interests.filter(interest => partnerInterests.includes(interest));
         if (common.length > 0) {
@@ -146,7 +146,7 @@ const VideoChatPageClientContent: React.FC = () => {
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
     prevRoomIdRef.current = roomId;
-  }, [isFindingPartner, isPartnerConnected, roomId, addMessage, interests, partnerInterests]);
+  }, [isFindingPartner, isPartnerConnected, addMessage, interests, partnerInterests]);
 
 
   useEffect(() => {
@@ -181,7 +181,7 @@ const VideoChatPageClientContent: React.FC = () => {
     
     newSocket.on('noPartnerFound', () => {
         setIsFindingPartner(false);
-        if (!isFindingPartner && !isPartnerConnected) { // If not already searching or connected, start searching
+        if (!isFindingPartner && !isPartnerConnected) {
              setIsFindingPartner(true);
         }
     });
@@ -318,7 +318,7 @@ const VideoChatPageClientContent: React.FC = () => {
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted, getCameraStream]); 
+  }, [isMounted]); 
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -390,31 +390,29 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { // User clicks "Disconnect"
+    if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
         cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
 
-        // Remove previous connection/interest messages
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
         
-        // Automatically find a new partner for the skipper
-        setIsFindingPartner(true); // "Searching..." message will be added by useEffect
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) { // User clicks "Stop Searching"
+    } else if (isFindingPartner) { 
         socket.emit('leaveChat', { roomId: null }); 
         setIsFindingPartner(false);
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
 
-    } else { // User clicks "Find Partner"
+    } else { 
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
@@ -425,7 +423,6 @@ const VideoChatPageClientContent: React.FC = () => {
         }
         
         setIsFindingPartner(true);
-        // "Searching for a partner..." message will be added by useEffect
         socket.emit('findPartner', { chatType: 'video', interests });
     }
   }, [
@@ -547,7 +544,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full"> {/* Fallback with flex-col */}
+              <div className="flex flex-col items-center justify-center h-full"> 
                 {messages.map((msg, index) => ( 
                    <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme }} />
                 ))}

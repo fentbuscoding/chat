@@ -198,9 +198,10 @@ video {
     padding: 0 !important;
 }
 
-/* For 7.css, ensure title bar text is visible on glass */
+/* For 7.css, ensure title bar text is visible on glass and has shadow */
 .theme-7 .window.glass .title-bar .title-bar-text {
-    color: #000; /* Or a suitable contrast color */
+    color: #000; 
+    text-shadow: 0 1px 1px rgba(0,0,0,0.4);
 }
 
 /* Themed scrollbar styles */
@@ -235,11 +236,18 @@ video {
   background-color: transparent;
 }
 
-/* Ensure title bar text is left-aligned */
-.title-bar-text {
-  flex-grow: 1; /* Ensure it expands to fill available space in the title-bar flex container */
-  text-align: left !important; /* Align text within this element to the left */
+/* Ensure title bar text is left-aligned and has shadow in theme-7 */
+.theme-7 .title-bar .title-bar-text {
+  color: #000; 
+  flex-grow: 1; 
+  text-align: left !important; 
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4); /* Added text shadow */
 }
+/* Fallback for non-glass windows in theme-7 or ensure general title bar has it */
+.theme-7 .title-bar-text {
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+}
+
 
 /* Glassmorphism Button for Theme 7 */
 .theme-7 button.glass-button-styled {
@@ -289,8 +297,14 @@ video {
   cursor: not-allowed;
   text-shadow: none;
 }
+
+/* Text shadow for message content in theme-7 */
+.theme-7-text-shadow {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
     
-/* Debugging: Numbered divs - REMOVED
+/* Debugging: Numbered divs - REMOVED */
+/*
 body {
   counter-reset: div-counter;
 }
@@ -309,3 +323,4 @@ div::before {
   vertical-align: baseline;
 }
 */
+

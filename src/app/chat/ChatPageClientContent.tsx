@@ -54,13 +54,13 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
         {message.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
-            <span>{message.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{message.text}</span>
           </>
         )}
         {message.sender === 'partner' && (
           <>
             <span className="text-red-600 font-bold mr-1">Stranger:</span>
-            <span>{message.text}</span>
+            <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{message.text}</span>
           </>
         )}
       </div>
@@ -94,7 +94,12 @@ const ChatPageClientContent: React.FC = () => {
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
-      const newMessageItem = { id: Date.now().toString(), text, sender, timestamp: new Date() };
+      const newMessageItem = { 
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
+        text, 
+        sender, 
+        timestamp: new Date() 
+      };
       return [...prevMessages, newMessageItem];
     });
   }, []);
@@ -129,7 +134,7 @@ const ChatPageClientContent: React.FC = () => {
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
     prevRoomIdRef.current = roomId;
-  }, [isFindingPartner, isPartnerConnected, roomId, addMessage, interests, partnerInterests]);
+  }, [isFindingPartner, isPartnerConnected, addMessage, interests, partnerInterests]);
 
 
   useEffect(() => {
@@ -163,7 +168,7 @@ const ChatPageClientContent: React.FC = () => {
     
     newSocket.on('noPartnerFound', () => { 
         setIsFindingPartner(false); 
-        if (!isFindingPartner && !isPartnerConnected) { // If not already searching or connected, start searching
+        if (!isFindingPartner && !isPartnerConnected) { 
              setIsFindingPartner(true); 
         }
     });
@@ -181,7 +186,7 @@ const ChatPageClientContent: React.FC = () => {
     
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
-        if (reason === 'io server disconnect') { // The server initiated the disconnect
+        if (reason === 'io server disconnect') { 
             newSocket.connect();
         }
     });
@@ -241,7 +246,7 @@ const ChatPageClientContent: React.FC = () => {
         ));
         
         // Automatically find a new partner for the skipper
-        setIsFindingPartner(true); // "Searching..." message will be added by useEffect
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'text', interests });
 
     } else if (isFindingPartner) { // User clicks "Stop Searching"
@@ -251,7 +256,6 @@ const ChatPageClientContent: React.FC = () => {
         addMessage('Stopped searching for a partner.', 'system');
     } else { // User clicks "Find Partner"
         setIsFindingPartner(true);
-        // "Searching for a partner..." message will be added by useEffect
         socket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage]);
