@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -19,7 +20,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    NEXT_PUBLIC_SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'http://localhost:3001',
+    NEXT_PUBLIC_SOCKET_SERVER_URL: process.env.SOCKET_SERVER_URL || 'https://socket-server-638800277531.us-central1.run.app',
   }
 };
 
