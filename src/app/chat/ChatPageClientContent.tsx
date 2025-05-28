@@ -18,10 +18,16 @@ interface Message {
   timestamp: Date;
 }
 
-const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
+interface RowProps {
+  message: Message;
+  theme: string;
+  previousMessageSender?: Message['sender'];
+}
+
+const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => {
   if (message.sender === 'system') {
     return (
-      <div className="mb-2"> {/* Increased margin */}
+      <div className="mb-2">
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {message.text}
         </div>
@@ -29,9 +35,22 @@ const Row = React.memo(({ message, theme }: { message: Message, theme: string })
     );
   }
 
+  const showDivider =
+    theme === 'theme-7' &&
+    previousMessageSender !== undefined &&
+    (previousMessageSender === 'me' || previousMessageSender === 'partner') &&
+    (message.sender === 'me' || message.sender === 'partner') &&
+    message.sender !== previousMessageSender;
+
   return (
-    <div className="mb-2"> {/* Root div for each message row, handles bottom margin - Increased margin */}
-      <div className="break-words"> {/* Contains the actual message content */}
+    <div className="mb-2"> {/* Increased bottom margin for spacing */}
+      {showDivider && (
+        <div
+          className="h-[2px] mb-1 border border-[#CEDCE5] bg-[#64B2CF]"
+          aria-hidden="true"
+        ></div>
+      )}
+      <div className="break-words">
         {message.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -45,12 +64,6 @@ const Row = React.memo(({ message, theme }: { message: Message, theme: string })
           </>
         )}
       </div>
-      {theme === 'theme-7' && message.sender !== 'system' && (
-        <div
-          className="h-[2px] mt-1 border border-[#CEDCE5] bg-[#64B2CF]" // Updated divider colors
-          aria-hidden="true"
-        ></div>
-      )}
     </div>
   );
 });
@@ -198,6 +211,9 @@ const ChatPageClientContent: React.FC = () => {
         setRoomId(null);
         setIsFindingPartner(false); 
     } else if (isFindingPartner) { 
+        // Logic to stop finding partner - currently just sets state
+        // Consider emitting an event to the server if needed to remove from waiting list
+        socket.emit('leaveChat', { roomId: null }); // Inform server to remove from any waiting lists
         setIsFindingPartner(false);
     } else { 
         setIsFindingPartner(true);
@@ -246,8 +262,8 @@ const ChatPageClientContent: React.FC = () => {
             style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
           >
             <div> {/* Container for messages */}
-              {messages.map((msg) => (
-                <Row key={msg.id} message={msg} theme={effectivePageTheme} />
+              {messages.map((msg, index) => (
+                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={messages[index-1]?.sender} />
               ))}
               <div ref={messagesEndRef} />
             </div>

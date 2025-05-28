@@ -22,42 +22,55 @@ interface Message {
   timestamp: Date;
 }
 
-const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
-  const msg = data.messages[index];
-  const theme = data.theme; // Get theme from itemData
+interface ItemDataForVideoChat {
+  messages: Message[];
+  theme: string;
+}
 
-  if (msg.sender === 'system') {
+const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemDataForVideoChat>) => {
+  const currentMessage = data.messages[index];
+  const previousSender = index > 0 ? data.messages[index - 1]?.sender : undefined;
+  const theme = data.theme;
+
+  if (currentMessage.sender === 'system') {
     return (
-      <div style={style} className="mb-2"> {/* Increased margin */}
+      <div style={style} className="mb-2">
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
-          {msg.text}
+          {currentMessage.text}
         </div>
       </div>
     );
   }
 
+  const showDivider =
+    theme === 'theme-7' &&
+    previousSender !== undefined &&
+    (previousSender === 'me' || previousSender === 'partner') &&
+    (currentMessage.sender === 'me' || currentMessage.sender === 'partner') &&
+    currentMessage.sender !== previousSender;
+
   return (
-    <div style={style} className="mb-2"> {/* Root div for each message row, handles bottom margin - Increased margin */}
-      <div className="break-words"> {/* Contains the actual message content */}
-        {msg.sender === 'me' && (
-          <>
-            <span className="text-blue-600 font-bold mr-1">You:</span>
-            <span>{msg.text}</span>
-          </>
-        )}
-        {msg.sender === 'partner' && (
-          <>
-            <span className="text-red-600 font-bold mr-1">Stranger:</span>
-            <span>{msg.text}</span>
-          </>
-        )}
-      </div>
-      {theme === 'theme-7' && msg.sender !== 'system' && (
+    <div style={style} className="mb-2">
+      {showDivider && (
         <div
-          className="h-[2px] mt-1 border border-[#CEDCE5] bg-[#64B2CF]" // Updated divider colors
+          className="h-[2px] mb-1 border border-[#CEDCE5] bg-[#64B2CF]"
           aria-hidden="true"
         ></div>
       )}
+      <div className="break-words">
+        {currentMessage.sender === 'me' && (
+          <>
+            <span className="text-blue-600 font-bold mr-1">You:</span>
+            <span>{currentMessage.text}</span>
+          </>
+        )}
+        {currentMessage.sender === 'partner' && (
+          <>
+            <span className="text-red-600 font-bold mr-1">Stranger:</span>
+            <span>{currentMessage.text}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 });
@@ -362,6 +375,9 @@ const VideoChatPageClientContent: React.FC = () => {
         setRoomId(null);
         setIsFindingPartner(false);
     } else if (isFindingPartner) {
+        // Logic to stop finding partner - currently just sets state
+        // Consider emitting an event to the server if needed to remove from waiting list
+        socket.emit('leaveChat', { roomId: null }); // Inform server to remove from any waiting lists
         setIsFindingPartner(false);
     } else {
         if (hasCameraPermission === false) {
@@ -376,7 +392,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, hasCameraPermission, cleanupConnections, getCameraStream, addMessage]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, hasCameraPermission, cleanupConnections, getCameraStream]);
 
 
   const inputAreaHeight = 60;
@@ -492,10 +508,9 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="flex items-center justify-center h-full"> {/* Fallback when List cannot render */}
-                {/* This is where messages would map directly if List wasn't used, or a loading/empty state */}
-                {messages.map((msg, index) => ( // Added index for key
-                   <Row key={msg.id} index={index} style={{}} data={{messages: messages, theme: effectivePageTheme }} />
+              <div className="flex flex-col items-center justify-center h-full"> {/* Fallback with flex-col */}
+                {messages.map((msg, index) => ( 
+                   <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme }} />
                 ))}
               </div>
             )}
@@ -552,3 +567,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+```
