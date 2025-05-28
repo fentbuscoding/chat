@@ -24,10 +24,11 @@ interface Message {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messages: Message[], theme: string }>) => {
   const msg = data.messages[index];
+  const theme = data.theme; // Get theme from itemData
 
   if (msg.sender === 'system') {
     return (
-      <div style={style} className="mb-1"> {/* Changed from li to div */}
+      <div style={style} className="mb-1">
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
           {msg.text}
         </div>
@@ -36,18 +37,26 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<{ messag
   }
 
   return (
-    <div style={style} className="mb-1 break-words"> {/* Changed from li to div */}
-      {msg.sender === 'me' && (
-        <>
-          <span className="text-blue-600 font-bold mr-1">You:</span>
-          <span>{msg.text}</span>
-        </>
-      )}
-      {msg.sender === 'partner' && (
-        <>
-          <span className="text-red-600 font-bold mr-1">Stranger:</span>
-          <span>{msg.text}</span>
-        </>
+    <div style={style} className="mb-1"> {/* Root div for each message row, handles bottom margin */}
+      <div className="break-words"> {/* Contains the actual message content */}
+        {msg.sender === 'me' && (
+          <>
+            <span className="text-blue-600 font-bold mr-1">You:</span>
+            <span>{msg.text}</span>
+          </>
+        )}
+        {msg.sender === 'partner' && (
+          <>
+            <span className="text-red-600 font-bold mr-1">Stranger:</span>
+            <span>{msg.text}</span>
+          </>
+        )}
+      </div>
+      {theme === 'theme-7' && (
+        <div
+          className="h-[2px] mt-1 border border-gray-400 bg-blue-800"
+          aria-hidden="true"
+        ></div>
       )}
     </div>
   );
@@ -58,7 +67,7 @@ Row.displayName = 'Row';
 const VideoChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams(); 
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Changed from `theme` to `currentTheme`
+  const { currentTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -211,7 +220,7 @@ const VideoChatPageClientContent: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  const effectiveTheme = isMounted ? currentTheme : 'theme-98';
+  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
 
   useEffect(() => {
@@ -354,7 +363,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        addMessage('Stopped searching for a partner.', 'system');
+        // addMessage('Stopped searching for a partner.', 'system'); // Message handled by state change effect
     } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
@@ -373,7 +382,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const inputAreaHeight = 60;
   const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-  const itemData = useMemo(() => ({ messages, theme: effectiveTheme }), [messages, effectiveTheme]);
+  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme }), [messages, effectivePageTheme]);
 
   if (!isMounted) {
     return (
@@ -389,17 +398,17 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Your Video</div>
           </div>
           <div
             className={cn(
               'window-body flex-grow overflow-hidden relative p-0',
-               effectiveTheme === 'theme-7' && 'bg-white/30'
+               effectivePageTheme === 'theme-7' && 'bg-white/30'
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -419,17 +428,17 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectiveTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text">Partner's Video</div>
           </div>
           <div
             className={cn(
               'window-body flex-grow overflow-hidden relative p-0', 
-              effectiveTheme === 'theme-7' && 'bg-white/30'
+              effectivePageTheme === 'theme-7' && 'bg-white/30'
               )}
           >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
@@ -450,24 +459,24 @@ const VideoChatPageClientContent: React.FC = () => {
       <div
         className={cn(
           'window flex flex-col flex-1 relative m-2', 
-          effectiveTheme === 'theme-7' ? 'glass' : ''
+          effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
       >
-        <div className={cn("title-bar", effectiveTheme === 'theme-7' ? 'text-black' : '')}>
+        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
         <div
           ref={chatListContainerRef}
           className={cn(
             'window-body window-body-content flex-grow',
-            effectiveTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
+            effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
           )}
         >
           <div
             className={cn(
               "flex-grow",
-              effectiveTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
+              effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
              style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
           >
@@ -484,17 +493,19 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className={cn(effectiveTheme === 'theme-7' ? 'text-black' : 'text-gray-500 dark:text-gray-400')}>
-                  Loading messages...
-                </p>
+              <div className="flex items-center justify-center h-full"> {/* Fallback when List cannot render */}
+                {/* This is where messages would map directly if List wasn't used, or a loading/empty state */}
+                {messages.map((msg) => (
+                   <Row key={msg.id} index={0} style={{}} data={{messages: [msg], theme: effectivePageTheme }} />
+                ))}
+                 <div ref={messagesEndRef} />
               </div>
             )}
           </div>
            <div
             className={cn(
               "p-2 flex-shrink-0",
-              effectiveTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+              effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
             )}
             style={{ height: `${inputAreaHeight}px` }}
           >
@@ -502,7 +513,9 @@ const VideoChatPageClientContent: React.FC = () => {
                <Button
                 onClick={handleFindOrDisconnectPartner}
                 disabled={hasCameraPermission === undefined && !isPartnerConnected} 
-                className="px-1 mr-1"
+                className={cn(
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled mr-1' : 'px-1 py-1 mr-1'
+                )}
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -518,14 +531,16 @@ const VideoChatPageClientContent: React.FC = () => {
               <Button
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
-                className="px-1 ml-1"
+                className={cn(
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled ml-1' : 'px-1 py-1 ml-1'
+                )}
               >
                 Send
               </Button>
             </div>
           </div>
         </div>
-        {effectiveTheme === 'theme-7' && (
+        {effectivePageTheme === 'theme-7' && (
           <img
             src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
             alt="Decorative Goldfish"

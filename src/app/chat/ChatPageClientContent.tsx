@@ -19,31 +19,37 @@ interface Message {
 }
 
 const Row = React.memo(({ message, theme }: { message: Message, theme: string }) => {
-  const msg = message;
-
-  if (msg.sender === 'system') {
+  if (message.sender === 'system') {
     return (
-      <div className="mb-1"> {/* Changed from li to div */}
+      <div className="mb-1">
         <div className="text-center w-full text-gray-500 dark:text-gray-400 italic text-xs">
-          {msg.text}
+          {message.text}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mb-1 break-words"> {/* Changed from li to div */}
-      {msg.sender === 'me' && (
-        <>
-          <span className="text-blue-600 font-bold mr-1">You:</span>
-          <span>{msg.text}</span>
-        </>
-      )}
-      {msg.sender === 'partner' && (
-        <>
-          <span className="text-red-600 font-bold mr-1">Stranger:</span>
-          <span>{msg.text}</span>
-        </>
+    <div className="mb-1"> {/* Root div for each message row, handles bottom margin */}
+      <div className="break-words"> {/* Contains the actual message content */}
+        {message.sender === 'me' && (
+          <>
+            <span className="text-blue-600 font-bold mr-1">You:</span>
+            <span>{message.text}</span>
+          </>
+        )}
+        {message.sender === 'partner' && (
+          <>
+            <span className="text-red-600 font-bold mr-1">Stranger:</span>
+            <span>{message.text}</span>
+          </>
+        )}
+      </div>
+      {theme === 'theme-7' && (
+        <div
+          className="h-[2px] mt-1 border border-gray-400 bg-blue-800"
+          aria-hidden="true"
+        ></div>
       )}
     </div>
   );
@@ -193,12 +199,13 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false); 
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-        addMessage('Stopped searching for a partner.', 'system');
+        // No need to add "Stopped searching..." message if it's cleared by findingPartner state change
+        // addMessage('Stopped searching for a partner.', 'system');
     } else { 
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, addMessage, toast]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast]);
 
 
   const chatWindowStyle = useMemo(() => (
@@ -240,7 +247,7 @@ const ChatPageClientContent: React.FC = () => {
             )}
             style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
           >
-            <div> {/* Changed from ul to div */}
+            <div> {/* Container for messages */}
               {messages.map((msg) => (
                 <Row key={msg.id} message={msg} theme={effectivePageTheme} />
               ))}
@@ -257,7 +264,9 @@ const ChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
               <Button
                 onClick={handleFindOrDisconnectPartner}
-                className="px-1 mr-1"
+                className={cn(
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled mr-1' : 'px-1 py-1 mr-1'
+                )}
               >
                 {isFindingPartner ? 'Searching...' : (isPartnerConnected ? 'Disconnect' : 'Find Partner')}
               </Button>
@@ -273,7 +282,9 @@ const ChatPageClientContent: React.FC = () => {
               <Button
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
-                className="px-1 ml-1"
+                className={cn(
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled ml-1' : 'px-1 py-1 ml-1'
+                )}
               >
                 Send
               </Button>
