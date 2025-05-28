@@ -11,6 +11,16 @@ import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 
+// Constants for Emojis
+const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
+const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
+const EMOJI_FILENAMES = [
+  'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
+  'cry.png', 'embarrassed.png', 'kiss.png', 'moneymouth.png', 'sad.png',
+  'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
+];
+const SMILE_EMOJI_FILENAME = 'smile.png'; // Default icon
+
 interface Message {
   id: string;
   text: string;
@@ -30,7 +40,7 @@ const Row = React.memo(({ message, theme, previousMessageSender }: RowProps) => 
       <div className="mb-2">
         <div className={cn(
           "text-center w-full text-gray-500 dark:text-gray-400 italic text-xs",
-          theme === 'theme-7' && 'theme-7-text-shadow' // Apply shadow for theme-7
+          theme === 'theme-7' && 'theme-7-text-shadow'
         )}>
           {message.text}
         </div>
@@ -94,6 +104,12 @@ const ChatPageClientContent: React.FC = () => {
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
   const prevRoomIdRef = useRef<string | null>(null);
 
+  // Emoji Feature State
+  const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -108,14 +124,10 @@ const ChatPageClientContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // User starts finding a partner
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
-
-    // Partner is found
     if (isPartnerConnected && !prevIsPartnerConnectedRef.current) {
-      // Remove any "Searching..." or "Partner has disconnected" or "Stopped searching..." messages
       setMessages(prev => prev.filter(msg =>
         !(msg.sender === 'system' &&
           (msg.text.toLowerCase().includes('searching for a partner') ||
@@ -124,8 +136,6 @@ const ChatPageClientContent: React.FC = () => {
            ))
       ));
       addMessage('Connected with a partner. You can start chatting!', 'system');
-
-      // Display common interests
       if (interests.length > 0 && partnerInterests.length > 0) {
         const common = interests.filter(interest => partnerInterests.includes(interest));
         if (common.length > 0) {
@@ -133,7 +143,6 @@ const ChatPageClientContent: React.FC = () => {
         }
       }
     }
-
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
     prevRoomIdRef.current = roomId;
@@ -166,7 +175,7 @@ const ChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('waitingForPartner', () => {
-        // System message for "Searching..." handled by other useEffect
+      // System message for "Searching..." handled by other useEffect
     });
     
     newSocket.on('noPartnerFound', () => { 
@@ -204,12 +213,14 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
     });
 
-
     return () => {
       if (newSocket.connected && roomId) {
         newSocket.emit('leaveChat', { roomId });
       }
       newSocket.disconnect();
+      if (hoverIntervalRef.current) {
+        clearInterval(hoverIntervalRef.current);
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
@@ -240,18 +251,13 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]); 
-
-        // Remove previous connection/interest messages
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
-        
-        // Automatically find a new partner for the skipper
         setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'text', interests });
-
     } else if (isFindingPartner) { // User clicks "Stop Searching"
         socket.emit('leaveChat', { roomId: null }); 
         setIsFindingPartner(false);
@@ -262,6 +268,41 @@ const ChatPageClientContent: React.FC = () => {
         socket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage]);
+
+  // Emoji Feature Logic
+  const handleEmojiIconHover = () => {
+    if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
+    hoverIntervalRef.current = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * EMOJI_FILENAMES.length);
+      setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${EMOJI_FILENAMES[randomIndex]}`);
+    }, 300); // Change emoji every 300ms
+  };
+
+  const stopEmojiCycle = () => {
+    if (hoverIntervalRef.current) {
+      clearInterval(hoverIntervalRef.current);
+      hoverIntervalRef.current = null;
+    }
+    setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`); // Reset to default
+  };
+
+  const toggleEmojiPicker = () => {
+    setIsEmojiPickerOpen(prev => !prev);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+    if (isEmojiPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEmojiPickerOpen]);
 
 
   const chatWindowStyle = useMemo(() => (
@@ -346,6 +387,41 @@ const ChatPageClientContent: React.FC = () => {
               >
                 Send
               </Button>
+              {/* Emoji Icon and Picker - Only for theme-98 */}
+              {effectivePageTheme === 'theme-98' && (
+                <div className="relative ml-1 flex-shrink-0"> {/* Added flex-shrink-0 */}
+                  <img
+                    src={currentEmojiIconUrl}
+                    alt="Emoji"
+                    className="w-6 h-6 cursor-pointer inline-block" // Added inline-block
+                    onMouseEnter={handleEmojiIconHover}
+                    onMouseLeave={stopEmojiCycle}
+                    onClick={toggleEmojiPicker}
+                    data-ai-hint="emoji icon"
+                  />
+                  {isEmojiPickerOpen && (
+                    <div
+                      ref={emojiPickerRef}
+                      className="absolute bottom-full right-0 mb-2 w-48 h-auto p-2 bg-silver border border-raised grid grid-cols-4 gap-1 z-30 window"
+                      style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
+                    >
+                      {EMOJI_FILENAMES.map((filename) => (
+                        <img
+                          key={filename}
+                          src={`${EMOJI_BASE_URL_PICKER}${filename}`}
+                          alt={filename.split('.')[0]}
+                          className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
+                          onClick={() => {
+                            setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `); // Placeholder for actual emoji insertion
+                            // setIsEmojiPickerOpen(false); // Optionally close picker on selection
+                          }}
+                          data-ai-hint="emoji symbol"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -363,4 +439,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
