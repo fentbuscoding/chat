@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { io, type Socket } from 'socket.io-client';
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -20,9 +21,46 @@ export default function SelectionLobby() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate fetching users online
-    const randomUsers = Math.floor(Math.random() * 200) + 50; // Random number between 50 and 250
-    setUsersOnline(randomUsers);
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
+    if (!socketServerUrl) {
+      console.error("SelectionLobby: Socket server URL is not defined.");
+      setUsersOnline(null); // Or some error indicator
+      return;
+    }
+
+    let tempSocket: Socket | null = null;
+
+    try {
+      tempSocket = io(socketServerUrl, {
+        withCredentials: true,
+        transports: ['websocket', 'polling']
+      });
+
+      tempSocket.on('connect', () => {
+        console.log("SelectionLobby: Connected to socket server for user count.");
+        tempSocket?.emit('getOnlineUserCount');
+      });
+
+      tempSocket.on('onlineUserCount', (count: number) => {
+        setUsersOnline(count);
+        tempSocket?.disconnect(); // Disconnect after getting the count
+      });
+
+      tempSocket.on('connect_error', (err) => {
+        console.error("SelectionLobby: Socket connection error for user count:", err.message);
+        setUsersOnline(null); // Or some error indicator
+        tempSocket?.disconnect();
+      });
+
+    } catch (error) {
+        console.error("SelectionLobby: Failed to initialize socket for user count:", error);
+        setUsersOnline(null);
+    }
+
+
+    return () => {
+      tempSocket?.disconnect();
+    };
   }, []);
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +143,7 @@ export default function SelectionLobby() {
 
   return (
     <div className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-md relative"> {/* Added relative positioning */}
+      <Card className="w-full max-w-md relative">
         <CardHeader>
           <div className="absolute top-2 right-2 flex items-center text-xs">
             <img 
@@ -117,7 +155,7 @@ export default function SelectionLobby() {
             {usersOnline !== null ? (
               <span className="font-bold mr-1">{usersOnline}</span>
             ) : (
-              <span className="font-bold mr-1">...</span> 
+              <span className="font-bold mr-1">--</span> 
             )}
             <span>Users Online!</span>
           </div>
