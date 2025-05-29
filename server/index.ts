@@ -227,6 +227,18 @@ io.on('connection', (socket: Socket) => {
      }
   });
   
+  socket.on('typing_start', ({ roomId }: { roomId: string }) => {
+    if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
+      socket.to(roomId).emit('partner_typing_start');
+    }
+  });
+
+  socket.on('typing_stop', ({ roomId }: { roomId: string }) => {
+    if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
+      socket.to(roomId).emit('partner_typing_stop');
+    }
+  });
+
   const cleanupUser = (reason: string) => {
     console.log(`[DISCONNECT_EVENT] User ${socket.id} disconnecting. Reason: ${reason}`);
     onlineUserCount = Math.max(0, onlineUserCount - 1); 
@@ -292,4 +304,6 @@ server.listen(PORT, () => {
 });
 
 export {};
+    
+
     
