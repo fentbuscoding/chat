@@ -1,5 +1,6 @@
+
 {
-  "name": "nextn",
+  "name": "tinchat",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -45,7 +46,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
-    "firebase": "^11.3.0",
+    "firebase": "^11.8.1",
     "first-input-delay": "^0.1.3",
     "genkit": "^1.6.2",
     "lucide-react": "^0.475.0",
