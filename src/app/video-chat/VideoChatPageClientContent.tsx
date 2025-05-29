@@ -94,7 +94,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
       <div style={style} className="mb-2">
         <div className={cn(
           "text-center w-full text-xs italic",
-          theme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
+           theme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
         )}>
           {currentMessage.text}
         </div>
@@ -748,7 +748,7 @@ const VideoChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                               }}

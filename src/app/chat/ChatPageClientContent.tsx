@@ -87,7 +87,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
       <div className="mb-2">
         <div className={cn(
           "text-center w-full text-xs italic",
-          theme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
+           theme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
         )}>
           {message.text}
         </div>
@@ -494,7 +494,7 @@ const ChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="w-8 h-8 cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                               }}
@@ -503,7 +503,7 @@ const ChatPageClientContent: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-center w-full text-xs">No emojis available.</p>
+                         <p className="text-center w-full text-xs">No emojis available.</p>
                       )}
                     </div>
                   )}
