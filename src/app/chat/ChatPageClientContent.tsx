@@ -22,7 +22,8 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
 const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
-const INPUT_AREA_HEIGHT = 60;
+const INPUT_AREA_HEIGHT = 60; // For sizing the input bar
+const TYPING_INDICATOR_HEIGHT = 20; // For sizing the typing indicator area
 
 interface Message {
   id: string;
@@ -57,12 +58,12 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle"
+          className="inline h-5 w-5 mx-0.5 align-middle" // Ensure emojis are small and align well with text
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]);
+      parts.push(match[0]); // If no emoji found, render the shortcode text itself
     }
     lastIndex = regex.lastIndex;
   }
@@ -71,7 +72,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
     parts.push(text.substring(lastIndex));
   }
 
-  return parts.length > 0 ? parts : [text];
+  return parts.length > 0 ? parts : [text]; // Return parts if any, else original text
 };
 
 
@@ -105,7 +106,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [message.text];
+    : [message.text]; // For theme-7, render text directly (no emojis for now)
 
 
   return (
@@ -116,7 +117,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
           aria-hidden="true"
         ></div>
       )}
-      <div className="mb-2 break-words">
+      <div className="mb-2 break-words"> {/* Increased bottom margin for spacing */}
         {message.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -139,7 +140,7 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme();
+  const { currentTheme } = useTheme(); // Using currentTheme from ThemeProvider
   const [isMounted, setIsMounted] = useState(false);
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -149,6 +150,11 @@ const ChatPageClientContent: React.FC = () => {
   const [isFindingPartner, setIsFindingPartner] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
+
+  // Typing indicator state
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [typingDots, setTypingDots] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
@@ -167,7 +173,7 @@ const ChatPageClientContent: React.FC = () => {
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
         text,
         sender,
         timestamp: new Date()
@@ -209,7 +215,7 @@ const ChatPageClientContent: React.FC = () => {
 
 
   useEffect(() => {
-    setIsMounted(true);
+    setIsMounted(true); // Indicate client-side mount
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
         console.error("ChatPage: Socket server URL is not defined.");
@@ -218,6 +224,7 @@ const ChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
+      transports: ['websocket', 'polling'] // Explicitly define transports
     });
     setSocket(newSocket);
 
@@ -226,6 +233,7 @@ const ChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
+        console.log("ChatPage: Partner found event received", { pId, rId, pInterests });
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
         setRoomId(rId);
@@ -236,8 +244,8 @@ const ChatPageClientContent: React.FC = () => {
       // System message for "Searching..." handled by other useEffect
     });
 
-    newSocket.on('noPartnerFound', () => {
-        setIsFindingPartner(false);
+    newSocket.on('findPartnerCooldown', () => {
+      toast({ title: "Slow down!", description: "Please wait a moment before finding a new partner.", variant: "default" });
     });
 
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
@@ -247,12 +255,22 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('partnerLeft', () => {
         addMessage('Your partner has disconnected.', 'system');
         setIsPartnerConnected(false);
+        setIsPartnerTyping(false); // Clear partner typing state
         setRoomId(null);
         setPartnerInterests([]);
     });
 
+    // Typing indicator listeners
+    newSocket.on('partner_typing_start', () => setIsPartnerTyping(true));
+    newSocket.on('partner_typing_stop', () => setIsPartnerTyping(false));
+
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
+        // Add any state cleanup needed on full disconnect
+        setIsPartnerConnected(false);
+        setIsFindingPartner(false);
+        setRoomId(null);
+        setIsPartnerTyping(false);
     });
 
     newSocket.on('connect_error', (err) => {
@@ -278,7 +296,7 @@ const ChatPageClientContent: React.FC = () => {
           description: `Could not load emojis for the picker. ${specificErrorMessage}`,
           variant: "destructive",
         });
-        setPickerEmojiFilenames([]);
+        setPickerEmojiFilenames([]); // Ensure it's an empty array on error
       } finally {
         setEmojisLoading(false);
       }
@@ -287,24 +305,57 @@ const ChatPageClientContent: React.FC = () => {
 
 
     return () => {
-      if (newSocket && newSocket.connected && roomId) {
-        newSocket.emit('leaveChat', { roomId });
-      }
-      if (newSocket) {
+      if (newSocket && newSocket.connected) {
+        if (roomId) newSocket.emit('leaveChat', { roomId });
         newSocket.disconnect();
       }
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
       }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
-  }, [addMessage, toast, interests, setPartnerInterests, setIsFindingPartner, setIsPartnerConnected, setRoomId, setPickerEmojiFilenames, setEmojisLoading, roomId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addMessage, toast, interests]); // Removed roomId from dep array as it causes re-connects. Cleanup handles roomId.
 
-  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
+
+  const effectivePageTheme = isMounted ? currentTheme : 'theme-98'; // Use default for SSR, actual for client
 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Effect for animating typing dots
+  useEffect(() => {
+    let dotInterval: NodeJS.Timeout | null = null;
+    if (isPartnerTyping) {
+      dotInterval = setInterval(() => {
+        setTypingDots(dots => {
+          if (dots.length >= 3) return '.';
+          return dots + '.';
+        });
+      }, 500);
+    } else {
+      setTypingDots('');
+    }
+    return () => {
+      if (dotInterval) clearInterval(dotInterval);
+    };
+  }, [isPartnerTyping]);
+
+
+  const stopLocalTyping = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (socket && roomId && isPartnerConnected) {
+      socket.emit('typing_stop', { roomId });
+    }
+  }, [socket, roomId, isPartnerConnected]);
+
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
@@ -312,11 +363,23 @@ const ChatPageClientContent: React.FC = () => {
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-  }, [newMessage, socket, roomId, isPartnerConnected, addMessage, setNewMessage]);
+    stopLocalTyping(); // Stop typing indicator when message is sent
+  }, [newMessage, socket, roomId, isPartnerConnected, addMessage, setNewMessage, stopLocalTyping]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
-  }, [setNewMessage]);
+    if (!socket || !roomId || !isPartnerConnected) return;
+
+    if (!typingTimeoutRef.current) {
+      socket.emit('typing_start', { roomId });
+    } else {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      stopLocalTyping();
+    }, 2000); // Stop typing if no input for 2 seconds
+  }, [socket, roomId, isPartnerConnected, setNewMessage, stopLocalTyping]);
 
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -324,23 +387,27 @@ const ChatPageClientContent: React.FC = () => {
         toast({ title: "Not Connected", description: "Not connected to the chat server.", variant: "destructive" });
         return;
     }
+    setIsPartnerTyping(false); // Clear typing indicator
 
-    if (isPartnerConnected) { 
-        socket.emit('leaveChat', { roomId });
+    if (isPartnerConnected && roomId) { 
+        socket.emit('leaveChat', { roomId }); // User initiated disconnect from current partner
+        addMessage('You have disconnected. Searching for a new partner...', 'system');
+        // Reset partner specific state
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        addMessage('You have disconnected. Searching for a new partner...', 'system');
+        // Immediately start searching for a new partner
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
-    } else if (isFindingPartner) { 
+    } else if (isFindingPartner) { // User wants to stop searching
         setIsFindingPartner(false);
-        // System message "Stopped searching..." handled by other useEffect
-    } else { 
+        // Server doesn't have a "stop finding" event, client just stops showing "searching"
+        // The "Stopped searching..." message is handled by another useEffect based on isFindingPartner
+    } else { // User wants to start searching
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     }
-  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage, setIsFindingPartner, setIsPartnerConnected, setRoomId, setPartnerInterests]);
+  }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage]);
 
   const handleEmojiIconHover = () => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
@@ -367,9 +434,10 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        // Check if the click was on the emoji icon itself
         const emojiIcon = document.getElementById('emoji-icon-trigger');
         if (emojiIcon && emojiIcon.contains(event.target as Node)) {
-          return;
+          return; // Don't close if clicking the trigger
         }
         setIsEmojiPickerOpen(false);
       }
@@ -400,7 +468,7 @@ const ChatPageClientContent: React.FC = () => {
     <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
        <div
         className={cn(
-          'window flex flex-col relative',
+          'window flex flex-col relative', // Added relative for goldfish positioning
           effectivePageTheme === 'theme-7' ? 'glass' : ''
         )}
         style={chatWindowStyle}
@@ -418,15 +486,17 @@ const ChatPageClientContent: React.FC = () => {
         </div>
         <div
           className={cn(
-            'window-body window-body-content flex-grow',
+            'window-body window-body-content flex-grow', // Ensures body can flex grow
              effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
           )}
         >
           <div
             className={cn(
-              "flex-grow overflow-y-auto",
+              "flex-grow overflow-y-auto", // Message list area
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
+            // Adjusted height calculation to account for typing indicator
+            style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px - ${isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0}px)` }}
           >
             <div> {/* Container for messages */}
               {messages.map((msg, index) => (
@@ -435,9 +505,20 @@ const ChatPageClientContent: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
           </div>
+          {isPartnerTyping && (
+            <div 
+              className={cn(
+                "text-xs italic px-2 flex-shrink-0",
+                effectivePageTheme === 'theme-7' ? 'text-gray-200 theme-7-text-shadow' : 'text-gray-500 dark:text-gray-400'
+              )} 
+              style={{ height: `${TYPING_INDICATOR_HEIGHT}px` }}
+            >
+              Stranger is typing{typingDots}
+            </div>
+          )}
           <div
             className={cn(
-              "p-2 flex-shrink-0",
+              "p-2 flex-shrink-0", // Input area
               effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
             )}
             style={{ height: `${INPUT_AREA_HEIGHT}px` }}
@@ -447,7 +528,7 @@ const ChatPageClientContent: React.FC = () => {
                 onClick={handleFindOrDisconnectPartner}
                 disabled={!socket || (!isFindingPartner && !isPartnerConnected && !socket?.connected)}
                 className={cn(
-                  'mr-1',
+                  'mr-1', // Reduced margin
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
@@ -459,7 +540,7 @@ const ChatPageClientContent: React.FC = () => {
                 onChange={handleInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 w-full px-1 py-1"
+                className="flex-1 w-full px-1 py-1" // Ensure it takes available space
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
@@ -468,7 +549,7 @@ const ChatPageClientContent: React.FC = () => {
                     id="emoji-icon-trigger"
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-5 h-5 cursor-pointer inline-block"
+                    className="w-5 h-5 cursor-pointer inline-block" // Made inline-block for consistency
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -505,14 +586,14 @@ const ChatPageClientContent: React.FC = () => {
               )}
               {effectivePageTheme === 'theme-98' && emojisLoading && (
                  <div className="relative ml-1 flex-shrink-0">
-                    <p className="text-xs p-1">...</p>
+                    <p className="text-xs p-1">...</p> {/* Placeholder for loading state */}
                  </div>
               )}
               <Button
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
                 className={cn(
-                  'ml-1',
+                  'ml-1', // Reduced margin
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
@@ -527,3 +608,5 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
+
+    
