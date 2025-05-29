@@ -7,7 +7,7 @@ const allowedOrigins = [
   "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Production frontend
   "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev", // Development
   "http://localhost:9002", // Local Next.js dev server
-  "https://tinchat.online" // Added custom domain
+  "https://tinchat.online"
 ];
 
 const server = http.createServer((req, res) => {
@@ -49,7 +49,6 @@ const server = http.createServer((req, res) => {
     res.end('Socket.IO Server is running and configured for CORS.\n');
   } else {
     // Socket.IO handles its own path, other paths can be 404 or handled as needed
-    // For simplicity, we let them fall through; Socket.IO itself will handle /socket.io/ paths
   }
 });
 
@@ -133,9 +132,8 @@ const findMatch = (currentUser: User): User | null => {
   potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
   if (potentialPartners.length > 0) {
     const randomIndex = Math.floor(Math.random() * potentialPartners.length);
-    const randomPartnerToMatch = potentialPartners[randomIndex]; // Get the partner
+    const randomPartnerToMatch = potentialPartners[randomIndex]; 
     
-    // Now remove this randomly selected partner from the main `allWaitingForType` list
     const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === randomPartnerToMatch.id);
     if (originalIndexInWaitingList > -1) {
       console.log(`[MATCH_LOGIC] Random match found: ${currentUser.id} with ${randomPartnerToMatch.id}`);
@@ -161,7 +159,7 @@ io.on('connection', (socket: Socket) => {
     const now = Date.now();
     if (now - (lastMatchRequest[socket.id] || 0) < FIND_PARTNER_COOLDOWN_MS) {
       console.log(`[RATE_LIMIT] User ${socket.id} findPartner request ignored due to cooldown.`);
-      socket.emit('findPartnerCooldown'); // Optional: notify client about cooldown
+      socket.emit('findPartnerCooldown'); 
       return;
     }
     lastMatchRequest[socket.id] = now;
@@ -175,7 +173,7 @@ io.on('connection', (socket: Socket) => {
     if (matchedPartner) {
       const partnerSocket = io.sockets.sockets.get(matchedPartner.id);
       if (partnerSocket && partnerSocket.connected) {
-        const roomId = `${currentUser.id}#${Date.now()}`; // More unique room ID
+        const roomId = `${currentUser.id}#${Date.now()}`; 
         rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
 
         socket.join(roomId);
@@ -186,22 +184,21 @@ io.on('connection', (socket: Socket) => {
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
         console.error(`[MATCH_FAIL] Partner ${matchedPartner.id} socket not found or disconnected. Re-queuing both users.`);
-        // Re-add matchedPartner to the front of their list if not already there
+        
         const isMatchedPartnerWaiting = waitingUsers[matchedPartner.chatType].some(user => user.id === matchedPartner.id);
         if (!isMatchedPartnerWaiting) {
-            waitingUsers[matchedPartner.chatType].unshift(matchedPartner); // Add to front of queue
+            waitingUsers[matchedPartner.chatType].unshift(matchedPartner); 
             console.log(`[WAITING_LIST] Re-added ${matchedPartner.id} to waiting list for ${matchedPartner.chatType}.`);
         }
-        // Add currentUser back to their list (usually at the end) if not already there
+        
         const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
         if (!isCurrentUserWaiting) {
             waitingUsers[currentUser.chatType].push(currentUser);
             console.log(`[WAITING_LIST] User ${currentUser.id} (who was looking) added back to waiting list for ${currentUser.chatType}.`);
         }
-        socket.emit('waitingForPartner'); // Notify the searching user they are back to waiting
+        socket.emit('waitingForPartner'); 
       }
     } else {
-      // No partner found, add current user to waiting list if not already there
       const isCurrentUserWaiting = waitingUsers[chatType].some(user => user.id === socket.id);
       if (!isCurrentUserWaiting) {
         waitingUsers[chatType].push(currentUser);
@@ -215,7 +212,6 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('sendMessage', ({ roomId, message }: { roomId: string, message: string }) => {
     if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-      // Emit to others in the room, excluding the sender (socket.to broadcasts to all *but* sender in room)
       socket.to(roomId).emit('receiveMessage', { senderId: socket.id, message });
       console.log(`[MESSAGE] User ${socket.id} sent message in room ${roomId}`);
     } else {
@@ -225,36 +221,21 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('webrtcSignal', ({ roomId, signalData }: { roomId: string, signalData: any }) => {
      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        // Relay signal to the other user in the room
         socket.to(roomId).emit('webrtcSignal', signalData);
-        // console.log(`[WEBRTC_SIGNAL] User ${socket.id} sent signal in room ${roomId}:`, signalData.type || Object.keys(signalData)[0]);
      } else {
         console.warn(`[WEBRTC_SIGNAL_WARN] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent.`);
      }
   });
   
-  socket.on('typing_start', ({ roomId }) => {
-    if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-      socket.to(roomId).emit('partner_typing_start', { senderId: socket.id });
-    }
-  });
-
-  socket.on('typing_stop', ({ roomId }) => {
-    if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-      socket.to(roomId).emit('partner_typing_stop', { senderId: socket.id });
-    }
-  });
-
   const cleanupUser = (reason: string) => {
     console.log(`[DISCONNECT_EVENT] User ${socket.id} disconnecting. Reason: ${reason}`);
-    onlineUserCount = Math.max(0, onlineUserCount - 1); // Ensure count doesn't go below 0
+    onlineUserCount = Math.max(0, onlineUserCount - 1); 
     io.emit('onlineUserCountUpdate', onlineUserCount);
     console.log(`[STATS] Total online users: ${onlineUserCount}`);
 
     removeFromWaitingLists(socket.id);
-    delete lastMatchRequest[socket.id]; // Memory cleanup for cooldown tracker
+    delete lastMatchRequest[socket.id]; 
 
-    // Iterate over rooms to find and cleanup any room the user was in
     for (const roomId in rooms) {
         const room = rooms[roomId];
         const userIndexInRoom = room.users.indexOf(socket.id);
@@ -264,7 +245,7 @@ io.on('connection', (socket: Socket) => {
                 const partnerSocket = io.sockets.sockets.get(partnerId);
                 if (partnerSocket && partnerSocket.connected) {
                   partnerSocket.emit('partnerLeft');
-                  partnerSocket.leave(roomId); // Explicitly make partner leave the room
+                  partnerSocket.leave(roomId); 
                   console.log(`[ROOM_EVENT] Notified partner ${partnerId} that ${socket.id} left room ${roomId}. Partner removed from room.`);
                 } else {
                   console.log(`[ROOM_EVENT_WARN] Partner ${partnerId} of disconnecting user ${socket.id} not found or disconnected.`);
@@ -272,7 +253,7 @@ io.on('connection', (socket: Socket) => {
             }
             delete rooms[roomId];
             console.log(`[ROOM_CLOSED] Room ${roomId} closed due to user ${socket.id} disconnecting. Active rooms: ${Object.keys(rooms).length}`);
-            break; // User can only be in one room at a time
+            break; 
         }
     }
   };
@@ -282,19 +263,19 @@ io.on('connection', (socket: Socket) => {
         const room = rooms[roomId];
         const partnerId = room.users.find(id => id !== socket.id);
 
-        socket.leave(roomId); // Current user leaves the socket.io room
+        socket.leave(roomId); 
 
         if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
              if (partnerSocket && partnerSocket.connected) {
                 partnerSocket.emit('partnerLeft');
-                partnerSocket.leave(roomId); // Partner also leaves the socket.io room
+                partnerSocket.leave(roomId); 
                 console.log(`[ROOM_EVENT] User ${socket.id} left room ${roomId}. Notified partner ${partnerId}. Both removed from room.`);
             } else {
                 console.log(`[ROOM_EVENT_WARN] Partner ${partnerId} of user ${socket.id} (leaving manually) not found or disconnected.`);
             }
         }
-        delete rooms[roomId]; // Remove room from server's list
+        delete rooms[roomId]; 
         console.log(`[ROOM_CLOSED] Room ${roomId} closed due to user ${socket.id} leaving manually. Active rooms: ${Object.keys(rooms).length}`);
     } else {
         console.warn(`[LEAVE_CHAT_WARN] User ${socket.id} tried to leave room ${roomId}, but room was not found or user not in it.`);
@@ -311,5 +292,4 @@ server.listen(PORT, () => {
 });
 
 export {};
-
     

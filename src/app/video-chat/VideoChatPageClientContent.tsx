@@ -26,7 +26,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
-// TYPING_INDICATOR_HEIGHT is no longer needed as it's part of the message flow
+
 
 interface Message {
   id: string;
@@ -173,10 +173,6 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
-
-  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
-  const [typingDots, setTypingDots] = useState('');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -373,7 +369,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'] 
     });
     setSocket(newSocket);
 
@@ -465,21 +461,18 @@ const VideoChatPageClientContent: React.FC = () => {
         addMessage('Your partner has disconnected.', 'system');
         cleanupConnections(false);
         setIsPartnerConnected(false);
-        setIsPartnerTyping(false);
         setRoomId(null);
         setPartnerInterests([]);
     });
 
-    newSocket.on('partner_typing_start', () => setIsPartnerTyping(true));
-    newSocket.on('partner_typing_stop', () => setIsPartnerTyping(false));
 
     newSocket.on('disconnect', (reason) => {
         console.log("VideoChatPage: Disconnected from socket server. Reason:", reason);
+        addMessage('You have been disconnected from the server.', 'system');
         cleanupConnections(true);
         setIsPartnerConnected(false);
         setIsFindingPartner(false);
         setRoomId(null);
-        setIsPartnerTyping(false);
     });
 
     newSocket.on('connect_error', (err) => {
@@ -521,11 +514,9 @@ const VideoChatPageClientContent: React.FC = () => {
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
       }
-       if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
     };
-  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream, roomId, isPartnerConnected]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream]); // roomId removed
 
 
   useEffect(() => {
@@ -550,73 +541,34 @@ const VideoChatPageClientContent: React.FC = () => {
     } else if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, listHeight, chatListContainerWidth, isPartnerTyping]); // Also scroll if typing indicator appears/disappears
+  }, [messages, listHeight, chatListContainerWidth]); 
 
-
-  useEffect(() => {
-    let dotInterval: NodeJS.Timeout | null = null;
-    if (isPartnerTyping) {
-      dotInterval = setInterval(() => {
-        setTypingDots(dots => {
-          if (dots.length >= 3) return '.';
-          return dots + '.';
-        });
-      }, 500);
-    } else {
-      setTypingDots('');
-    }
-    return () => {
-      if (dotInterval) clearInterval(dotInterval);
-    };
-  }, [isPartnerTyping]);
-
-  const stopLocalTyping = useCallback(() => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-    if (socket && roomId && isPartnerConnected) {
-      socket.emit('typing_stop', { roomId });
-    }
-  }, [socket, roomId, isPartnerConnected]);
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-    stopLocalTyping();
-  }, [newMessage, socket, roomId, addMessage, isPartnerConnected, stopLocalTyping]);
+  }, [newMessage, socket, roomId, addMessage, isPartnerConnected, setNewMessage]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
-     if (!socket || !roomId || !isPartnerConnected) return;
-
-    if (!typingTimeoutRef.current) {
-      socket.emit('typing_start', { roomId });
-    } else {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      stopLocalTyping();
-    }, 2000);
-  }, [socket, roomId, isPartnerConnected, setNewMessage, stopLocalTyping]);
+  }, [setNewMessage]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
     if (!socket) {
         toast({ title: "Not Connected", description: "Not connected to the chat server.", variant: "destructive" });
         return;
     }
-    setIsPartnerTyping(false);
 
     if (isPartnerConnected && roomId) {
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false);
         addMessage('You have disconnected.', 'system');
+        cleanupConnections(false); // Don't stop local stream, user might want to find new partner
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
+        // Automatically start finding a new partner
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
@@ -627,9 +579,9 @@ const VideoChatPageClientContent: React.FC = () => {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) {
+        if (hasCameraPermission === undefined) { // If permission status is unknown, try to get it
             const stream = await getCameraStream();
-            if (!stream) {
+            if (!stream) { // If still no stream (permission denied or error), then bail.
                 return;
             }
         }
@@ -716,18 +668,17 @@ const VideoChatPageClientContent: React.FC = () => {
         >
           <div className={cn(
               "title-bar text-sm",
-              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'theme-7-video-feed-title-bar',
+              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'theme-7 .video-feed-title-bar',
               effectivePageTheme === 'theme-7' ? 'text-black' : ''
             )}>
             <div className="title-bar-text">
-              {/* Text removed */}
+              {/* Text is conditionally rendered */}
             </div>
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative',
-               effectivePageTheme === 'theme-7' && 'bg-white/30',
-               'p-0'
+              'window-body flex-grow overflow-hidden relative p-0',
+               effectivePageTheme === 'theme-7' && 'bg-white/30'
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -754,18 +705,17 @@ const VideoChatPageClientContent: React.FC = () => {
         >
           <div className={cn(
               "title-bar text-sm",
-               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'theme-7-video-feed-title-bar',
+               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'theme-7 .video-feed-title-bar',
                effectivePageTheme === 'theme-7' ? 'text-black' : ''
             )}>
             <div className="title-bar-text">
-               {/* Text removed */}
+                {/* Text is conditionally rendered */}
             </div>
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative',
-              effectivePageTheme === 'theme-7' && 'bg-white/30',
-              'p-0'
+              'window-body flex-grow overflow-hidden relative p-0',
+              effectivePageTheme === 'theme-7' && 'bg-white/30'
               )}
           >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
@@ -815,9 +765,8 @@ const VideoChatPageClientContent: React.FC = () => {
               "flex-grow overflow-y-auto",
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
-            style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px)` }} // Adjusted height
+            style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px)` }} 
           >
-            {/* Container for messages and typing indicator */}
             {(listHeight > 0 && chatListContainerWidth > 0) ? (
               <>
                 <List
@@ -831,19 +780,6 @@ const VideoChatPageClientContent: React.FC = () => {
                 >
                   {Row}
                 </List>
-                {/* Typing Indicator for virtualized list (if needed to be outside list items) */}
-                {isPartnerTyping && (
-                  <div className="mt-1 mb-2 px-1">
-                    <div
-                      className={cn(
-                        "text-left text-xs italic",
-                        effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
-                      )}
-                    >
-                      Stranger is typing{typingDots}
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
                <div className="h-full overflow-y-auto p-1">
@@ -852,19 +788,6 @@ const VideoChatPageClientContent: React.FC = () => {
                      <Row index={index} style={{width: '100%'}} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                     </div>
                  ))}
-                  {/* Typing Indicator for simple list */}
-                  {isPartnerTyping && (
-                    <div className="mt-1 mb-2 px-1">
-                      <div
-                        className={cn(
-                          "text-left text-xs italic",
-                          effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
-                        )}
-                      >
-                        Stranger is typing{typingDots}
-                      </div>
-                    </div>
-                  )}
                  <div ref={messagesEndRef} /> {/* Scroll target */}
                </div>
             )}
@@ -962,4 +885,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-

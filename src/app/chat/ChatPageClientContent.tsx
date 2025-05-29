@@ -23,7 +23,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
-// TYPING_INDICATOR_HEIGHT is no longer needed as it's part of the message flow
+
 
 interface Message {
   id: string;
@@ -151,10 +151,6 @@ const ChatPageClientContent: React.FC = () => {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
 
-  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
-  const [typingDots, setTypingDots] = useState('');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
@@ -257,20 +253,16 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('partnerLeft', () => {
         addMessage('Your partner has disconnected.', 'system');
         setIsPartnerConnected(false);
-        setIsPartnerTyping(false);
         setRoomId(null);
         setPartnerInterests([]);
     });
 
-    newSocket.on('partner_typing_start', () => setIsPartnerTyping(true));
-    newSocket.on('partner_typing_stop', () => setIsPartnerTyping(false));
-
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
+        addMessage('You have been disconnected from the server.', 'system');
         setIsPartnerConnected(false);
         setIsFindingPartner(false);
         setRoomId(null);
-        setIsPartnerTyping(false);
     });
 
     newSocket.on('connect_error', (err) => {
@@ -312,11 +304,9 @@ const ChatPageClientContent: React.FC = () => {
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
       }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
     };
-  }, [addMessage, toast, interests, roomId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addMessage, toast, interests]); // roomId removed from deps to prevent reconnect cycle
 
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
@@ -324,35 +314,7 @@ const ChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isPartnerTyping]); // Also scroll if typing indicator appears/disappears
-
-  useEffect(() => {
-    let dotInterval: NodeJS.Timeout | null = null;
-    if (isPartnerTyping) {
-      dotInterval = setInterval(() => {
-        setTypingDots(dots => {
-          if (dots.length >= 3) return '.';
-          return dots + '.';
-        });
-      }, 500);
-    } else {
-      setTypingDots('');
-    }
-    return () => {
-      if (dotInterval) clearInterval(dotInterval);
-    };
-  }, [isPartnerTyping]);
-
-
-  const stopLocalTyping = useCallback(() => {
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
-    if (socket && roomId && isPartnerConnected) {
-      socket.emit('typing_stop', { roomId });
-    }
-  }, [socket, roomId, isPartnerConnected]);
+  }, [messages]); 
 
 
   const handleSendMessage = useCallback(() => {
@@ -361,23 +323,11 @@ const ChatPageClientContent: React.FC = () => {
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-    stopLocalTyping();
-  }, [newMessage, socket, roomId, isPartnerConnected, addMessage, setNewMessage, stopLocalTyping]);
+  }, [newMessage, socket, roomId, isPartnerConnected, addMessage, setNewMessage]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
-    if (!socket || !roomId || !isPartnerConnected) return;
-
-    if (!typingTimeoutRef.current) {
-      socket.emit('typing_start', { roomId });
-    } else {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      stopLocalTyping();
-    }, 2000);
-  }, [socket, roomId, isPartnerConnected, setNewMessage, stopLocalTyping]);
+  }, [setNewMessage]);
 
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -385,22 +335,22 @@ const ChatPageClientContent: React.FC = () => {
         toast({ title: "Not Connected", description: "Not connected to the chat server.", variant: "destructive" });
         return;
     }
-    setIsPartnerTyping(false);
 
     if (isPartnerConnected && roomId) {
         socket.emit('leaveChat', { roomId });
-        addMessage('You have disconnected.', 'system');
+        addMessage('You have disconnected.', 'system'); // User initiated disconnect
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
+        // Automatically start finding a new partner
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) {
-        setIsFindingPartner(false);
+        setIsFindingPartner(false); // User stops searching
         // Note: Server doesn't have an explicit "stop finding" event.
         // Client UI updates and no new 'findPartner' is sent.
     } else {
-        setIsFindingPartner(true);
+        setIsFindingPartner(true); // User starts finding
         socket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [socket, isPartnerConnected, isFindingPartner, roomId, interests, toast, addMessage]);
@@ -503,25 +453,12 @@ const ChatPageClientContent: React.FC = () => {
               "flex-grow overflow-y-auto",
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
-            style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px)` }} // Adjusted height
+            style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px)` }}
           >
-            <div> {/* Container for messages and typing indicator */}
+            <div> {/* Container for messages */}
               {messages.map((msg, index) => (
                 <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} />
               ))}
-              {/* Typing Indicator */}
-              {isPartnerTyping && (
-                <div className="mt-1 mb-2 px-1"> {/* Mimic Row spacing */}
-                  <div
-                    className={cn(
-                      "text-left text-xs italic", // Left aligned
-                      effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
-                    )}
-                  >
-                    Stranger is typing{typingDots}
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} /> {/* Scroll target */}
             </div>
           </div>
@@ -619,4 +556,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
