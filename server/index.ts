@@ -52,40 +52,47 @@ let onlineUserCount = 0;
 
 const findMatch = (currentUser: User): User | null => {
   const allWaitingForType = waitingUsers[currentUser.chatType];
+  // Filter out the current user from potential partners
   const potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
 
   if (potentialPartners.length === 0) {
     return null;
   }
 
-  // Try to match by interest first
+  // Try to match by interest first, if the current user has interests
   if (currentUser.interests.length > 0) {
     for (let i = 0; i < potentialPartners.length; i++) {
       const partner = potentialPartners[i];
+      // Check if the potential partner also has interests and shares at least one
       if (partner.interests && partner.interests.some(interest => currentUser.interests.includes(interest))) {
         // Found an interest match, remove from the main waiting list
         const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === partner.id);
         if (originalIndexInWaitingList > -1) {
+          console.log(`Interest match found: ${currentUser.id} with ${partner.id} on interests: ${partner.interests.filter(interest => currentUser.interests.includes(interest)).join(', ')}`);
           return allWaitingForType.splice(originalIndexInWaitingList, 1)[0];
         }
-        // This should ideally not happen if potentialPartners is derived from allWaitingForType
+        // This should ideally not happen if potentialPartners is derived correctly
         console.warn(`Interest-matched partner ${partner.id} not found in main waiting list for splicing.`);
       }
     }
   }
 
-  // If no interest match or user has no interests, match randomly
+  // If no interest match OR user has no interests, match randomly from the remaining potential partners
+  // (Note: if an interest match happened, this part is skipped because `partner` would be returned)
+  // But if no interest match was found even after trying, we still need to randomly pick from the *original* potential partners.
+  // The `potentialPartners` list at this point (if no interest match was made) still contains all users of the same chat type.
   if (potentialPartners.length > 0) {
     const randomIndex = Math.floor(Math.random() * potentialPartners.length);
     const randomPartnerToMatch = potentialPartners[randomIndex];
     const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === randomPartnerToMatch.id);
     if (originalIndexInWaitingList > -1) {
+      console.log(`Random match found: ${currentUser.id} with ${randomPartnerToMatch.id}`);
       return allWaitingForType.splice(originalIndexInWaitingList, 1)[0];
     }
     console.warn(`Randomly selected partner ${randomPartnerToMatch.id} not found in main waiting list for splicing.`);
   }
-
-  return null; // Should ideally be unreachable if potentialPartners.length > 0
+  
+  return null; // Should be unreachable if potentialPartners.length > 0 and splice works.
 };
 
 
@@ -151,18 +158,6 @@ io.on('connection', (socket: Socket) => {
      if (rooms[roomId]) {
         socket.to(roomId).emit('webrtcSignal', signalData);
      }
-  });
-
-  socket.on('typing_start', ({ roomId }: { roomId: string }) => {
-    if (rooms[roomId]) {
-      socket.to(roomId).emit('partner_typing_start');
-    }
-  });
-
-  socket.on('typing_stop', ({ roomId }: { roomId: string }) => {
-    if (rooms[roomId]) {
-      socket.to(roomId).emit('partner_typing_stop');
-    }
   });
   
   const cleanupUser = (reason: string) => {

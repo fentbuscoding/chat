@@ -26,7 +26,6 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
-const TYPING_INDICATOR_HEIGHT = 24; // For h-6 (1.5rem)
 
 
 interface Message {
@@ -170,8 +169,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 30;
-
+  
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
 
@@ -183,16 +181,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
-  // Typing Indicator State
-  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
-  const [typingDots, setTypingDots] = useState('');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasSentTypingStartRef = useRef(false);
-
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-
-  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
-
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -359,7 +348,6 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket'] // Prioritize WebSocket
     });
     setSocket(newSocket);
 
@@ -430,22 +418,10 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setIsPartnerTyping(false);
-    });
-
-    newSocket.on('partner_typing_start', () => {
-      setIsPartnerTyping(true);
-    });
-
-    newSocket.on('partner_typing_stop', () => {
-      setIsPartnerTyping(false);
     });
 
     newSocket.on('disconnect', (reason) => {
         console.log("VideoChatPage: Disconnected from socket server. Reason:", reason);
-         if (reason === 'io server disconnect') {
-            // newSocket.connect(); // Reconnection is often handled automatically by Socket.IO client
-        }
     });
      newSocket.on('connect_error', (err) => {
         console.error("VideoChatPage: Socket connection error:", err.message);
@@ -478,9 +454,6 @@ const VideoChatPageClientContent: React.FC = () => {
     fetchPickerEmojis();
 
     return () => {
-      if (newSocket && newSocket.connected && roomId && hasSentTypingStartRef.current) {
-        newSocket.emit('typing_stop', { roomId });
-      }
       cleanupConnections(true);
       if (newSocket && newSocket.connected && roomId) {
         newSocket.emit('leaveChat', { roomId });
@@ -490,9 +463,6 @@ const VideoChatPageClientContent: React.FC = () => {
       }
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
-      }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, [addMessage, toast, interests, partnerInterests, cleanupConnections, setupWebRTC, roomId, setPartnerInterests, setIsFindingPartner, setIsPartnerConnected, setRoomId, setPickerEmojiFilenames, setEmojisLoading]);
@@ -504,6 +474,14 @@ const VideoChatPageClientContent: React.FC = () => {
     }
   }, [isMounted, hasCameraPermission, getCameraStream]);
 
+  const itemHeight = 30; // Approximate height for react-window items
+  const inputAreaHeightWithPadding = INPUT_AREA_HEIGHT + 16; // 60px + p-2 (8px top + 8px bottom)
+
+  const scrollableChatListHeight = chatListContainerHeight > inputAreaHeightWithPadding
+    ? chatListContainerHeight - inputAreaHeightWithPadding
+    : 0;
+
+  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
 
   useEffect(() => {
     const useReactWindowList = scrollableChatListHeight > 0 && chatListContainerWidth > 0;
@@ -518,78 +496,16 @@ const VideoChatPageClientContent: React.FC = () => {
     }
   }, [messages, chatListContainerHeight, chatListContainerWidth, scrollableChatListHeight]);
 
-  useEffect(() => {
-    let dotsInterval: NodeJS.Timeout | null = null;
-    if (isPartnerTyping) {
-      dotsInterval = setInterval(() => {
-        setTypingDots(prevDots => {
-          if (prevDots === '...') return '.';
-          if (prevDots === '..') return '...';
-          if (prevDots === '.') return '..';
-          return '.';
-        });
-      }, 500);
-    } else {
-      setTypingDots('');
-      if (dotsInterval) clearInterval(dotsInterval);
-    }
-    return () => {
-      if (dotsInterval) clearInterval(dotsInterval);
-    };
-  }, [isPartnerTyping]);
-
-
-  const stopLocalTyping = useCallback(() => {
-    if (socket && roomId && hasSentTypingStartRef.current) {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
-      }
-      socket.emit('typing_stop', { roomId });
-      hasSentTypingStartRef.current = false;
-    }
-  }, [socket, roomId]);
-
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-    stopLocalTyping();
-  }, [newMessage, socket, roomId, addMessage, isPartnerConnected, stopLocalTyping, setNewMessage]);
+  }, [newMessage, socket, roomId, addMessage, isPartnerConnected, setNewMessage]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const currentInputMessage = e.target.value;
-    setNewMessage(currentInputMessage);
-
-    if (!socket || !roomId || !isPartnerConnected) {
-      if (hasSentTypingStartRef.current) {
-          hasSentTypingStartRef.current = false;
-          if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      }
-      return;
-    }
-
-    if (currentInputMessage.trim().length > 0) {
-      if (!hasSentTypingStartRef.current) {
-        socket.emit('typing_start', { roomId });
-        hasSentTypingStartRef.current = true;
-      }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
-         if (hasSentTypingStartRef.current) {
-             socket.emit('typing_stop', { roomId });
-             hasSentTypingStartRef.current = false;
-        }
-      }, 1500);
-    } else {
-      if (hasSentTypingStartRef.current) {
-        stopLocalTyping();
-      }
-    }
-  }, [socket, roomId, isPartnerConnected, setNewMessage, stopLocalTyping]);
+    setNewMessage(e.target.value);
+  }, [setNewMessage]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
     if (!socket) {
@@ -603,7 +519,6 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setIsPartnerTyping(false);
         addMessage('You have disconnected. Searching for a new partner...', 'system');
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
@@ -679,11 +594,6 @@ const VideoChatPageClientContent: React.FC = () => {
       </div>
     );
   }
-
-  const inputAreaHeight = INPUT_AREA_HEIGHT; 
-  const typingIndicatorEffectiveHeight = isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0;
-  const scrollableChatListHeight = chatListContainerHeight - inputAreaHeight - typingIndicatorEffectiveHeight;
-
 
   return (
     <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
@@ -815,18 +725,6 @@ const VideoChatPageClientContent: React.FC = () => {
               </div>
             )}
           </div>
-          {isPartnerTyping && (
-            <div
-              className={cn(
-                "text-xs italic px-2 text-left flex-shrink-0",
-                `h-[${TYPING_INDICATOR_HEIGHT}px] leading-[${TYPING_INDICATOR_HEIGHT}px]`,
-                effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400',
-                effectivePageTheme === 'theme-98' ? 'status-bar-field' : ''
-              )}
-            >
-              Stranger is typing{typingDots}
-            </div>
-          )}
            <div
             className={cn(
               "p-2 flex-shrink-0",
