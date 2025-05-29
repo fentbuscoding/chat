@@ -58,19 +58,23 @@ const findMatch = (currentUser: User): User | null => {
     return null;
   }
 
+  // Try to match by interest first
   if (currentUser.interests.length > 0) {
     for (let i = 0; i < potentialPartners.length; i++) {
       const partner = potentialPartners[i];
       if (partner.interests && partner.interests.some(interest => currentUser.interests.includes(interest))) {
+        // Found an interest match, remove from the main waiting list
         const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === partner.id);
         if (originalIndexInWaitingList > -1) {
           return allWaitingForType.splice(originalIndexInWaitingList, 1)[0];
         }
+        // This should ideally not happen if potentialPartners is derived from allWaitingForType
         console.warn(`Interest-matched partner ${partner.id} not found in main waiting list for splicing.`);
       }
     }
   }
 
+  // If no interest match or user has no interests, match randomly
   if (potentialPartners.length > 0) {
     const randomIndex = Math.floor(Math.random() * potentialPartners.length);
     const randomPartnerToMatch = potentialPartners[randomIndex];
@@ -81,14 +85,14 @@ const findMatch = (currentUser: User): User | null => {
     console.warn(`Randomly selected partner ${randomPartnerToMatch.id} not found in main waiting list for splicing.`);
   }
 
-  return null;
+  return null; // Should ideally be unreachable if potentialPartners.length > 0
 };
 
 
 io.on('connection', (socket: Socket) => {
   onlineUserCount++;
   console.log(`A user connected: ${socket.id}. Total online: ${onlineUserCount}`);
-  io.emit('onlineUserCountUpdate', onlineUserCount); // Optional: broadcast to all if needed elsewhere
+  io.emit('onlineUserCountUpdate', onlineUserCount);
 
   socket.on('getOnlineUserCount', () => {
     socket.emit('onlineUserCount', onlineUserCount);
@@ -101,7 +105,7 @@ io.on('connection', (socket: Socket) => {
     const matchedPartner = findMatch(currentUser);
 
     if (matchedPartner) {
-      const roomId = `${currentUser.id}#${matchedPartner.id}`;
+      const roomId = `${currentUser.id}#${matchedPartner.id}`; // Ensure consistent room ID generation
       rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
 
       socket.join(roomId);
@@ -113,18 +117,21 @@ io.on('connection', (socket: Socket) => {
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
         console.error(`Could not find socket for matched partner ${matchedPartner.id}. Matched partner might have disconnected.`);
+        // Re-add matchedPartner to the front of the waiting list
         const type = matchedPartner.chatType || currentUser.chatType; 
-        waitingUsers[type].unshift(matchedPartner);
+        waitingUsers[type].unshift(matchedPartner); // Add back to waiting list
         console.log(`Re-added ${matchedPartner.id} to waiting list for ${type}.`);
         
+        // Add currentUser back to waiting list too if not already there
         const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
         if (!isCurrentUserWaiting) {
           waitingUsers[currentUser.chatType].push(currentUser);
         }
         console.log(`User ${currentUser.id} (who was looking for a partner) added/kept in waiting list for ${currentUser.chatType}.`);
-        socket.emit('waitingForPartner');
+        socket.emit('waitingForPartner'); // Inform current user they are waiting
       }
     } else {
+      // No partner found, add current user to waiting list if not already there
       const isAlreadyWaiting = waitingUsers[chatType].some(user => user.id === socket.id);
       if (!isAlreadyWaiting) {
         waitingUsers[chatType].push(currentUser);
@@ -145,13 +152,26 @@ io.on('connection', (socket: Socket) => {
         socket.to(roomId).emit('webrtcSignal', signalData);
      }
   });
+
+  socket.on('typing_start', ({ roomId }: { roomId: string }) => {
+    if (rooms[roomId]) {
+      socket.to(roomId).emit('partner_typing_start');
+    }
+  });
+
+  socket.on('typing_stop', ({ roomId }: { roomId: string }) => {
+    if (rooms[roomId]) {
+      socket.to(roomId).emit('partner_typing_stop');
+    }
+  });
   
   const cleanupUser = (reason: string) => {
     console.log(`User ${socket.id} disconnected. Reason: ${reason}`);
-    onlineUserCount = Math.max(0, onlineUserCount - 1); // Ensure count doesn't go below 0
+    onlineUserCount = Math.max(0, onlineUserCount - 1); 
     console.log(`User disconnected. Total online: ${onlineUserCount}`);
-    io.emit('onlineUserCountUpdate', onlineUserCount); // Optional: broadcast to all if needed elsewhere
+    io.emit('onlineUserCountUpdate', onlineUserCount); 
 
+    // Remove from waiting lists
     for (const type of (['text', 'video'] as const)) {
         const index = waitingUsers[type].findIndex(user => user.id === socket.id);
         if (index > -1) {
@@ -159,18 +179,19 @@ io.on('connection', (socket: Socket) => {
             console.log(`Removed ${socket.id} from waiting list for ${type}`);
         }
     }
+    // Handle rooms
     for (const roomId in rooms) {
         const room = rooms[roomId];
         if (room.users.includes(socket.id)) {
             const partnerId = room.users.find(id => id !== socket.id);
             if (partnerId) {
                 const partnerSocket = io.sockets.sockets.get(partnerId);
-                partnerSocket?.emit('partnerLeft');
+                partnerSocket?.emit('partnerLeft'); // Notify partner
                 console.log(`Notified partner ${partnerId} that ${socket.id} left room ${roomId}`);
             }
-            delete rooms[roomId];
+            delete rooms[roomId]; // Remove room
             console.log(`Room ${roomId} closed`);
-            break;
+            break; 
         }
     }
   };

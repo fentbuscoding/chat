@@ -12,7 +12,7 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { listEmojis } from '@/ai/flows/list-emojis-flow';
 
-// Constants for Emojis - Defined at the top level
+// Constants for Emojis
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
@@ -22,6 +22,8 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
 const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
+const INPUT_AREA_HEIGHT = 60;
+const TYPING_INDICATOR_HEIGHT = 24; // approx h-6
 
 interface Message {
   id: string;
@@ -37,7 +39,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
 
   const parts = [];
   let lastIndex = 0;
-  const regex = /:([a-zA-Z0-9_.-]+?):/g; // Capture name like :smile: or :_cat-crying:
+  const regex = /:([a-zA-Z0-9_.-]+?):/g; 
   let match;
 
   while ((match = regex.exec(text)) !== null) {
@@ -56,12 +58,12 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle" // Size for emojis in chat messages
+          className="inline h-5 w-5 mx-0.5 align-middle" 
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]); // If no match, keep the original shortcode text
+      parts.push(match[0]); 
     }
     lastIndex = regex.lastIndex;
   }
@@ -104,18 +106,18 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const messageContent = theme === 'theme-98' 
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [message.text]; // For theme-7, render plain text
+    : [message.text]; 
 
 
   return (
-    <div className="mb-2">
+    <>
       {showDivider && (
         <div
           className="h-[2px] mb-1 border border-[#CEDCE5] bg-[#64B2CF]"
           aria-hidden="true"
         ></div>
       )}
-      <div className="break-words">
+      <div className="mb-2 break-words">
         {message.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -129,7 +131,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
           </>
         )}
       </div>
-    </div>
+    </>
   );
 });
 Row.displayName = 'Row';
@@ -162,6 +164,12 @@ const ChatPageClientContent: React.FC = () => {
   const [emojisLoading, setEmojisLoading] = useState(true);
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Typing Indicator State
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [typingDots, setTypingDots] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSentTypingStartRef = useRef(false);
 
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
@@ -243,6 +251,15 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
+        setIsPartnerTyping(false); // Partner left, so they are not typing
+    });
+    
+    newSocket.on('partner_typing_start', () => {
+      setIsPartnerTyping(true);
+    });
+
+    newSocket.on('partner_typing_stop', () => {
+      setIsPartnerTyping(false);
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -267,11 +284,12 @@ const ChatPageClientContent: React.FC = () => {
         setEmojisLoading(true);
         const emojiList = await listEmojis();
         setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
-      } catch (error) {
-        console.error("Failed to fetch emojis for picker:", error);
+      } catch (error: any) {
+        const specificErrorMessage = error.message || String(error);
+        console.error('Detailed GCS Error in listEmojisFlow (client-side):', specificErrorMessage);
         toast({
           title: "Emoji Error",
-          description: "Could not load emojis for the picker.",
+          description: `Could not load emojis for the picker. ${specificErrorMessage}`,
           variant: "destructive",
         });
         setPickerEmojiFilenames([]);
@@ -283,12 +301,18 @@ const ChatPageClientContent: React.FC = () => {
 
 
     return () => {
+      if (newSocket.connected && roomId && hasSentTypingStartRef.current) {
+        newSocket.emit('typing_stop', { roomId });
+      }
       if (newSocket.connected && roomId) {
         newSocket.emit('leaveChat', { roomId });
       }
       newSocket.disconnect();
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -301,13 +325,74 @@ const ChatPageClientContent: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    let dotsInterval: NodeJS.Timeout | null = null;
+    if (isPartnerTyping) {
+      dotsInterval = setInterval(() => {
+        setTypingDots(prevDots => {
+          if (prevDots === '...') return '.';
+          if (prevDots === '..') return '...';
+          if (prevDots === '.') return '..';
+          return '.';
+        });
+      }, 500);
+    } else {
+      setTypingDots('');
+      if (dotsInterval) clearInterval(dotsInterval);
+    }
+    return () => {
+      if (dotsInterval) clearInterval(dotsInterval);
+    };
+  }, [isPartnerTyping]);
+
+  const stopLocalTyping = useCallback(() => {
+    if (socket && roomId && hasSentTypingStartRef.current) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      socket.emit('typing_stop', { roomId });
+      hasSentTypingStartRef.current = false;
+    }
+  }, [socket, roomId]);
+
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
 
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-  }, [newMessage, socket, roomId, isPartnerConnected, addMessage]);
+    stopLocalTyping();
+  }, [newMessage, socket, roomId, isPartnerConnected, addMessage, stopLocalTyping]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const currentInputMessage = e.target.value;
+    setNewMessage(currentInputMessage);
+
+    if (!socket || !roomId || !isPartnerConnected) return;
+
+    if (currentInputMessage.trim().length > 0) {
+      if (!hasSentTypingStartRef.current) {
+        socket.emit('typing_start', { roomId });
+        hasSentTypingStartRef.current = true;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        // Check again if still typing, to prevent sending stop if user cleared input via other means
+        if (newMessage.trim().length > 0 && hasSentTypingStartRef.current) { 
+             socket.emit('typing_stop', { roomId });
+             hasSentTypingStartRef.current = false;
+        }
+      }, 1500); 
+    } else {
+      if (hasSentTypingStartRef.current) {
+         stopLocalTyping();
+      }
+    }
+  };
+
 
   const handleFindOrDisconnectPartner = useCallback(() => {
     if (!socket) {
@@ -320,12 +405,12 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        addMessage('You have disconnected.', 'system'); // Add this first
-        setIsFindingPartner(true); // Then set finding partner
+        setIsPartnerTyping(false);
+        addMessage('You have disconnected. Searching for a new partner...', 'system'); 
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-         // Remove "Searching for partner..." message if it exists
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
     } else { 
@@ -379,7 +464,6 @@ const ChatPageClientContent: React.FC = () => {
     { width: '600px', height: '600px' }
   ), []);
 
-  const inputAreaHeight = 60;
 
   if (!isMounted) {
     return (
@@ -400,18 +484,18 @@ const ChatPageClientContent: React.FC = () => {
       >
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Text Chat</div>
+          {effectivePageTheme === 'theme-7' && (
+            <img
+                src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+                alt="Decorative Goldfish"
+                className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+                data-ai-hint="goldfish decoration"
+            />
+           )}
         </div>
-        {effectivePageTheme === 'theme-7' && (
-          <img
-            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-            alt="Decorative Goldfish"
-            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
-            data-ai-hint="goldfish decoration"
-          />
-        )}
         <div
           className={cn(
-            'window-body window-body-content flex-grow',
+            'window-body window-body-content flex-grow', // This is already flex flex-col
              effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
           )}
         >
@@ -420,7 +504,7 @@ const ChatPageClientContent: React.FC = () => {
               "flex-grow overflow-y-auto",
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
-            style={{ height: `calc(100% - ${inputAreaHeight}px)` }}
+            // No explicit height here, flex-grow handles it
           >
             <div> {/* Container for messages */}
               {messages.map((msg, index) => (
@@ -429,12 +513,24 @@ const ChatPageClientContent: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
           </div>
+          {isPartnerTyping && (
+            <div
+              className={cn(
+                "text-xs italic px-2 text-left flex-shrink-0",
+                `h-[${TYPING_INDICATOR_HEIGHT}px] leading-[${TYPING_INDICATOR_HEIGHT}px]`,
+                effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400',
+                effectivePageTheme === 'theme-98' ? 'status-bar-field' : ''
+              )}
+            >
+              Stranger is typing{typingDots}
+            </div>
+          )}
           <div
             className={cn(
               "p-2 flex-shrink-0",
               effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
             )}
-            style={{ height: `${inputAreaHeight}px` }}
+            style={{ height: `${INPUT_AREA_HEIGHT}px` }}
           >
             <div className="flex items-center w-full">
               <Button
@@ -450,7 +546,7 @@ const ChatPageClientContent: React.FC = () => {
               <Input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
                 className="flex-1 w-full px-1 py-1"

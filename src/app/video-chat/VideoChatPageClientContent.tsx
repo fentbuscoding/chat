@@ -15,7 +15,7 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { listEmojis } from '@/ai/flows/list-emojis-flow';
 
-// Constants for Emojis - Defined at the top level
+// Constants for Emojis
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
@@ -24,6 +24,9 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
+
+const INPUT_AREA_HEIGHT = 60;
+const TYPING_INDICATOR_HEIGHT = 24; // For h-6 (1.5rem)
 
 
 interface Message {
@@ -59,12 +62,12 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle" // Size for emojis in chat messages
+          className="inline h-5 w-5 mx-0.5 align-middle" 
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]); // If no match, keep the original shortcode text
+      parts.push(match[0]); 
     }
     lastIndex = regex.lastIndex;
   }
@@ -111,17 +114,17 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
 
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(currentMessage.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [currentMessage.text]; // For theme-7, render plain text
+    : [currentMessage.text]; 
 
   return (
-    <div style={style} className="mb-2">
+    <div style={style}>
       {showDivider && (
         <div
           className="h-[2px] mb-1 border border-[#CEDCE5] bg-[#64B2CF]"
           aria-hidden="true"
         ></div>
       )}
-      <div className="break-words">
+      <div className="mb-2 break-words">
         {currentMessage.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -167,7 +170,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null); 
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
-  const itemHeight = 30;
+  const itemHeight = 30; 
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
@@ -180,11 +183,14 @@ const VideoChatPageClientContent: React.FC = () => {
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
+  // Typing Indicator State
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [typingDots, setTypingDots] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSentTypingStartRef = useRef(false);
+
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
   
-  // Moved these declarations earlier
-  const inputAreaHeight = 60;
-  const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
   const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
 
 
@@ -223,7 +229,9 @@ const VideoChatPageClientContent: React.FC = () => {
       }
     }
     if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId === null) { 
-        addMessage('Your partner has disconnected.', 'system');
+        // This condition is tricky as 'partnerLeft' already adds this message.
+        // Let's ensure it's not duplicated.
+        // addMessage('Your partner has disconnected.', 'system');
     }
 
     prevIsFindingPartnerRef.current = isFindingPartner;
@@ -258,7 +266,7 @@ const VideoChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('waitingForPartner', () => {
-        // System message for "Searching..." is handled by the other useEffect
+        // System message handled by other useEffect
     });
 
     newSocket.on('noPartnerFound', () => {
@@ -305,10 +313,20 @@ const VideoChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
+        addMessage('Your partner has disconnected.', 'system');
         cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
+        setIsPartnerTyping(false); // Partner left, so they are not typing
+    });
+
+    newSocket.on('partner_typing_start', () => {
+      setIsPartnerTyping(true);
+    });
+
+    newSocket.on('partner_typing_stop', () => {
+      setIsPartnerTyping(false);
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -333,10 +351,11 @@ const VideoChatPageClientContent: React.FC = () => {
         const emojiList = await listEmojis();
         setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
       } catch (error: any) {
-        console.error("Failed to fetch emojis for picker:", error);
+        const specificErrorMessage = error.message || String(error);
+        console.error("Detailed GCS Error in listEmojisFlow (client-side):", specificErrorMessage);
         toast({
           title: "Emoji Error",
-          description: `Could not load emojis for the picker. ${error.message || ''}`,
+          description: `Could not load emojis for the picker. ${specificErrorMessage}`,
           variant: "destructive",
         });
         setPickerEmojiFilenames([]);
@@ -347,6 +366,9 @@ const VideoChatPageClientContent: React.FC = () => {
     fetchPickerEmojis();
 
     return () => {
+      if (newSocket.connected && roomId && hasSentTypingStartRef.current) {
+        newSocket.emit('typing_stop', { roomId });
+      }
       cleanupConnections(true);
       if (newSocket.connected && roomId) {
         newSocket.emit('leaveChat', { roomId });
@@ -355,13 +377,16 @@ const VideoChatPageClientContent: React.FC = () => {
       if (hoverIntervalRef.current) {
         clearInterval(hoverIntervalRef.current);
       }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   useEffect(() => {
-    const useReactWindowList = scrollableChatHeight > 0 && chatListContainerWidth > 0;
+    const useReactWindowList = chatListContainerHeight > INPUT_AREA_HEIGHT && chatListContainerWidth > 0;
     if (useReactWindowList) {
       if (listRef.current && messages.length > 0) {
         listRef.current.scrollToItem(messages.length - 1, "end");
@@ -371,7 +396,28 @@ const VideoChatPageClientContent: React.FC = () => {
         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
       }
     }
-  }, [messages, scrollableChatHeight, chatListContainerWidth]);
+  }, [messages, chatListContainerHeight, chatListContainerWidth]);
+
+  useEffect(() => {
+    let dotsInterval: NodeJS.Timeout | null = null;
+    if (isPartnerTyping) {
+      dotsInterval = setInterval(() => {
+        setTypingDots(prevDots => {
+          if (prevDots === '...') return '.';
+          if (prevDots === '..') return '...';
+          if (prevDots === '.') return '..';
+          return '.';
+        });
+      }, 500);
+    } else {
+      setTypingDots('');
+      if (dotsInterval) clearInterval(dotsInterval);
+    }
+    return () => {
+      if (dotsInterval) clearInterval(dotsInterval);
+    };
+  }, [isPartnerTyping]);
+
 
   const cleanupConnections = useCallback((stopLocalStream = true) => {
     if (peerConnectionRef.current) {
@@ -488,13 +534,51 @@ const VideoChatPageClientContent: React.FC = () => {
     }
   }, [getCameraStream, toast]);
 
+  const stopLocalTyping = useCallback(() => {
+    if (socket && roomId && hasSentTypingStartRef.current) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      socket.emit('typing_stop', { roomId });
+      hasSentTypingStartRef.current = false;
+    }
+  }, [socket, roomId]);
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socket || !roomId || !isPartnerConnected) return;
     socket.emit('sendMessage', { roomId, message: newMessage });
     addMessage(newMessage, 'me');
     setNewMessage('');
-  }, [newMessage, socket, roomId, addMessage, isPartnerConnected]);
+    stopLocalTyping();
+  }, [newMessage, socket, roomId, addMessage, isPartnerConnected, stopLocalTyping]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const currentInputMessage = e.target.value;
+    setNewMessage(currentInputMessage);
+
+    if (!socket || !roomId || !isPartnerConnected) return;
+
+    if (currentInputMessage.trim().length > 0) {
+      if (!hasSentTypingStartRef.current) {
+        socket.emit('typing_start', { roomId });
+        hasSentTypingStartRef.current = true;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+         if (newMessage.trim().length > 0 && hasSentTypingStartRef.current) {
+             socket.emit('typing_stop', { roomId });
+             hasSentTypingStartRef.current = false;
+        }
+      }, 1500);
+    } else {
+      if (hasSentTypingStartRef.current) {
+        stopLocalTyping();
+      }
+    }
+  };
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
     if (!socket) {
@@ -508,14 +592,15 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null); 
         setPartnerInterests([]);
-        addMessage('You have disconnected from the chat.', 'system');
+        setIsPartnerTyping(false);
+        addMessage('You have disconnected. Searching for a new partner...', 'system');
         setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
 
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
         addMessage('Stopped searching for a partner.', 'system');
-
+        // No need to call stopLocalTyping explicitly here, as no partner connection exists
 
     } else { 
         if (hasCameraPermission === false) {
@@ -584,6 +669,11 @@ const VideoChatPageClientContent: React.FC = () => {
       </div>
     );
   }
+  
+  const scrollableChatAreaStyle = {
+    height: `calc(100% - ${INPUT_AREA_HEIGHT}px - ${isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0}px)`
+  };
+
 
   return (
     <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
@@ -596,12 +686,11 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar",
-              effectivePageTheme === 'theme-98' && 'video-feed-title-bar', // This already hides it for theme-98
-              effectivePageTheme === 'theme-7' && 'text-black' // For theme-7, it's shorter due to video-feed-title-bar rules
+              "title-bar text-sm",
+              effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
+              effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
             )}>
             <div className="title-bar-text">
-             {/* Text removed, content is styled by video-feed-title-bar rules */}
             </div>
           </div>
           <div
@@ -632,12 +721,11 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar",
+              "title-bar text-sm",
                effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
-               effectivePageTheme === 'theme-7' && 'text-black' 
+               effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
             )}>
             <div className="title-bar-text">
-                {/* Text removed, content is styled by video-feed-title-bar rules */}
             </div>
           </div>
           <div
@@ -682,21 +770,21 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           ref={chatListContainerRef}
           className={cn(
-            'window-body window-body-content flex-grow',
+            'window-body window-body-content flex-grow', // This is flex flex-col
             effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
           )}
         >
           <div
             className={cn(
-              "flex-grow",
+              "flex-grow overflow-y-auto", 
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
-             style={{ height: scrollableChatHeight > 0 ? `${scrollableChatHeight}px` : '100%' }}
+             // No explicit height style needed here, flex-grow manages it.
           >
-            {scrollableChatHeight > 0 && chatListContainerWidth > 0 ? (
+            {(chatListContainerHeight > INPUT_AREA_HEIGHT && chatListContainerWidth > 0) ? (
               <List
                 ref={listRef}
-                height={scrollableChatHeight}
+                height={chatListContainerHeight - INPUT_AREA_HEIGHT - (isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0)}
                 itemCount={messages.length}
                 itemSize={itemHeight}
                 width={chatListContainerWidth}
@@ -708,7 +796,7 @@ const VideoChatPageClientContent: React.FC = () => {
             ) : (
               <div className="h-full overflow-y-auto p-1"> 
                {messages.map((msg, index) => (
-                   <div key={msg.id} className="mb-1"> 
+                   <div key={msg.id}> 
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
                 ))}
@@ -716,12 +804,24 @@ const VideoChatPageClientContent: React.FC = () => {
               </div>
             )}
           </div>
+          {isPartnerTyping && (
+            <div
+              className={cn(
+                "text-xs italic px-2 text-left flex-shrink-0",
+                `h-[${TYPING_INDICATOR_HEIGHT}px] leading-[${TYPING_INDICATOR_HEIGHT}px]`,
+                effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400',
+                effectivePageTheme === 'theme-98' ? 'status-bar-field' : ''
+              )}
+            >
+              Stranger is typing{typingDots}
+            </div>
+          )}
            <div
             className={cn(
               "p-2 flex-shrink-0",
               effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
             )}
-            style={{ height: `${inputAreaHeight}px` }}
+            style={{ height: `${INPUT_AREA_HEIGHT}px` }}
           >
             <div className="flex items-center w-full">
                <Button
@@ -737,7 +837,7 @@ const VideoChatPageClientContent: React.FC = () => {
               <Input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
                 className="flex-1 w-full px-1 py-1"
