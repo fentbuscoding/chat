@@ -216,7 +216,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-  }, [isFindingPartner, isPartnerConnected, addMessage, interests, partnerInterests]);
+  }, [isPartnerConnected, isFindingPartner, addMessage, interests, partnerInterests]);
 
 
   useEffect(() => {
@@ -712,16 +712,6 @@ const VideoChatPageClientContent: React.FC = () => {
                 className="flex-1 w-full px-1 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
-                className={cn(
-                  'ml-1',
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
-                )}
-              >
-                Send
-              </Button>
               {/* Emoji Icon and Picker - Only for theme-98 and if emojis are loaded */}
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
                 <div className="relative ml-1 flex-shrink-0"> {/* Emoji Wrapper */}
@@ -768,6 +758,16 @@ const VideoChatPageClientContent: React.FC = () => {
                     <p className="text-xs p-1">...</p>
                  </div>
               )}
+              <Button
+                onClick={handleSendMessage}
+                disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
+                className={cn(
+                  'ml-1',
+                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
+                )}
+              >
+                Send
+              </Button>
             </div>
           </div>
         </div>
