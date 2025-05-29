@@ -6,7 +6,8 @@ import { Server as SocketIOServer, type Socket } from 'socket.io';
 const allowedOrigins = [
   "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Production frontend
   "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev", // Development
-  "http://localhost:9002" // Local Next.js dev server
+  "http://localhost:9002", // Local Next.js dev server
+  "https://tinchat.online" // Added custom domain
 ];
 
 const server = http.createServer((req, res) => {
@@ -120,8 +121,6 @@ const findMatch = (currentUser: User): User | null => {
           console.log(`[MATCH_LOGIC] Interest match found: ${currentUser.id} with ${partner.id} on interests: ${partner.interests.filter(interest => currentUser.interests.includes(interest)).join(', ')}`);
           return allWaitingForType.splice(originalIndexInWaitingList, 1)[0];
         }
-        // This case should ideally not happen if potentialPartners is derived from allWaitingForType,
-        // but good to log if it does.
         console.warn(`[MATCH_LOGIC_WARN] Interest-matched partner ${partner.id} selected from potential list but not found in main waiting list for splicing.`);
       }
     }
@@ -176,7 +175,7 @@ io.on('connection', (socket: Socket) => {
     if (matchedPartner) {
       const partnerSocket = io.sockets.sockets.get(matchedPartner.id);
       if (partnerSocket && partnerSocket.connected) {
-        const roomId = `${currentUser.id}#${Date.now()}`;
+        const roomId = `${currentUser.id}#${Date.now()}`; // More unique room ID
         rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
 
         socket.join(roomId);
@@ -187,19 +186,22 @@ io.on('connection', (socket: Socket) => {
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
         console.error(`[MATCH_FAIL] Partner ${matchedPartner.id} socket not found or disconnected. Re-queuing both users.`);
+        // Re-add matchedPartner to the front of their list if not already there
         const isMatchedPartnerWaiting = waitingUsers[matchedPartner.chatType].some(user => user.id === matchedPartner.id);
         if (!isMatchedPartnerWaiting) {
             waitingUsers[matchedPartner.chatType].unshift(matchedPartner); // Add to front of queue
             console.log(`[WAITING_LIST] Re-added ${matchedPartner.id} to waiting list for ${matchedPartner.chatType}.`);
         }
+        // Add currentUser back to their list (usually at the end) if not already there
         const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
         if (!isCurrentUserWaiting) {
             waitingUsers[currentUser.chatType].push(currentUser);
             console.log(`[WAITING_LIST] User ${currentUser.id} (who was looking) added back to waiting list for ${currentUser.chatType}.`);
         }
-        socket.emit('waitingForPartner');
+        socket.emit('waitingForPartner'); // Notify the searching user they are back to waiting
       }
     } else {
+      // No partner found, add current user to waiting list if not already there
       const isCurrentUserWaiting = waitingUsers[chatType].some(user => user.id === socket.id);
       if (!isCurrentUserWaiting) {
         waitingUsers[chatType].push(currentUser);
@@ -213,6 +215,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('sendMessage', ({ roomId, message }: { roomId: string, message: string }) => {
     if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
+      // Emit to others in the room, excluding the sender (socket.to broadcasts to all *but* sender in room)
       socket.to(roomId).emit('receiveMessage', { senderId: socket.id, message });
       console.log(`[MESSAGE] User ${socket.id} sent message in room ${roomId}`);
     } else {
@@ -222,6 +225,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('webrtcSignal', ({ roomId, signalData }: { roomId: string, signalData: any }) => {
      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
+        // Relay signal to the other user in the room
         socket.to(roomId).emit('webrtcSignal', signalData);
         // console.log(`[WEBRTC_SIGNAL] User ${socket.id} sent signal in room ${roomId}:`, signalData.type || Object.keys(signalData)[0]);
      } else {
@@ -243,13 +247,14 @@ io.on('connection', (socket: Socket) => {
 
   const cleanupUser = (reason: string) => {
     console.log(`[DISCONNECT_EVENT] User ${socket.id} disconnecting. Reason: ${reason}`);
-    onlineUserCount = Math.max(0, onlineUserCount - 1);
+    onlineUserCount = Math.max(0, onlineUserCount - 1); // Ensure count doesn't go below 0
     io.emit('onlineUserCountUpdate', onlineUserCount);
     console.log(`[STATS] Total online users: ${onlineUserCount}`);
 
     removeFromWaitingLists(socket.id);
     delete lastMatchRequest[socket.id]; // Memory cleanup for cooldown tracker
 
+    // Iterate over rooms to find and cleanup any room the user was in
     for (const roomId in rooms) {
         const room = rooms[roomId];
         const userIndexInRoom = room.users.indexOf(socket.id);
@@ -267,7 +272,7 @@ io.on('connection', (socket: Socket) => {
             }
             delete rooms[roomId];
             console.log(`[ROOM_CLOSED] Room ${roomId} closed due to user ${socket.id} disconnecting. Active rooms: ${Object.keys(rooms).length}`);
-            break; 
+            break; // User can only be in one room at a time
         }
     }
   };
@@ -277,19 +282,19 @@ io.on('connection', (socket: Socket) => {
         const room = rooms[roomId];
         const partnerId = room.users.find(id => id !== socket.id);
 
-        socket.leave(roomId); 
+        socket.leave(roomId); // Current user leaves the socket.io room
 
         if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
              if (partnerSocket && partnerSocket.connected) {
                 partnerSocket.emit('partnerLeft');
-                partnerSocket.leave(roomId); 
+                partnerSocket.leave(roomId); // Partner also leaves the socket.io room
                 console.log(`[ROOM_EVENT] User ${socket.id} left room ${roomId}. Notified partner ${partnerId}. Both removed from room.`);
             } else {
                 console.log(`[ROOM_EVENT_WARN] Partner ${partnerId} of user ${socket.id} (leaving manually) not found or disconnected.`);
             }
         }
-        delete rooms[roomId];
+        delete rooms[roomId]; // Remove room from server's list
         console.log(`[ROOM_CLOSED] Room ${roomId} closed due to user ${socket.id} leaving manually. Active rooms: ${Object.keys(rooms).length}`);
     } else {
         console.warn(`[LEAVE_CHAT_WARN] User ${socket.id} tried to leave room ${roomId}, but room was not found or user not in it.`);
@@ -306,3 +311,5 @@ server.listen(PORT, () => {
 });
 
 export {};
+
+    
