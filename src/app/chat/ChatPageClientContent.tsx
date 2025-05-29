@@ -188,7 +188,7 @@ const ChatPageClientContent: React.FC = () => {
     if (isFindingPartner && !prevIsFindingPartnerRef.current && !isPartnerConnected) {
       addMessage('Searching for a partner...', 'system');
     }
-    if (!isFindingPartner && prevIsFindingPartnerRef.current && !isPartnerConnected && !roomId) { // Check roomId to ensure it's not immediately after a disconnect then search
+    if (!isFindingPartner && prevIsFindingPartnerRef.current && !isPartnerConnected && !roomId) {
         const isSearchingMessagePresent = messages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
         if (isSearchingMessagePresent) {
              setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
@@ -226,7 +226,7 @@ const ChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket'] // Prioritize WebSocket, fallback to polling if necessary
     });
     setSocket(newSocket);
 
@@ -272,7 +272,7 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
         if (reason === 'io server disconnect') {
-            newSocket.connect();
+            // newSocket.connect(); // Reconnection is often handled automatically by Socket.IO client
         }
     });
 
@@ -324,7 +324,7 @@ const ChatPageClientContent: React.FC = () => {
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [addMessage, toast, interests, setPartnerInterests, setIsFindingPartner, setIsPartnerConnected, setRoomId, setPickerEmojiFilenames, setEmojisLoading, roomId]); // Added roomId
+  }, [addMessage, toast, interests, setPartnerInterests, setIsFindingPartner, setIsPartnerConnected, setRoomId, setPickerEmojiFilenames, setEmojisLoading, roomId]);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -413,19 +413,19 @@ const ChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { // User wants to disconnect and find new
+    if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setIsPartnerTyping(false); // Clear partner typing status
+        setIsPartnerTyping(false); 
         addMessage('You have disconnected. Searching for a new partner...', 'system');
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
-    } else if (isFindingPartner) { // User wants to stop searching
+    } else if (isFindingPartner) { 
         setIsFindingPartner(false);
         // System message "Stopped searching..." handled by other useEffect
-    } else { // User wants to find a partner
+    } else { 
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     }
@@ -628,4 +628,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-

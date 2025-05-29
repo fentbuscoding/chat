@@ -300,8 +300,8 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
-        setIsFindingPartner(false); // Also set this to false
-        setIsPartnerConnected(false); // Ensure partner connected is false
+        setIsFindingPartner(false); 
+        setIsPartnerConnected(false); 
         return;
     }
 
@@ -359,7 +359,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket'] // Prioritize WebSocket
     });
     setSocket(newSocket);
 
@@ -372,7 +372,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(true);
         setRoomId(rId);
         setPartnerInterests(pInterests || []);
-        setupWebRTC(newSocket, rId, true); // currentSocket here is newSocket
+        setupWebRTC(newSocket, rId, true); 
     });
 
     newSocket.on('waitingForPartner', () => {
@@ -390,12 +390,12 @@ const VideoChatPageClientContent: React.FC = () => {
     newSocket.on('webrtcSignal', async (signalData: any) => {
         let pc = peerConnectionRef.current;
         if (!pc) {
-             if (isPartnerConnected && roomId && !pc && newSocket) { // Use newSocket
+             if (isPartnerConnected && roomId && !pc && newSocket) { 
                 console.log("VideoChatPage: Receiving signal before local PC setup, attempting setup now (non-initiator).");
-                await setupWebRTC(newSocket, roomId, false); // Use newSocket
-                pc = peerConnectionRef.current; // Re-assign pc after setupWebRTC
+                await setupWebRTC(newSocket, roomId, false); 
+                pc = peerConnectionRef.current; 
             }
-            if (!pc) { // Check pc again
+            if (!pc) { 
                 console.error("VideoChatPage: PeerConnection not initialized, cannot handle signal", signalData);
                 return;
             }
@@ -406,7 +406,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 await pc.setRemoteDescription(new RTCSessionDescription(signalData));
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
-                if (newSocket && roomId) { // Use newSocket
+                if (newSocket && roomId) { 
                    newSocket.emit('webrtcSignal', { roomId, signalData: answer });
                    console.log("VideoChatPage: Sent answer");
                 } else {
@@ -444,7 +444,7 @@ const VideoChatPageClientContent: React.FC = () => {
     newSocket.on('disconnect', (reason) => {
         console.log("VideoChatPage: Disconnected from socket server. Reason:", reason);
          if (reason === 'io server disconnect') {
-            newSocket.connect();
+            // newSocket.connect(); // Reconnection is often handled automatically by Socket.IO client
         }
     });
      newSocket.on('connect_error', (err) => {
@@ -499,14 +499,14 @@ const VideoChatPageClientContent: React.FC = () => {
 
 
   useEffect(() => {
-    if (isMounted && hasCameraPermission === undefined) { // Only call if permission status is unknown
+    if (isMounted && hasCameraPermission === undefined) { 
         getCameraStream();
     }
   }, [isMounted, hasCameraPermission, getCameraStream]);
 
 
   useEffect(() => {
-    const useReactWindowList = chatListContainerHeight > INPUT_AREA_HEIGHT && chatListContainerWidth > 0;
+    const useReactWindowList = scrollableChatListHeight > 0 && chatListContainerWidth > 0;
     if (useReactWindowList) {
       if (listRef.current && messages.length > 0) {
         listRef.current.scrollToItem(messages.length - 1, "end");
@@ -516,7 +516,7 @@ const VideoChatPageClientContent: React.FC = () => {
         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
       }
     }
-  }, [messages, chatListContainerHeight, chatListContainerWidth]);
+  }, [messages, chatListContainerHeight, chatListContainerWidth, scrollableChatListHeight]);
 
   useEffect(() => {
     let dotsInterval: NodeJS.Timeout | null = null;
@@ -597,7 +597,7 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { // User wants to disconnect and find new
+    if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
         cleanupConnections(false);
         setIsPartnerConnected(false);
@@ -608,18 +608,18 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) { // User wants to stop searching
+    } else if (isFindingPartner) { 
         setIsFindingPartner(false);
         // System message "Stopped searching..." handled by other useEffect
-    } else { // User wants to find partner
+    } else { 
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
         if (hasCameraPermission === undefined) {
-            const stream = await getCameraStream(); // This will request permission if not already granted/denied
-            if (!stream) { // If permission denied or error, getCameraStream returns null and shows toast
-                return; // Stop if no stream
+            const stream = await getCameraStream(); 
+            if (!stream) { 
+                return; 
             }
         }
         setIsFindingPartner(true);
@@ -628,7 +628,7 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [
       socket, isPartnerConnected, isFindingPartner, roomId, interests, toast,
       hasCameraPermission, cleanupConnections, getCameraStream, addMessage,
-      setIsFindingPartner, setIsPartnerConnected, setRoomId, setPartnerInterests // Add state setters
+      setIsFindingPartner, setIsPartnerConnected, setRoomId, setPartnerInterests 
     ]);
 
   const handleEmojiIconHover = () => {
@@ -680,7 +680,7 @@ const VideoChatPageClientContent: React.FC = () => {
     );
   }
 
-  const inputAreaHeight = INPUT_AREA_HEIGHT; // For clarity in calculation
+  const inputAreaHeight = INPUT_AREA_HEIGHT; 
   const typingIndicatorEffectiveHeight = isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0;
   const scrollableChatListHeight = chatListContainerHeight - inputAreaHeight - typingIndicatorEffectiveHeight;
 
@@ -696,10 +696,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar", // video-feed-title-bar always applied
-              effectivePageTheme === 'theme-7' ? 'text-black' : '' // theme-7 specific text color
+              "title-bar text-sm", 
+              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar', 
+              effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
+              {effectivePageTheme === 'theme-7' && ""}
             </div>
           </div>
           <div
@@ -730,10 +732,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar", // video-feed-title-bar always applied
-               effectivePageTheme === 'theme-7' ? 'text-black' : '' // theme-7 specific text color
+              "title-bar text-sm", 
+               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar', 
+               effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
+              {effectivePageTheme === 'theme-7' && ""}
             </div>
           </div>
           <div
@@ -915,4 +919,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-
