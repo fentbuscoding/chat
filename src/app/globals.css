@@ -4,7 +4,7 @@
 
 /* For debugging purposes: outline all elements */
 * {
-  outline: 1px solid red !important;
+  /* outline: 1px solid red !important; */ /* Keep this commented out unless debugging */
 }
 
 :root {
@@ -238,10 +238,12 @@ video {
 
 /* Ensure title bar text is left-aligned and has shadow in theme-7 */
 /* Also applies to non-glass windows */
+.title-bar-text {
+  flex-grow: 1; /* Ensures the text container can expand */
+  text-align: left !important; /* Forces text to the left */
+}
 .theme-7 .title-bar-text {
   color: #000; 
-  flex-grow: 1; 
-  text-align: left !important; 
   text-shadow: 0 1px 1px rgba(0,0,0,0.4); /* Added text shadow */
 }
 
@@ -310,23 +312,4 @@ video {
   overflow: hidden; /* Ensure no content accidentally shows */
 }
 
-
-body {
-  counter-reset: div-counter;
-}
-
-div::before {
-  counter-increment: div-counter;
-  content: "[D" counter(div-counter) "] ";
-  font-size: 8px;
-  color: blue;
-  display: inline-block;
-  margin-right: 2px;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  vertical-align: baseline;
-}
-
-
+/* The div counter CSS block that was previously here (commented or uncommented) is now removed */
