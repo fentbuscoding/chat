@@ -6,17 +6,39 @@ import { Server as SocketIOServer, type Socket } from 'socket.io';
 const allowedOrigin = "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app";
 
 const server = http.createServer((req, res) => {
-  // This HTTP server doesn't need to do much other than exist for Socket.IO.
-  // A basic response for root or non-Socket.IO paths.
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Socket.IO Server is running.\n');
+  // Set CORS headers for all responses
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Added Authorization as it's common
+
+  // Handle CORS preflight (OPTIONS) requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204); // No Content
+    res.end();
+    return;
+  }
+
+  // For non-OPTIONS requests, provide a basic response or let Socket.IO handle it
+  // This part is mainly for non-Socket.IO paths or a root path check.
+  if (req.url === '/' || req.url === '/health') { // Added a simple health check endpoint
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Socket.IO Server is running.\n');
+  } else {
+    // For other paths not handled by Socket.IO, you might return 404
+    // However, Socket.IO will handle its own /socket.io/ path
+    // For simplicity, if it's not a handled path, let's just give a generic response
+    // or let Socket.IO's underlying engine decide if it's a Socket.IO request.
+    // If it's not an OPTIONS or / path, and Socket.IO doesn't handle it,
+    // it might not need an explicit response here unless you have other HTTP routes.
+  }
 });
 
 const io = new SocketIOServer(server, {
   cors: {
     origin: allowedOrigin,
     methods: ["GET", "POST"],
-    credentials: true // This must match the client's withCredentials: true
+    credentials: true
   }
 });
 
@@ -86,7 +108,7 @@ const findMatch = (currentUser: User): User | null => {
 io.on('connection', (socket: Socket) => {
   onlineUserCount++;
   console.log(`A user connected: ${socket.id}. Total online: ${onlineUserCount}`);
-  io.emit('onlineUserCountUpdate', onlineUserCount);
+  io.emit('onlineUserCountUpdate', onlineUserCount); // Emit updated count to all clients
 
   socket.on('getOnlineUserCount', () => {
     socket.emit('onlineUserCount', onlineUserCount);
@@ -118,10 +140,12 @@ io.on('connection', (socket: Socket) => {
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
         console.error(`Could not find socket for matched partner ${matchedPartner.id}. Matched partner might have disconnected.`);
+        // Add matchedPartner back to the front of their waiting list
         const type = matchedPartner.chatType || currentUser.chatType; 
         waitingUsers[type].unshift(matchedPartner); 
         console.log(`Re-added ${matchedPartner.id} to waiting list for ${type}.`);
         
+        // Add currentUser back to their waiting list as well since the match failed
         waitingUsers[currentUser.chatType].push(currentUser);
         console.log(`User ${currentUser.id} (who was looking for a partner) added back to waiting list for ${currentUser.chatType}.`);
         socket.emit('waitingForPartner'); 
@@ -148,8 +172,9 @@ io.on('connection', (socket: Socket) => {
   const cleanupUser = (reason: string) => {
     console.log(`User ${socket.id} disconnected. Reason: ${reason}`);
     onlineUserCount = Math.max(0, onlineUserCount - 1); 
-    io.emit('onlineUserCountUpdate', onlineUserCount); 
+    io.emit('onlineUserCountUpdate', onlineUserCount); // Emit updated count to all clients
 
+    // Remove user from any waiting lists
     for (const type of (['text', 'video'] as const)) {
         const index = waitingUsers[type].findIndex(user => user.id === socket.id);
         if (index > -1) {
@@ -157,6 +182,7 @@ io.on('connection', (socket: Socket) => {
             console.log(`Removed ${socket.id} from waiting list for ${type}`);
         }
     }
+    // Handle user leaving a room
     for (const roomId in rooms) {
         const room = rooms[roomId];
         const userIndexInRoom = room.users.indexOf(socket.id);
@@ -169,7 +195,7 @@ io.on('connection', (socket: Socket) => {
             }
             delete rooms[roomId]; 
             console.log(`Room ${roomId} closed due to user ${socket.id} disconnecting.`);
-            break; 
+            break; // User can only be in one room
         }
     }
   };
@@ -196,9 +222,25 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+// Global event for when any user connects or disconnects (for onlineUserCountUpdate)
+io.sockets.on('connection', (socket) => {
+    socket.on('disconnect', () => {
+        // This ensures count is updated even if 'cleanupUser' on a specific socket instance didn't run fully
+        // However, the primary logic is in the 'connection' event's 'disconnect' handler
+        // This is more of a fallback if the main socket disconnect event for a specific socket doesn't fire before global count update
+        // To avoid double-decrementing, the main logic within io.on('connection', (socket) => { ... socket.on('disconnect', ...) ... }) is preferred.
+        // This global one is more for io.emit('onlineUserCountUpdate', io.engine.clientsCount);
+        // But since we are manually managing onlineUserCount, we can emit there too.
+        // Let's ensure onlineUserCountUpdate is emitted consistently by the cleanupUser function.
+    });
+});
+
+
 server.listen(PORT, () => {
   console.log(`Socket.IO server running on port ${PORT}`);
 });
 
 // Export an empty object to satisfy TypeScript's module requirements if no other exports exist
 export {};
+
+    
