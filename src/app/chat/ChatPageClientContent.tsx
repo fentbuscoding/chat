@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -23,7 +22,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
-const TYPING_INDICATOR_HEIGHT = 20; 
+const TYPING_INDICATOR_HEIGHT = 20;
 const logPrefix = "ChatPage";
 
 interface Message {
@@ -59,12 +58,12 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle"
+          className="inline h-5 w-5 mx-0.5 align-middle" // Size for emojis within messages
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]);
+      parts.push(match[0]); // If shortcode not found, render as text
     }
     lastIndex = regex.lastIndex;
   }
@@ -153,7 +152,6 @@ const ChatPageClientContent: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isPartnerConnected, setIsPartnerConnected] = useState(false);
   const [isFindingPartner, setIsFindingPartner] = useState(false);
-  // const [roomId, setRoomId] = useState<string | null>(null); // roomId is now managed by roomIdRef for stability in callbacks
   const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -221,38 +219,6 @@ const ChatPageClientContent: React.FC = () => {
   }, [isPartnerConnected, isFindingPartner, addMessage, interests, partnerInterests, messages]);
 
 
-  useEffect(() => {
-    setIsMounted(true);
-    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
-    if (!socketServerUrl) {
-      console.error(`${logPrefix}: Socket server URL is not defined.`);
-      toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
-      return;
-    }
-
-    const newSocket = io(socketServerUrl, {
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
-    setSocket(newSocket);
-    socketRef.current = newSocket;
-
-    return () => {
-      if (socketRef.current) {
-        if (roomIdRef.current) {
-          socketRef.current.emit('leaveChat', { roomId: roomIdRef.current });
-        }
-        socketRef.current.disconnect();
-        socketRef.current = null; // Clear the ref
-        setSocket(null); // Clear the state
-        console.log(`${logPrefix}: Socket disconnected on component unmount.`);
-      }
-      if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [toast]);
-
-
   const handleFindOrDisconnectPartner = useCallback(() => {
     const currentActiveSocket = socketRef.current;
     if (!currentActiveSocket) {
@@ -262,149 +228,158 @@ const ChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected && roomIdRef.current) {
         currentActiveSocket.emit('leaveChat', { roomId: roomIdRef.current });
-        addMessage('You have disconnected.', 'system');
+        addMessage('You have disconnected.', 'system'); // Message for the skipper
         setIsPartnerConnected(false);
-        // setRoomId(null); // roomIdRef is used
         roomIdRef.current = null;
         setPartnerInterests([]);
         setIsFindingPartner(true); // Automatically start searching again
         currentActiveSocket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) {
-        setIsFindingPartner(false); 
-        // No explicit 'stopFinding' event to server; server handles if user was in waiting list and disconnects.
-        // Client UI updates immediately.
+        setIsFindingPartner(false);
     } else {
-        // This is the "Find Partner" case
         if (!currentActiveSocket.connected) {
           toast({ title: "Connecting...", description: "Attempting to connect to chat server. Please wait.", variant: "default" });
-          // Socket will attempt to connect/reconnect based on its own logic.
-          // Or, you could explicitly call currentActiveSocket.connect() if it's disconnected and not auto-reconnecting.
           return;
         }
-        setIsFindingPartner(true); 
+        setIsFindingPartner(true);
         currentActiveSocket.emit('findPartner', { chatType: 'text', interests });
     }
   }, [toast, addMessage, isPartnerConnected, isFindingPartner, interests]);
 
-
   useEffect(() => {
-    if (!socket) return; // socket state is used here, listeners depend on it
+    setIsMounted(true);
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
+    if (!socketServerUrl) {
+      console.error(`${logPrefix}: Socket server URL is not defined.`);
+      toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
+      return;
+    }
 
-    const handlePartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
+    console.log(`${logPrefix}: Attempting to connect to socket server: ${socketServerUrl}`);
+    const newSocket = io(socketServerUrl, {
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
+    setSocket(newSocket);
+    socketRef.current = newSocket;
+
+    const handleInitialConnectAndSearch = () => {
+        console.log(`${logPrefix}: Connected to socket server with ID:`, newSocket.id);
+        if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+            console.log(`${logPrefix}: Automatically starting partner search on initial connect.`);
+            handleFindOrDisconnectPartner(); // This uses socketRef.current which should be newSocket
+            autoSearchDoneRef.current = true;
+        }
+    };
+    
+    if (newSocket.connected) {
+      handleInitialConnectAndSearch();
+    } else {
+      newSocket.on('connect', handleInitialConnectAndSearch);
+    }
+
+    newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
+      roomIdRef.current = rId;
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
-      // setRoomId(rId); // roomIdRef is used
-      roomIdRef.current = rId;
       setPartnerInterests(pInterests || []);
-    };
+    });
 
-    const handleWaitingForPartner = () => {
-      // "Searching..." message handled by isFindingPartner state change effect
-    };
+    newSocket.on('waitingForPartner', () => {
+      // Message handled by isFindingPartner state change effect
+    });
 
-    const handleFindPartnerCooldown = () => {
+    newSocket.on('findPartnerCooldown', () => {
       toast({ title: "Slow down!", description: "Please wait a moment before finding a new partner.", variant: "default" });
       setIsFindingPartner(false);
-    };
+    });
 
-    const handleReceiveMessage = ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
+    newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
       addMessage(receivedMessage, 'partner');
       setIsPartnerTyping(false);
-    };
+    });
 
-    const handlePartnerLeft = () => {
+    newSocket.on('partnerLeft', () => {
       addMessage('Your partner has disconnected.', 'system');
       setIsPartnerConnected(false);
-      // setRoomId(null); // roomIdRef is used
       roomIdRef.current = null;
       setPartnerInterests([]);
       setIsPartnerTyping(false);
-    };
+    });
     
-    const handleSocketDisconnect = (reason: string) => {
+    newSocket.on('disconnect', (reason) => {
       console.log(`${logPrefix}: Disconnected from socket server. Reason:`, reason);
       addMessage('You have been disconnected from the server.', 'system');
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
-      // setRoomId(null); // roomIdRef is used
       roomIdRef.current = null;
       setIsPartnerTyping(false);
-    };
+    });
 
-    const handleConnectError = (err: Error) => {
-      console.error(`${logPrefix}: Socket connection error:`, err.message);
-      toast({
-        title: "Connection Error",
-        description: `Could not connect to chat server: ${err.message}. Please try again later.`,
-        variant: "destructive"
-      });
-      setIsFindingPartner(false);
-    };
-
-    const handlePartnerTypingStart = () => setIsPartnerTyping(true);
-    const handlePartnerTypingStop = () => setIsPartnerTyping(false);
-    
-    const handleInitialConnectAndSearch = () => {
-        console.log(`${logPrefix}: Connected to socket server with ID:`, socket.id);
-        if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${logPrefix}: Automatically starting partner search on initial connect.`);
-            handleFindOrDisconnectPartner();
-            autoSearchDoneRef.current = true;
-        }
-    };
-
-    if (socket.connected) {
-        handleInitialConnectAndSearch();
-    } else {
-        socket.on('connect', handleInitialConnectAndSearch);
-    }
-    
-    socket.on('partnerFound', handlePartnerFound);
-    socket.on('waitingForPartner', handleWaitingForPartner);
-    socket.on('findPartnerCooldown', handleFindPartnerCooldown);
-    socket.on('receiveMessage', handleReceiveMessage);
-    socket.on('partnerLeft', handlePartnerLeft);
-    socket.on('disconnect', handleSocketDisconnect);
-    socket.on('connect_error', handleConnectError);
-    socket.on('partner_typing_start', handlePartnerTypingStart);
-    socket.on('partner_typing_stop', handlePartnerTypingStop);
-
-    const fetchPickerEmojis = async () => {
-      try {
-        setEmojisLoading(true);
-        const emojiList = await listEmojis();
-        setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
-      } catch (error: any) {
-        const specificErrorMessage = error.message || String(error);
-        console.error('Detailed GCS Error in listEmojisFlow (client-side):', specificErrorMessage);
+    newSocket.on('connect_error', (err) => {
+        console.error(`${logPrefix}: Socket connection error:`, err.message);
         toast({
-          title: "Emoji Error",
-          description: `Could not load emojis for the picker. ${specificErrorMessage}`,
-          variant: "destructive",
+          title: "Connection Error",
+          description: `Could not connect to chat server: ${err.message}. Please try again later.`,
+          variant: "destructive"
         });
-        setPickerEmojiFilenames([]);
-      } finally {
-        setEmojisLoading(false);
-      }
-    };
-    if(currentTheme === 'theme-98') fetchPickerEmojis();
+        setIsFindingPartner(false);
+    });
+
+    newSocket.on('partner_typing_start', () => setIsPartnerTyping(true));
+    newSocket.on('partner_typing_stop', () => setIsPartnerTyping(false));
+
+    // Fetch emojis only if theme is 98
+    if (currentTheme === 'theme-98') {
+      const fetchPickerEmojis = async () => {
+        try {
+          setEmojisLoading(true);
+          const emojiList = await listEmojis();
+          setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
+        } catch (error: any) {
+          const specificErrorMessage = error.message || String(error);
+          console.error(`${logPrefix}: Error in listEmojis flow (client-side):`, specificErrorMessage, error);
+          toast({
+            title: "Emoji Error",
+            description: `Could not load emojis for the picker. ${specificErrorMessage}`,
+            variant: "destructive",
+          });
+          setPickerEmojiFilenames([]);
+        } finally {
+          setEmojisLoading(false);
+        }
+      };
+      fetchPickerEmojis();
+    } else {
+      setEmojisLoading(false); // Not loading if not theme-98
+      setPickerEmojiFilenames([]); // Clear if theme changes away from 98
+    }
 
 
     return () => {
-      socket.off('connect', handleInitialConnectAndSearch);
-      socket.off('partnerFound', handlePartnerFound);
-      socket.off('waitingForPartner', handleWaitingForPartner);
-      socket.off('findPartnerCooldown', handleFindPartnerCooldown);
-      socket.off('receiveMessage', handleReceiveMessage);
-      socket.off('partnerLeft', handlePartnerLeft);
-      socket.off('disconnect', handleSocketDisconnect);
-      socket.off('connect_error', handleConnectError);
-      socket.off('partner_typing_start', handlePartnerTypingStart);
-      socket.off('partner_typing_stop', handlePartnerTypingStop);
+      console.log(`${logPrefix}: Cleaning up socket listeners and disconnecting socket ID:`, newSocket.id);
+      newSocket.off('connect', handleInitialConnectAndSearch);
+      newSocket.off('partnerFound');
+      newSocket.off('waitingForPartner');
+      newSocket.off('findPartnerCooldown');
+      newSocket.off('receiveMessage');
+      newSocket.off('partnerLeft');
+      newSocket.off('disconnect');
+      newSocket.off('connect_error');
+      newSocket.off('partner_typing_start');
+      newSocket.off('partner_typing_stop');
+      if (roomIdRef.current) {
+        newSocket.emit('leaveChat', { roomId: roomIdRef.current });
+      }
+      newSocket.disconnect();
+      socketRef.current = null;
+      setSocket(null); 
+      if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [socket, addMessage, toast, interests, partnerInterests, handleFindOrDisconnectPartner, isPartnerConnected, isFindingPartner, currentTheme]); // Added dependencies
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, currentTheme]); // Dependencies like addMessage, handleFindOrDisconnectPartner will be wrapped in useCallback or stable if possible
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -423,7 +398,7 @@ const ChatPageClientContent: React.FC = () => {
       socketRef.current.emit('typing_stop', { roomId: roomIdRef.current });
       localTypingRef.current = false;
     }
-  }, []); // socketRef is stable
+  }, []); 
 
   const handleSendMessage = useCallback(() => {
     const currentActiveSocket = socketRef.current;
@@ -450,8 +425,8 @@ const ChatPageClientContent: React.FC = () => {
     }
     typingTimeoutRef.current = setTimeout(() => {
       stopLocalTyping();
-    }, 2000); 
-  }, [isPartnerConnected, setNewMessage, stopLocalTyping]);
+    }, 2000);
+  }, [isPartnerConnected, stopLocalTyping]);
 
 
   const handleEmojiIconHover = () => {
@@ -546,16 +521,16 @@ const ChatPageClientContent: React.FC = () => {
         )}
         style={chatWindowStyle}
       >
-        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="title-bar-text">Text Chat</div>
-          {effectivePageTheme === 'theme-7' && (
+        {effectivePageTheme === 'theme-7' && (
             <img
                 src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
                 alt="Decorative Goldfish"
                 className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
                 data-ai-hint="goldfish decoration"
             />
-           )}
+        )}
+        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className="title-bar-text">Text Chat</div>
         </div>
         <div
           className={cn(
@@ -572,11 +547,11 @@ const ChatPageClientContent: React.FC = () => {
           >
             <div> {/* Container for messages */}
               {messages.map((msg, index) => (
-                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} />
+                <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames}/>
               ))}
-               {isPartnerTyping && (
+              {isPartnerTyping && (
                 <div className={cn(
-                  "text-left text-xs italic px-1 py-0.5", // Left aligned
+                  "text-left text-xs italic px-1 py-0.5",
                   effectivePageTheme === 'theme-7' ? 'text-gray-100 theme-7-text-shadow' : 'text-gray-500 dark:text-gray-400'
                 )}>
                   Stranger is typing{typingDots}
@@ -619,7 +594,7 @@ const ChatPageClientContent: React.FC = () => {
                     id="emoji-icon-trigger"
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-5 h-5 cursor-pointer inline-block"
+                    className="w-4 h-4 cursor-pointer inline-block"
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
