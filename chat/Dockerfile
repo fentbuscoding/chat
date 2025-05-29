@@ -1,32 +1,31 @@
-# Use an official Node.js runtime as a parent image
+# Dockerfile for the Socket.IO server (server/index.ts)
 FROM node:20-slim
 
-# Set the working directory in the container
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json
+# Install app dependencies
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
+# where available (npm@5+)
 COPY package*.json ./
 
-# Install dependencies.
-# The build log showed:
-# 1. npm ci --only=production (installs only prod deps based on lock file)
-# 2. npm install --ignore-scripts (this would then install dev deps as well if present in lock file,
-#    as 'only=production' isn't specified here again. tsx is a devDep).
-# This combination should make tsx available.
-RUN npm ci --only=production
-RUN npm install --ignore-scripts
-# A cleaner approach for tsx in prod might be to ensure tsx & typescript are in 'dependencies',
-# or to have a build step that compiles TS to JS. But based on build logs, the above works.
+# Install all dependencies, including devDependencies needed for tsx and typescript
+# npm ci is generally recommended for CI/CD as it uses package-lock.json strictly
+RUN npm ci
 
-# Copy the server code and tsconfig
-COPY server ./server
-COPY tsconfig.json ./tsconfig.json
+# Bundle app source by copying all files from the build context.
+# .dockerignore will control what gets copied.
+COPY . .
 
-# The server listens on process.env.PORT, which Cloud Run sets (default 8080).
-# Your server/index.ts uses process.env.PORT || 3001.
-# EXPOSE 8080 # Cloud Run uses the PORT env var, EXPOSE is more for documentation.
+# Your server in server/index.ts listens on process.env.PORT || 3001.
+# Google Cloud Run sets the PORT environment variable (typically to 8080).
+# EXPOSE is documentation for humans and for Docker to map ports if run locally,
+# but Cloud Run uses the PORT env var to route traffic.
+EXPOSE 8080
 
+# Set environment to production
 ENV NODE_ENV=production
 
-# Command to run the application using tsx, without watch mode for production.
+# Start the server using tsx
+# npx ensures that tsx (if installed locally in node_modules/.bin) is found
 CMD [ "npx", "tsx", "server/index.ts" ]

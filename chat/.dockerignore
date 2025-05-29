@@ -1,0 +1,24 @@
+node_modules
+.npm
+npm-debug.log
+*.log
+.DS_Store
+
+# Next.js specific folders (not needed for the standalone Socket.IO server)
+.next/
+out/
+
+# Git folder
+.git/
+.gitignore
+
+# IDE/Editor specific
+.vscode/
+studio.code-workspace
+
+# Service account keys - should not be in the image
+*.json
+
+# Other sensitive files or large unnecessary files
+# e.g., README.md (optional, can be small)
+# docs/ (if large and not needed by server)
