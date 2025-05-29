@@ -43,7 +43,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
 
   const parts = [];
   let lastIndex = 0;
-  const regex = /:([a-zA-Z0-9_.-]+?):/g; // Regex to find :shortcode:
+  const regex = /:([a-zA-Z0-9_.-]+?):/g; 
   let match;
 
   while ((match = regex.exec(text)) !== null) {
@@ -67,7 +67,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
         />
       );
     } else {
-      parts.push(match[0]); // If no emoji found, render the shortcode text itself
+      parts.push(match[0]); 
     }
     lastIndex = regex.lastIndex;
   }
@@ -76,7 +76,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
     parts.push(text.substring(lastIndex));
   }
 
-  return parts.length > 0 ? parts : [text]; // Return parts if any, else original text
+  return parts.length > 0 ? parts : [text]; 
 };
 
 
@@ -114,7 +114,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
 
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(currentMessage.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [currentMessage.text]; // For theme-7, render text directly
+    : [currentMessage.text]; 
 
   return (
     <div style={style}>
@@ -124,7 +124,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
           aria-hidden="true"
         ></div>
       )}
-      <div className="mb-2 break-words"> {/* Increased bottom margin */}
+      <div className="mb-2 break-words"> 
         {currentMessage.sender === 'me' && (
           <>
             <span className="text-blue-600 font-bold mr-1">You:</span>
@@ -174,12 +174,10 @@ const VideoChatPageClientContent: React.FC = () => {
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
 
-  // Typing indicator state
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('');
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Emoji Feature State
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
@@ -192,7 +190,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
       const newMessageItem = {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // More unique ID
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         text,
         sender,
         timestamp: new Date()
@@ -218,7 +216,8 @@ const VideoChatPageClientContent: React.FC = () => {
         !(msg.sender === 'system' &&
           (msg.text.toLowerCase().includes('searching for a partner') ||
            msg.text.toLowerCase().includes('your partner has disconnected') ||
-           msg.text.toLowerCase().includes('stopped searching for a partner')
+           msg.text.toLowerCase().includes('stopped searching for a partner') ||
+           msg.text.toLowerCase().includes('you have disconnected')
            ))
       ));
       addMessage('Connected with a partner. You can start chatting!', 'system');
@@ -306,7 +305,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (peerConnectionRef.current) {
         console.warn("VideoChatPage: PeerConnection already exists. Closing existing before creating new.");
-        cleanupConnections(false); // Clean up existing but don't stop local stream if we're about to reuse it
+        cleanupConnections(false); 
     }
 
     const pc = new RTCPeerConnection({
@@ -316,7 +315,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     stream.getTracks().forEach(track => {
       if (pc.getSenders().find(s => s.track === track)) {
-        return; // Avoid adding the same track multiple times
+        return; 
       }
       pc.addTrack(track, stream)
     });
@@ -346,7 +345,6 @@ const VideoChatPageClientContent: React.FC = () => {
             peerConnectionRef.current.iceConnectionState === 'disconnected' ||
             peerConnectionRef.current.iceConnectionState === 'closed') {
              console.warn("VideoChatPage: WebRTC connection failed or disconnected.");
-             // Optionally, attempt to restart ICE or notify user
         }
       }
     };
@@ -385,9 +383,9 @@ const VideoChatPageClientContent: React.FC = () => {
 
     newSocket.on('partnerFound', ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
         console.log("VideoChatPage: Partner found event received", { pId, rId, pInterests });
+        setRoomId(rId); 
         setIsFindingPartner(false);
         setIsPartnerConnected(true);
-        setRoomId(rId);
         setPartnerInterests(pInterests || []);
         setupWebRTC(newSocket, rId, true); 
     });
@@ -473,7 +471,6 @@ const VideoChatPageClientContent: React.FC = () => {
         setPartnerInterests([]);
     });
 
-    // Typing indicator listeners
     newSocket.on('partner_typing_start', () => setIsPartnerTyping(true));
     newSocket.on('partner_typing_stop', () => setIsPartnerTyping(false));
 
@@ -529,8 +526,7 @@ const VideoChatPageClientContent: React.FC = () => {
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream]); 
+  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream, roomId, isPartnerConnected]); 
 
 
   useEffect(() => {
@@ -548,17 +544,16 @@ const VideoChatPageClientContent: React.FC = () => {
   const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
 
   useEffect(() => {
-    if (listHeight > 0 && chatListContainerWidth > 0) { // Ensure dimensions are positive
+    if (listHeight > 0 && chatListContainerWidth > 0) { 
         if (listRef.current && messages.length > 0) {
             listRef.current.scrollToItem(messages.length - 1, "end");
         }
-    } else if (messagesEndRef.current) { // Fallback to simple scroll if react-window isn't ready/rendered
+    } else if (messagesEndRef.current) { 
         messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, listHeight, chatListContainerWidth]);
 
 
-  // Effect for animating typing dots
   useEffect(() => {
     let dotInterval: NodeJS.Timeout | null = null;
     if (isPartnerTyping) {
@@ -619,18 +614,15 @@ const VideoChatPageClientContent: React.FC = () => {
     if (isPartnerConnected && roomId) { 
         socket.emit('leaveChat', { roomId });
         cleanupConnections(false); 
-        addMessage('You have disconnected. Searching for a new partner...', 'system');
+        addMessage('You have disconnected.', 'system'); // Show disconnect message first
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setIsFindingPartner(true);
-        socket.emit('findPartner', { chatType: 'video', interests });
+        setIsFindingPartner(true); // Then set finding partner state
+        socket.emit('findPartner', { chatType: 'video', interests }); // Then emit findPartner
 
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-        // Server side doesn't have a direct "stop finding" for this user,
-        // but the client UI will update.
-        // The "Stopped searching..." message is handled by another useEffect
     } else { 
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
@@ -710,12 +702,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm", 
-              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7-video-feed-title-bar', 
+              "title-bar text-sm video-feed-title-bar", 
+              effectivePageTheme === 'theme-98' ? '' : 'theme-7-video-feed-title-bar', 
               effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
-              {effectivePageTheme === 'theme-7' && ""}
+              {/* Text removed based on previous request */}
             </div>
           </div>
           <div
@@ -746,12 +738,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm", 
-               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7-video-feed-title-bar', 
+              "title-bar text-sm video-feed-title-bar", 
+               effectivePageTheme === 'theme-98' ? '' : 'theme-7-video-feed-title-bar', 
                effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
-              {effectivePageTheme === 'theme-7' && ""}
+               {/* Text removed based on previous request */}
             </div>
           </div>
           <div
@@ -911,7 +903,7 @@ const VideoChatPageClientContent: React.FC = () => {
               )}
               {effectivePageTheme === 'theme-98' && emojisLoading && (
                  <div className="relative ml-1 flex-shrink-0">
-                    <p className="text-xs p-1">...</p> {/* Placeholder for loading state */}
+                    <p className="text-xs p-1">...</p> 
                  </div>
               )}
               <Button
