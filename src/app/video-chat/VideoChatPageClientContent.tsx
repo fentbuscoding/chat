@@ -251,9 +251,10 @@ const VideoChatPageClientContent: React.FC = () => {
 
     newSocket.on('noPartnerFound', () => {
         setIsFindingPartner(false);
-        if (!isFindingPartner && !isPartnerConnected) {
-             setIsFindingPartner(true);
-        }
+        // if (!isFindingPartner && !isPartnerConnected) {
+        //      // Consider if we should automatically retry or inform user.
+        //      // For now, just ensures "Finding..." stops if server says no one is there.
+        // }
     });
 
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
@@ -264,9 +265,9 @@ const VideoChatPageClientContent: React.FC = () => {
         if (!peerConnectionRef.current) {
              if (isPartnerConnected && roomId && !peerConnectionRef.current && newSocket) {
                 console.log("VideoChatPage: Receiving signal before local PC setup, attempting setup now (non-initiator).");
-                await setupWebRTC(newSocket, roomId, false);
+                await setupWebRTC(newSocket, roomId, false); // Pass socket, roomId
             }
-            if (!peerConnectionRef.current) {
+            if (!peerConnectionRef.current) { // Check again after potential setup
                 console.error("VideoChatPage: PeerConnection not initialized, cannot handle signal", signalData);
                 return;
             }
@@ -277,8 +278,12 @@ const VideoChatPageClientContent: React.FC = () => {
                 await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
                 const answer = await peerConnectionRef.current.createAnswer();
                 await peerConnectionRef.current.setLocalDescription(answer);
-                newSocket.emit('webrtcSignal', { roomId, signalData: answer });
-                console.log("VideoChatPage: Sent answer");
+                if (newSocket && roomId) { // Check if newSocket and roomId are valid
+                   newSocket.emit('webrtcSignal', { roomId, signalData: answer });
+                   console.log("VideoChatPage: Sent answer");
+                } else {
+                    console.error("VideoChatPage: Socket or RoomID missing, cannot send answer.");
+                }
             } else if (signalData.type === 'answer') {
                 console.log("VideoChatPage: Received answer");
                 await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
@@ -345,7 +350,7 @@ const VideoChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // toast, addMessage, interests, setupWebRTC, cleanupConnections are stable or memoized
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -410,11 +415,14 @@ const VideoChatPageClientContent: React.FC = () => {
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]);
+  }, [isMounted]); // getCameraStream is memoized.
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
-    if (!currentSocket || !currentRoomId) return;
+    if (!currentSocket || !currentRoomId) {
+        console.error("VideoChatPage: setupWebRTC called with invalid socket or roomId.");
+        return;
+    }
     console.log("VideoChatPage: Setting up WebRTC. Initiator:", initiator);
 
     const stream = await getCameraStream();
@@ -482,38 +490,39 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) {
+    if (isPartnerConnected) { // User clicks "Disconnect"
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false);
+        cleanupConnections(false); // Keep local stream if they might want to find another partner
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
         addMessage('You have disconnected.', 'system');
-
+        // Automatically start searching again
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) {
+    } else if (isFindingPartner) { // User clicks "Stop Searching"
         setIsFindingPartner(false);
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
-
-    } else {
+        // Potentially inform server to remove from waiting list if that's a feature
+    } else { // User clicks "Find Partner"
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) {
-            const stream = await getCameraStream();
-            if (!stream) return;
+        if (hasCameraPermission === undefined) { // If permission status is not yet known
+            const stream = await getCameraStream(); // This will request permission
+            if (!stream) { // If permission denied or error
+                return; // getCameraStream handles toasts
+            }
         }
-
+        // If permission is already granted or was just granted
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
     }
@@ -680,9 +689,11 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-               messages.map((msg, index) => (
-                   <Row key={msg.id} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
-                ))
+              <div className="h-full overflow-y-auto"> {/* Fallback for simple scroll if List can't render */}
+               {messages.map((msg, index) => ( // Use index as part of key if ids might not be unique during quick updates
+                   <Row key={`${msg.id}-${index}`} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
+                ))}
+              </div>
             )}
           </div>
            <div
@@ -718,7 +729,7 @@ const VideoChatPageClientContent: React.FC = () => {
                   <img
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-6 h-6 cursor-pointer inline-block"
+                    className="w-5 h-5 cursor-pointer inline-block"
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}

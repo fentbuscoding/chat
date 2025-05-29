@@ -230,10 +230,12 @@ const ChatPageClientContent: React.FC = () => {
       // System message for "Searching..." handled by other useEffect
     });
 
-    newSocket.on('noPartnerFound', () => {
-        setIsFindingPartner(false);
-        if (!isFindingPartner && !isPartnerConnected) {
-             setIsFindingPartner(true);
+    newSocket.on('noPartnerFound', () => { // This event implies the user was waiting but server couldn't find a match now.
+        setIsFindingPartner(false); // Stop showing "Searching..."
+        if (!isPartnerConnected) { // If not already in a chat
+             // We could add a message like "No partner found currently, still waiting..."
+             // Or just revert to a state where they can click "Find Partner" again.
+             // For now, let's just ensure they are not stuck in "Finding" state if server explicitly says no one.
         }
     });
 
@@ -250,9 +252,13 @@ const ChatPageClientContent: React.FC = () => {
 
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
-        if (reason === 'io server disconnect') {
-            newSocket.connect();
+        if (reason === 'io server disconnect') { // This can happen if the server restarts or explicitly disconnects the client
+            newSocket.connect(); // Attempt to reconnect
         }
+        // If we were connected or finding a partner, we might want to reset state here
+        // setIsPartnerConnected(false);
+        // setIsFindingPartner(false); // Or set a specific "disconnected" state
+        // addMessage('Disconnected from server.', 'system');
     });
 
     newSocket.on('connect_error', (err) => {
@@ -295,7 +301,7 @@ const ChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Dependencies like toast, addMessage, interests are stable or memoized.
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -323,18 +329,22 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
+        // Clear partner-specific system messages
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
         addMessage('You have disconnected.', 'system');
+        // Automatically start searching again
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) { // User clicks "Stop Searching"
         setIsFindingPartner(false);
+        // Clear searching message
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
+        // Potentially tell server to remove from waiting list if that's implemented
     } else { // User clicks "Find Partner"
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
@@ -465,7 +475,7 @@ const ChatPageClientContent: React.FC = () => {
                   <img
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-6 h-6 cursor-pointer inline-block"
+                    className="w-5 h-5 cursor-pointer inline-block"
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
