@@ -492,13 +492,13 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        // addMessage('You have disconnected.', 'system'); // This will be handled by the useEffect
+        addMessage('You have disconnected. Searching for a new partner...', 'system');
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        // setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner')))); // This will be handled by the useEffect
+        setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
     } else {
         if (hasCameraPermission === false) {
@@ -580,7 +580,7 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '220px'}}
+          style={{width: '250px', height: '198px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
@@ -610,7 +610,7 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '220px'}}
+          style={{width: '250px', height: '198px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
@@ -782,4 +782,6 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+    
+
     
