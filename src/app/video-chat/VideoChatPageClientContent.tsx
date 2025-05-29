@@ -164,6 +164,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
   const listRef = useRef<List>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null); // Declare messagesEndRef
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
   const itemHeight = 30;
@@ -213,8 +214,7 @@ const VideoChatPageClientContent: React.FC = () => {
         }
       }
     }
-    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId === null) { // partnerLeft or manual disconnect
-         // No need to check for existing "partner has disconnected" as we clear it on new connection
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId === null) { 
         addMessage('Your partner has disconnected.', 'system');
     }
 
@@ -297,8 +297,7 @@ const VideoChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
-        // Message added by useEffect based on isPartnerConnected and roomId state changes
-        cleanupConnections(false); // Keep local stream for potential new connection
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
@@ -356,10 +355,17 @@ const VideoChatPageClientContent: React.FC = () => {
 
 
   useEffect(() => {
-    if (listRef.current && messages.length > 0 && chatListContainerHeight > 0 && chatListContainerWidth > 0) {
-      listRef.current.scrollToItem(messages.length - 1, "end");
+    const useReactWindowList = scrollableChatHeight > 0 && chatListContainerWidth > 0;
+    if (useReactWindowList) {
+      if (listRef.current && messages.length > 0) {
+        listRef.current.scrollToItem(messages.length - 1, "end");
+      }
+    } else {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     }
-  }, [messages, chatListContainerHeight, chatListContainerWidth]);
+  }, [messages, scrollableChatHeight, chatListContainerWidth]);
 
   const cleanupConnections = useCallback((stopLocalStream = true) => {
     if (peerConnectionRef.current) {
@@ -492,33 +498,30 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected) {
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false); // Keep local stream for potential new connection
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
         setRoomId(null); 
         setPartnerInterests([]);
-        // System message for "You have disconnected." is handled by useEffect based on state change
-        // Immediately start searching for a new partner
-        setIsFindingPartner(true); // This will trigger the "Searching..." message via useEffect
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) { // User wants to stop searching
+    } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-        // System message for "Stopped searching..." is handled by useEffect
         addMessage('Stopped searching for a partner.', 'system');
 
 
-    } else { // User wants to start finding a partner
+    } else { 
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) { // If permission hasn't been determined yet, try to get it
+        if (hasCameraPermission === undefined) { 
             const stream = await getCameraStream();
-            if (!stream) { // If still no stream/permission, bail
+            if (!stream) { 
                 return;
             }
         }
-        setIsFindingPartner(true); // This will trigger the "Searching..." message via useEffect
+        setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
     }
   }, [
@@ -590,11 +593,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar",
-              effectivePageTheme === 'theme-7' ? 'text-black' : ''
+              "title-bar text-sm",
+              effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
+              effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
             )}>
             <div className="title-bar-text">
-              {/* Empty, text handled by CSS for theme-7 if needed, or hidden by video-feed-title-bar */}
+             {/* Text removed, but div kept for structure if needed by theme-7 styling */}
             </div>
           </div>
           <div
@@ -625,11 +629,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar",
-              effectivePageTheme === 'theme-7' ? 'text-black' : ''
+              "title-bar text-sm",
+               effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
+               effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
             )}>
             <div className="title-bar-text">
-               {/* Empty, text handled by CSS for theme-7 if needed, or hidden by video-feed-title-bar */}
+                {/* Text removed, but div kept for structure if needed by theme-7 styling */}
             </div>
           </div>
           <div
