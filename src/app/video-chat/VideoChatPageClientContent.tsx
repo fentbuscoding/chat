@@ -85,7 +85,7 @@ interface ItemDataForVideoChat {
 
 const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemDataForVideoChat>) => {
   const currentMessage = data.messages[index];
-  const previousSender = index > 0 ? data.messages[index - 1]?.sender : undefined;
+  const previousMessage = index > 0 ? data.messages[index - 1] : undefined;
   const theme = data.theme;
   const pickerEmojiFilenames = data.pickerEmojiFilenames;
 
@@ -104,10 +104,10 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
 
   const showDivider =
     theme === 'theme-7' &&
-    previousSender !== undefined &&
-    (previousSender === 'me' || previousSender === 'partner') &&
+    previousMessage?.sender !== undefined &&
+    (previousMessage.sender === 'me' || previousMessage.sender === 'partner') &&
     (currentMessage.sender === 'me' || currentMessage.sender === 'partner') &&
-    currentMessage.sender !== previousSender;
+    currentMessage.sender !== previousMessage.sender;
 
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(currentMessage.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
@@ -213,10 +213,14 @@ const VideoChatPageClientContent: React.FC = () => {
         }
       }
     }
+    if (!isPartnerConnected && prevIsPartnerConnectedRef.current && roomId === null) { // partnerLeft or manual disconnect
+         // No need to check for existing "partner has disconnected" as we clear it on new connection
+        addMessage('Your partner has disconnected.', 'system');
+    }
 
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-  }, [isPartnerConnected, isFindingPartner, addMessage, interests, partnerInterests]);
+  }, [isPartnerConnected, isFindingPartner, addMessage, interests, partnerInterests, roomId]);
 
 
   useEffect(() => {
@@ -293,8 +297,8 @@ const VideoChatPageClientContent: React.FC = () => {
     });
 
     newSocket.on('partnerLeft', () => {
-        addMessage('Your partner has disconnected.', 'system');
-        cleanupConnections(false);
+        // Message added by useEffect based on isPartnerConnected and roomId state changes
+        cleanupConnections(false); // Keep local stream for potential new connection
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
@@ -488,27 +492,29 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected) {
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false);
+        cleanupConnections(false); // Keep local stream for potential new connection
         setIsPartnerConnected(false);
-        setRoomId(null);
+        setRoomId(null); 
         setPartnerInterests([]);
-        // Add "You have disconnected" first, then "Searching for a new partner"
-        addMessage('You have disconnected.', 'system');
+        // System message for "You have disconnected." is handled by useEffect based on state change
+        // Immediately start searching for a new partner
         setIsFindingPartner(true); // This will trigger the "Searching..." message via useEffect
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) {
+    } else if (isFindingPartner) { // User wants to stop searching
         setIsFindingPartner(false);
-        setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+        // System message for "Stopped searching..." is handled by useEffect
         addMessage('Stopped searching for a partner.', 'system');
-    } else {
+
+
+    } else { // User wants to start finding a partner
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) {
+        if (hasCameraPermission === undefined) { // If permission hasn't been determined yet, try to get it
             const stream = await getCameraStream();
-            if (!stream) {
+            if (!stream) { // If still no stream/permission, bail
                 return;
             }
         }
@@ -583,8 +589,13 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : (effectivePageTheme === 'theme-7' ? 'text-black' : ''))}>
-             {effectivePageTheme === 'theme-7' && <div className="title-bar-text"></div>}
+          <div className={cn(
+              "title-bar text-sm video-feed-title-bar",
+              effectivePageTheme === 'theme-7' ? 'text-black' : ''
+            )}>
+            <div className="title-bar-text">
+              {/* Empty, text handled by CSS for theme-7 if needed, or hidden by video-feed-title-bar */}
+            </div>
           </div>
           <div
             className={cn(
@@ -613,8 +624,13 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : (effectivePageTheme === 'theme-7' ? 'text-black' : ''))}>
-            {effectivePageTheme === 'theme-7' && <div className="title-bar-text"></div>}
+          <div className={cn(
+              "title-bar text-sm video-feed-title-bar",
+              effectivePageTheme === 'theme-7' ? 'text-black' : ''
+            )}>
+            <div className="title-bar-text">
+               {/* Empty, text handled by CSS for theme-7 if needed, or hidden by video-feed-title-bar */}
+            </div>
           </div>
           <div
             className={cn(
@@ -682,12 +698,13 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="h-full overflow-y-auto"> {/* Fallback for when List can't render */}
+              <div className="h-full overflow-y-auto p-1"> {/* Fallback with padding */}
                {messages.map((msg, index) => (
-                   <div key={msg.id}> {/* Simple div wrapper for each message */}
+                   <div key={msg.id} className="mb-1"> {/* Simple div wrapper for each message, with bottom margin */}
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
                 ))}
+                 <div ref={messagesEndRef} />
               </div>
             )}
           </div>
@@ -736,7 +753,7 @@ const VideoChatPageClientContent: React.FC = () => {
                       className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
-                      {pickerEmojiFilenames.length > 0 ? (
+                       {pickerEmojiFilenames.length > 0 ? (
                         <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
                           {pickerEmojiFilenames.map((filename) => (
                             <img

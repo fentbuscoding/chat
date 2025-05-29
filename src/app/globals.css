@@ -1,11 +1,12 @@
 
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* For debugging purposes: outline all elements */
-* {
-  /* outline: 1px solid red !important; */ /* Keep this commented out unless debugging */
-}
+/* * {
+  outline: 1px solid red !important;
+} */
 
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
@@ -214,7 +215,7 @@ video {
   border-left: 1px solid #dfdfdf;
   border-right: 1px solid #000000;
   border-bottom: 1px solid #000000;
-  box-shadow: inset 1px 1px 0px #ffffff, inset -1px -1px 0px #808080;
+  box-shadow: inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray;
 }
 
 .themed-scrollbar-7 {
@@ -242,7 +243,7 @@ video {
   flex-grow: 1; /* Ensures the text container can expand */
   text-align: left !important; /* Forces text to the left */
 }
-.theme-7 .title-bar-text {
+.theme-7 .title-bar .title-bar-text { /* Increased specificity for theme-7 title bar text */
   color: #000; 
   text-shadow: 0 1px 1px rgba(0,0,0,0.4); /* Added text shadow */
 }
@@ -302,14 +303,49 @@ video {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* Styles for empty title bars of video feed windows */
-.video-feed-title-bar {
+/* For theme-98, completely hide the video feed title bars */
+.theme-98 .video-feed-title-bar {
   height: 0px !important;
   min-height: 0px !important;
   padding: 0px !important;
   border: none !important;
   background: transparent !important;
-  overflow: hidden; /* Ensure no content accidentally shows */
+  overflow: hidden;
 }
 
-/* The div counter CSS block that was previously here (commented or uncommented) is now removed */
+/* For theme-7, style the video feed title bar to be shorter */
+.theme-7 .video-feed-title-bar {
+  height: 12px !important; /* New reduced height, approx 50% of typical 21-25px */
+  min-height: 12px !important;
+  padding: 0 3px !important; /* Keep horizontal padding, remove vertical for controls (if any) */
+  background: transparent !important; /* To let parent's .glass effect show through */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important; /* Light separator for glass */
+  overflow: hidden; /* Hide any overflow */
+  display: flex; /* Standard for title-bar */
+  align-items: center; /* Standard for title-bar */
+}
+
+/* Ensure the .title-bar-text inside video feed title bars (which is empty) doesn't add height or show */
+.theme-7 .video-feed-title-bar .title-bar-text {
+    display: none !important;
+}
+
+/*
+.div-debug-label {
+  position: relative;
+}
+
+.div-debug-label::before {
+  content: attr(data-debug-id);
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(255, 0, 0, 0.7);
+  color: white;
+  font-size: 10px;
+  padding: 1px 3px;
+  z-index: 9999;
+  border-radius: 3px;
+  pointer-events: none;
+}
+*/
