@@ -20,36 +20,35 @@ const server = http.createServer((req, res) => {
   // Set CORS headers for all responses from this HTTP server.
   if (originToAllow) {
     res.setHeader('Access-Control-Allow-Origin', originToAllow);
-  } else {
-    // Fallback or block if origin is not in the allowed list and it's a CORS-relevant request
-    // For simplicity, if no origin or not in list, we don't set the header here for non-OPTIONS.
-    // Socket.IO's own CORS handling will manage its specific paths.
   }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    if (originToAllow) { // Only respond with 204 if origin is allowed
+    if (originToAllow) { 
         res.writeHead(204); // No Content
     } else {
-        // If origin not allowed for OPTIONS, could send 403, but 204 is often fine to end preflight.
-        // Or let it fall through if stricter blocking is desired. For now, just end.
-        res.writeHead(403);
+        res.writeHead(403); // Forbidden if origin not allowed for OPTIONS
     }
     res.end();
     return;
   }
 
-  // For non-OPTIONS requests, handle them or let Socket.IO handle its path.
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: "ok", online: onlineUserCount, waitingText: waitingUsers.text.length, waitingVideo: waitingUsers.video.length }));
+    res.end(JSON.stringify({ 
+      status: "ok", 
+      onlineUserCount: onlineUserCount,
+      waitingTextChat: waitingUsers.text.length,
+      waitingVideoChat: waitingUsers.video.length
+    }));
   } else if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Socket.IO Server is running and configured for CORS.\n');
   } else {
-    // Let Socket.IO handle its own path or return 404 for other paths
+    // Socket.IO handles its own path, other paths can be 404 or handled as needed
+    // For simplicity, we let them fall through; Socket.IO itself will handle /socket.io/ paths
   }
 });
 
@@ -103,7 +102,7 @@ function removeFromWaitingLists(socketId: string) {
 const findMatch = (currentUser: User): User | null => {
   const allWaitingForType = waitingUsers[currentUser.chatType];
   // Filter out the current user from potential partners
-  const potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
+  let potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
 
   if (potentialPartners.length === 0) {
     console.log(`[MATCH_LOGIC] No potential partners for ${currentUser.id} in ${currentUser.chatType} list.`);
@@ -115,26 +114,27 @@ const findMatch = (currentUser: User): User | null => {
     for (let i = 0; i < potentialPartners.length; i++) {
       const partner = potentialPartners[i];
       if (partner.interests && partner.interests.some(interest => currentUser.interests.includes(interest))) {
-        // Found an interest-based match, remove from the main waiting list
+        // Found an interest-based match, remove from the *main* waiting list
         const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === partner.id);
         if (originalIndexInWaitingList > -1) {
           console.log(`[MATCH_LOGIC] Interest match found: ${currentUser.id} with ${partner.id} on interests: ${partner.interests.filter(interest => currentUser.interests.includes(interest)).join(', ')}`);
           return allWaitingForType.splice(originalIndexInWaitingList, 1)[0];
         }
-        // This case should ideally not happen if potentialPartners is derived from allWaitingForType
+        // This case should ideally not happen if potentialPartners is derived from allWaitingForType,
+        // but good to log if it does.
         console.warn(`[MATCH_LOGIC_WARN] Interest-matched partner ${partner.id} selected from potential list but not found in main waiting list for splicing.`);
       }
     }
-    console.log(`[MATCH_LOGIC] No interest-based match for ${currentUser.id}. Proceeding to random match.`);
+    console.log(`[MATCH_LOGIC] No interest-based match for ${currentUser.id}. Proceeding to random match from remaining partners.`);
   }
 
-  // If no interest-based match, or user had no interests, or selected partner was not in main list, proceed to random match.
-  // We need to pick from the *current state* of allWaitingForType (after any potential splices above).
-  // Re-filter potential partners from the *current* state of `allWaitingForType` before random selection.
-  const currentPotentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
-  if (currentPotentialPartners.length > 0) {
-    const randomIndex = Math.floor(Math.random() * currentPotentialPartners.length);
-    const randomPartnerToMatch = currentPotentialPartners[randomIndex]; // Get the partner from the current potential list
+  // If no interest-based match, or user had no interests, proceed to random match.
+  // Re-filter potential partners from the *current* state of `allWaitingForType`
+  // as an interest-based match might have removed someone.
+  potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id);
+  if (potentialPartners.length > 0) {
+    const randomIndex = Math.floor(Math.random() * potentialPartners.length);
+    const randomPartnerToMatch = potentialPartners[randomIndex]; // Get the partner
     
     // Now remove this randomly selected partner from the main `allWaitingForType` list
     const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === randomPartnerToMatch.id);
@@ -168,7 +168,7 @@ io.on('connection', (socket: Socket) => {
     lastMatchRequest[socket.id] = now;
 
     console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} looking for ${chatType} chat with interests: ${interests.join(', ')}`);
-    removeFromWaitingLists(socket.id); // Ensure user is not in any waiting list before trying to find a new partner
+    removeFromWaitingLists(socket.id); 
     const currentUser: User = { id: socket.id, interests, chatType };
     
     const matchedPartner = findMatch(currentUser);
@@ -176,7 +176,7 @@ io.on('connection', (socket: Socket) => {
     if (matchedPartner) {
       const partnerSocket = io.sockets.sockets.get(matchedPartner.id);
       if (partnerSocket && partnerSocket.connected) {
-        const roomId = `${currentUser.id}#${Date.now()}`; // Added timestamp for more unique room ID
+        const roomId = `${currentUser.id}#${Date.now()}`;
         rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
 
         socket.join(roomId);
@@ -187,13 +187,11 @@ io.on('connection', (socket: Socket) => {
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
         console.error(`[MATCH_FAIL] Partner ${matchedPartner.id} socket not found or disconnected. Re-queuing both users.`);
-        // Re-add matchedPartner to the front of their list if they are not already there
         const isMatchedPartnerWaiting = waitingUsers[matchedPartner.chatType].some(user => user.id === matchedPartner.id);
         if (!isMatchedPartnerWaiting) {
-            waitingUsers[matchedPartner.chatType].unshift(matchedPartner);
+            waitingUsers[matchedPartner.chatType].unshift(matchedPartner); // Add to front of queue
             console.log(`[WAITING_LIST] Re-added ${matchedPartner.id} to waiting list for ${matchedPartner.chatType}.`);
         }
-        // Add currentUser back to their list if not already there (should be rare here)
         const isCurrentUserWaiting = waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id);
         if (!isCurrentUserWaiting) {
             waitingUsers[currentUser.chatType].push(currentUser);
@@ -202,7 +200,6 @@ io.on('connection', (socket: Socket) => {
         socket.emit('waitingForPartner');
       }
     } else {
-      // No partner found, add current user to waiting list if not already there
       const isCurrentUserWaiting = waitingUsers[chatType].some(user => user.id === socket.id);
       if (!isCurrentUserWaiting) {
         waitingUsers[chatType].push(currentUser);
@@ -226,6 +223,7 @@ io.on('connection', (socket: Socket) => {
   socket.on('webrtcSignal', ({ roomId, signalData }: { roomId: string, signalData: any }) => {
      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
         socket.to(roomId).emit('webrtcSignal', signalData);
+        // console.log(`[WEBRTC_SIGNAL] User ${socket.id} sent signal in room ${roomId}:`, signalData.type || Object.keys(signalData)[0]);
      } else {
         console.warn(`[WEBRTC_SIGNAL_WARN] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent.`);
      }
@@ -269,7 +267,7 @@ io.on('connection', (socket: Socket) => {
             }
             delete rooms[roomId];
             console.log(`[ROOM_CLOSED] Room ${roomId} closed due to user ${socket.id} disconnecting. Active rooms: ${Object.keys(rooms).length}`);
-            break; // User can only be in one room at a time
+            break; 
         }
     }
   };
@@ -279,14 +277,13 @@ io.on('connection', (socket: Socket) => {
         const room = rooms[roomId];
         const partnerId = room.users.find(id => id !== socket.id);
 
-        // Make the current user leave the Socket.IO room
         socket.leave(roomId); 
 
         if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
              if (partnerSocket && partnerSocket.connected) {
                 partnerSocket.emit('partnerLeft');
-                partnerSocket.leave(roomId); // Also make the partner leave the room
+                partnerSocket.leave(roomId); 
                 console.log(`[ROOM_EVENT] User ${socket.id} left room ${roomId}. Notified partner ${partnerId}. Both removed from room.`);
             } else {
                 console.log(`[ROOM_EVENT_WARN] Partner ${partnerId} of user ${socket.id} (leaving manually) not found or disconnected.`);
@@ -308,6 +305,4 @@ server.listen(PORT, () => {
   console.log(`[SERVER_START] Socket.IO server running on port ${PORT}`);
 });
 
-// Export {} is used to ensure this file is treated as a module
-// especially when using 'isolatedModules': true in tsconfig.json
 export {};
