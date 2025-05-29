@@ -164,7 +164,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
   const listRef = useRef<List>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Declare messagesEndRef
+  const messagesEndRef = useRef<HTMLDivElement>(null); 
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
   const itemHeight = 30;
@@ -179,6 +179,14 @@ const VideoChatPageClientContent: React.FC = () => {
   const [emojisLoading, setEmojisLoading] = useState(true);
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
+  
+  // Moved these declarations earlier
+  const inputAreaHeight = 60;
+  const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
+  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
+
 
   const addMessage = useCallback((text: string, sender: Message['sender']) => {
     setMessages((prevMessages) => {
@@ -351,8 +359,6 @@ const VideoChatPageClientContent: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
-
 
   useEffect(() => {
     const useReactWindowList = scrollableChatHeight > 0 && chatListContainerWidth > 0;
@@ -502,6 +508,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null); 
         setPartnerInterests([]);
+        addMessage('You have disconnected from the chat.', 'system');
         setIsFindingPartner(true); 
         socket.emit('findPartner', { chatType: 'video', interests });
 
@@ -570,10 +577,6 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [isEmojiPickerOpen]);
 
 
-  const inputAreaHeight = 60;
-  const scrollableChatHeight = chatListContainerHeight > inputAreaHeight ? chatListContainerHeight - inputAreaHeight : 0;
-  const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
-
   if (!isMounted) {
     return (
       <div className="flex flex-1 items-center justify-center p-4">
@@ -593,12 +596,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm",
-              effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
-              effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
+              "title-bar text-sm video-feed-title-bar",
+              effectivePageTheme === 'theme-98' && 'video-feed-title-bar', // This already hides it for theme-98
+              effectivePageTheme === 'theme-7' && 'text-black' // For theme-7, it's shorter due to video-feed-title-bar rules
             )}>
             <div className="title-bar-text">
-             {/* Text removed, but div kept for structure if needed by theme-7 styling */}
+             {/* Text removed, content is styled by video-feed-title-bar rules */}
             </div>
           </div>
           <div
@@ -629,12 +632,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm",
+              "title-bar text-sm video-feed-title-bar",
                effectivePageTheme === 'theme-98' && 'video-feed-title-bar',
-               effectivePageTheme === 'theme-7' && 'video-feed-title-bar text-black' 
+               effectivePageTheme === 'theme-7' && 'text-black' 
             )}>
             <div className="title-bar-text">
-                {/* Text removed, but div kept for structure if needed by theme-7 styling */}
+                {/* Text removed, content is styled by video-feed-title-bar rules */}
             </div>
           </div>
           <div
@@ -703,9 +706,9 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="h-full overflow-y-auto p-1"> {/* Fallback with padding */}
+              <div className="h-full overflow-y-auto p-1"> 
                {messages.map((msg, index) => (
-                   <div key={msg.id} className="mb-1"> {/* Simple div wrapper for each message, with bottom margin */}
+                   <div key={msg.id} className="mb-1"> 
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
                 ))}
@@ -805,10 +808,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-    
-
-    
-
-    
-
     
