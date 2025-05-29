@@ -40,7 +40,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
 
   const parts = [];
   let lastIndex = 0;
-  const regex = /:([a-zA-Z0-9_.-]+?):/g; 
+  const regex = /:([a-zA-Z0-9_.-]+?):/g;
   let match;
 
   while ((match = regex.exec(text)) !== null) {
@@ -72,7 +72,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
   if (lastIndex < text.length) {
     parts.push(text.substring(lastIndex));
   }
-  
+
   return parts.length > 0 ? parts : [text];
 };
 
@@ -108,7 +108,7 @@ const Row = React.memo(({ index, style, data }: ListChildComponentProps<ItemData
     (previousSender === 'me' || previousSender === 'partner') &&
     (currentMessage.sender === 'me' || currentMessage.sender === 'partner') &&
     currentMessage.sender !== previousSender;
-  
+
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(currentMessage.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
     : [currentMessage.text]; // For theme-7, render plain text
@@ -261,9 +261,9 @@ const VideoChatPageClientContent: React.FC = () => {
         if (!peerConnectionRef.current) {
              if (isPartnerConnected && roomId && !peerConnectionRef.current && newSocket) {
                 console.log("VideoChatPage: Receiving signal before local PC setup, attempting setup now (non-initiator).");
-                await setupWebRTC(newSocket, roomId, false); 
+                await setupWebRTC(newSocket, roomId, false);
             }
-            if (!peerConnectionRef.current) { 
+            if (!peerConnectionRef.current) {
                 console.error("VideoChatPage: PeerConnection not initialized, cannot handle signal", signalData);
                 return;
             }
@@ -274,7 +274,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData));
                 const answer = await peerConnectionRef.current.createAnswer();
                 await peerConnectionRef.current.setLocalDescription(answer);
-                if (newSocket && roomId) { 
+                if (newSocket && roomId) {
                    newSocket.emit('webrtcSignal', { roomId, signalData: answer });
                    console.log("VideoChatPage: Sent answer");
                 } else {
@@ -346,7 +346,7 @@ const VideoChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -407,11 +407,11 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (isMounted && hasCameraPermission === undefined) { 
+    if (isMounted && hasCameraPermission === undefined) {
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]); 
+  }, [isMounted]);
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -486,29 +486,29 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { 
+    if (isPartnerConnected) {
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false); 
+        cleanupConnections(false);
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        addMessage('You have disconnected.', 'system');
+        // addMessage('You have disconnected.', 'system'); // This will be handled by the useEffect
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
 
-    } else if (isFindingPartner) { 
+    } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
+        // setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner')))); // This will be handled by the useEffect
         addMessage('Stopped searching for a partner.', 'system');
-    } else { 
+    } else {
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) { 
-            const stream = await getCameraStream(); 
-            if (!stream) { 
-                return; 
+        if (hasCameraPermission === undefined) {
+            const stream = await getCameraStream();
+            if (!stream) {
+                return;
             }
         }
         setIsFindingPartner(true);
@@ -544,9 +544,9 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        const emojiIcon = document.getElementById('emoji-icon-trigger-video'); 
+        const emojiIcon = document.getElementById('emoji-icon-trigger-video');
         if (emojiIcon && emojiIcon.contains(event.target as Node)) {
-          return; 
+          return;
         }
         setIsEmojiPickerOpen(false);
       }
@@ -580,7 +580,7 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '200px'}}
+          style={{width: '250px', height: '220px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
@@ -610,7 +610,7 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '200px'}}
+          style={{width: '250px', height: '220px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
@@ -681,8 +681,8 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="h-full overflow-y-auto"> 
-               {messages.map((msg, index) => ( 
+              <div className="h-full overflow-y-auto">
+               {messages.map((msg, index) => (
                    <div key={msg.id}> {/* Ensure key is on the direct child of map */}
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
@@ -720,7 +720,7 @@ const VideoChatPageClientContent: React.FC = () => {
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
                 <div className="relative ml-1 flex-shrink-0">
                   <img
-                    id="emoji-icon-trigger-video" 
+                    id="emoji-icon-trigger-video"
                     src={currentEmojiIconUrl}
                     alt="Emoji"
                     className="w-5 h-5 cursor-pointer inline-block"
@@ -745,7 +745,7 @@ const VideoChatPageClientContent: React.FC = () => {
                               className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
-                                setIsEmojiPickerOpen(false); 
+                                setIsEmojiPickerOpen(false);
                               }}
                               data-ai-hint="emoji symbol"
                             />
