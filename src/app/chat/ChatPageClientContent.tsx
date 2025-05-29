@@ -12,14 +12,14 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { listEmojis } from '@/ai/flows/list-emojis-flow';
 
-// Constants for Emojis
+// Constants for Emojis - Defined at the top level
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
-const STATIC_DISPLAY_EMOJI_FILENAMES = [ // For the hover-cycle display icon
+const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
   'cry.png', 'embarrassed.png', 'kiss.png', 'moneymouth.png', 'sad.png',
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
-const SMILE_EMOJI_FILENAME = 'smile.png'; // Default display icon
+const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 
@@ -56,12 +56,12 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle"
+          className="inline h-5 w-5 mx-0.5 align-middle" // Size for emojis in chat messages
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]);
+      parts.push(match[0]); // If no match, keep the original shortcode text
     }
     lastIndex = regex.lastIndex;
   }
@@ -104,7 +104,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const messageContent = theme === 'theme-98' 
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [message.text];
+    : [message.text]; // For theme-7, render plain text (or implement theme-7 specific emoji rendering if needed)
 
 
   return (
@@ -230,13 +230,8 @@ const ChatPageClientContent: React.FC = () => {
       // System message for "Searching..." handled by other useEffect
     });
 
-    newSocket.on('noPartnerFound', () => { // This event implies the user was waiting but server couldn't find a match now.
-        setIsFindingPartner(false); // Stop showing "Searching..."
-        if (!isPartnerConnected) { // If not already in a chat
-             // We could add a message like "No partner found currently, still waiting..."
-             // Or just revert to a state where they can click "Find Partner" again.
-             // For now, let's just ensure they are not stuck in "Finding" state if server explicitly says no one.
-        }
+    newSocket.on('noPartnerFound', () => { 
+        setIsFindingPartner(false); 
     });
 
     newSocket.on('receiveMessage', ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
@@ -252,13 +247,9 @@ const ChatPageClientContent: React.FC = () => {
 
     newSocket.on('disconnect', (reason) => {
         console.log("ChatPage: Disconnected from socket server. Reason:", reason);
-        if (reason === 'io server disconnect') { // This can happen if the server restarts or explicitly disconnects the client
-            newSocket.connect(); // Attempt to reconnect
+        if (reason === 'io server disconnect') { 
+            newSocket.connect(); 
         }
-        // If we were connected or finding a partner, we might want to reset state here
-        // setIsPartnerConnected(false);
-        // setIsFindingPartner(false); // Or set a specific "disconnected" state
-        // addMessage('Disconnected from server.', 'system');
     });
 
     newSocket.on('connect_error', (err) => {
@@ -283,7 +274,7 @@ const ChatPageClientContent: React.FC = () => {
           description: "Could not load emojis for the picker.",
           variant: "destructive",
         });
-        setPickerEmojiFilenames([]); // Ensure it's an empty array on error
+        setPickerEmojiFilenames([]);
       } finally {
         setEmojisLoading(false);
       }
@@ -301,7 +292,7 @@ const ChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Dependencies like toast, addMessage, interests are stable or memoized.
+  }, []); 
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -324,28 +315,24 @@ const ChatPageClientContent: React.FC = () => {
         return;
     }
 
-    if (isPartnerConnected) { // User clicks "Disconnect"
+    if (isPartnerConnected) { 
         socket.emit('leaveChat', { roomId });
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        // Clear partner-specific system messages
         setMessages(prev => prev.filter(msg =>
           !(msg.sender === 'system' &&
             (msg.text.toLowerCase().includes('connected with a partner') ||
              msg.text.toLowerCase().includes('you both like')))
         ));
         addMessage('You have disconnected.', 'system');
-        // Automatically start searching again
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
-    } else if (isFindingPartner) { // User clicks "Stop Searching"
+    } else if (isFindingPartner) { 
         setIsFindingPartner(false);
-        // Clear searching message
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
-        // Potentially tell server to remove from waiting list if that's implemented
-    } else { // User clicks "Find Partner"
+    } else { 
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'text', interests });
     }
@@ -376,6 +363,10 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        const emojiIcon = document.getElementById('emoji-icon-trigger'); // Assuming you add this ID to the img
+        if (emojiIcon && emojiIcon.contains(event.target as Node)) {
+          return; // Do nothing if the click was on the emoji icon itself
+        }
         setIsEmojiPickerOpen(false);
       }
     };
@@ -469,10 +460,10 @@ const ChatPageClientContent: React.FC = () => {
                 className="flex-1 w-full px-1 py-1"
                 disabled={!isPartnerConnected || isFindingPartner}
               />
-              {/* Emoji Icon and Picker - Only for theme-98 and if emojis are loaded */}
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
-                <div className="relative ml-1 flex-shrink-0"> {/* Emoji Wrapper */}
+                <div className="relative ml-1 flex-shrink-0">
                   <img
+                    id="emoji-icon-trigger"
                     src={currentEmojiIconUrl}
                     alt="Emoji"
                     className="w-5 h-5 cursor-pointer inline-block"
@@ -484,19 +475,20 @@ const ChatPageClientContent: React.FC = () => {
                   {isEmojiPickerOpen && (
                     <div
                       ref={emojiPickerRef}
-                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
+                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window" // Ensure this is styled like a 98.css window
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
                       {pickerEmojiFilenames.length > 0 ? (
-                        <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1"> {/* Apply fixed height and scroll */}
+                        <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
                           {pickerEmojiFilenames.map((filename) => (
                             <img
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="cursor-pointer hover:bg-navy hover:p-0.5" // Removed w-6 h-6
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
+                                setIsEmojiPickerOpen(false); // Close picker after selection
                               }}
                               data-ai-hint="emoji symbol"
                             />
@@ -509,7 +501,6 @@ const ChatPageClientContent: React.FC = () => {
                   )}
                 </div>
               )}
-              {/* Placeholder for when emojis are initially loading for theme-98 */}
               {effectivePageTheme === 'theme-98' && emojisLoading && (
                  <div className="relative ml-1 flex-shrink-0">
                     <p className="text-xs p-1">...</p>
@@ -534,4 +525,6 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
+    
+
     
