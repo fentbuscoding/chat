@@ -223,7 +223,7 @@ const VideoChatPageClientContent: React.FC = () => {
     setIsMounted(true);
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
-        console.error("Socket server URL is not defined.");
+        console.error("VideoChatPage: Socket server URL is not defined.");
         toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
         return;
     }
@@ -407,11 +407,11 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (isMounted && hasCameraPermission === undefined) { // Only attempt if mounted and permission status unknown
+    if (isMounted && hasCameraPermission === undefined) { 
         getCameraStream();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]); // getCameraStream is memoized.
+  }, [isMounted]); 
 
 
   const setupWebRTC = useCallback(async (currentSocket: Socket, currentRoomId: string, initiator: boolean) => {
@@ -492,11 +492,6 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setMessages(prev => prev.filter(msg =>
-          !(msg.sender === 'system' &&
-            (msg.text.toLowerCase().includes('connected with a partner') ||
-             msg.text.toLowerCase().includes('you both like')))
-        ));
         addMessage('You have disconnected.', 'system');
         setIsFindingPartner(true);
         socket.emit('findPartner', { chatType: 'video', interests });
@@ -549,7 +544,7 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        const emojiIcon = document.getElementById('emoji-icon-trigger-video'); // Unique ID for video page
+        const emojiIcon = document.getElementById('emoji-icon-trigger-video'); 
         if (emojiIcon && emojiIcon.contains(event.target as Node)) {
           return; 
         }
@@ -583,7 +578,7 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : ''
+            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
           style={{width: '250px', height: '200px'}}
         >
@@ -613,7 +608,7 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : ''
+            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
           )}
           style={{width: '250px', height: '200px'}}
         >
@@ -703,7 +698,7 @@ const VideoChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
                <Button
                 onClick={handleFindOrDisconnectPartner}
-                disabled={(hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner) || !socket}
+                disabled={(hasCameraPermission === undefined && !isPartnerConnected && !isFindingPartner) || !socket || (!isFindingPartner && !isPartnerConnected && !socket?.connected)}
                 className={cn(
                   'mr-1',
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
@@ -723,7 +718,7 @@ const VideoChatPageClientContent: React.FC = () => {
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
                 <div className="relative ml-1 flex-shrink-0">
                   <img
-                    id="emoji-icon-trigger-video" // Unique ID for video page
+                    id="emoji-icon-trigger-video" 
                     src={currentEmojiIconUrl}
                     alt="Emoji"
                     className="w-5 h-5 cursor-pointer inline-block"
@@ -745,10 +740,10 @@ const VideoChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
-                                setIsEmojiPickerOpen(false); // Close picker after selection
+                                setIsEmojiPickerOpen(false); 
                               }}
                               data-ai-hint="emoji symbol"
                             />

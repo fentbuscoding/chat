@@ -104,7 +104,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const messageContent = theme === 'theme-98' 
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [message.text]; // For theme-7, render plain text (or implement theme-7 specific emoji rendering if needed)
+    : [message.text]; // For theme-7, render plain text
 
 
   return (
@@ -205,7 +205,7 @@ const ChatPageClientContent: React.FC = () => {
     setIsMounted(true);
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
-        console.error("Socket server URL is not defined.");
+        console.error("ChatPage: Socket server URL is not defined.");
         toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
         return;
     }
@@ -320,16 +320,12 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setMessages(prev => prev.filter(msg =>
-          !(msg.sender === 'system' &&
-            (msg.text.toLowerCase().includes('connected with a partner') ||
-             msg.text.toLowerCase().includes('you both like')))
-        ));
-        addMessage('You have disconnected.', 'system');
-        setIsFindingPartner(true);
+        addMessage('You have disconnected.', 'system'); // Add this first
+        setIsFindingPartner(true); // Then set finding partner
         socket.emit('findPartner', { chatType: 'text', interests });
     } else if (isFindingPartner) { 
         setIsFindingPartner(false);
+         // Remove "Searching for partner..." message if it exists
         setMessages(prev => prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))));
         addMessage('Stopped searching for a partner.', 'system');
     } else { 
@@ -363,9 +359,9 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        const emojiIcon = document.getElementById('emoji-icon-trigger'); // Assuming you add this ID to the img
+        const emojiIcon = document.getElementById('emoji-icon-trigger'); 
         if (emojiIcon && emojiIcon.contains(event.target as Node)) {
-          return; // Do nothing if the click was on the emoji icon itself
+          return; 
         }
         setIsEmojiPickerOpen(false);
       }
@@ -443,7 +439,7 @@ const ChatPageClientContent: React.FC = () => {
             <div className="flex items-center w-full">
               <Button
                 onClick={handleFindOrDisconnectPartner}
-                disabled={!socket && !isFindingPartner && !isPartnerConnected}
+                disabled={!socket || (!isFindingPartner && !isPartnerConnected && !socket?.connected)}
                 className={cn(
                   'mr-1',
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
@@ -475,7 +471,7 @@ const ChatPageClientContent: React.FC = () => {
                   {isEmojiPickerOpen && (
                     <div
                       ref={emojiPickerRef}
-                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window" // Ensure this is styled like a 98.css window
+                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
                       {pickerEmojiFilenames.length > 0 ? (
@@ -485,10 +481,10 @@ const ChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
-                                setIsEmojiPickerOpen(false); // Close picker after selection
+                                setIsEmojiPickerOpen(false); 
                               }}
                               data-ai-hint="emoji symbol"
                             />
