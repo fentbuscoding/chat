@@ -580,10 +580,9 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '198px'}}
+          style={{width: '325px', height: '198px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text"></div>
           </div>
           <div
             className={cn(
@@ -610,10 +609,9 @@ const VideoChatPageClientContent: React.FC = () => {
             'window flex flex-col m-2',
             effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
-          style={{width: '250px', height: '198px'}}
+          style={{width: '325px', height: '198px'}}
         >
           <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text"></div>
           </div>
           <div
             className={cn(
@@ -683,7 +681,7 @@ const VideoChatPageClientContent: React.FC = () => {
             ) : (
               <div className="h-full overflow-y-auto">
                {messages.map((msg, index) => (
-                   <div key={msg.id}> {/* Ensure key is on the direct child of map */}
+                   <div key={msg.id}>
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
                 ))}
