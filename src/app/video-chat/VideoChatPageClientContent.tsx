@@ -321,11 +321,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setEmojisLoading(true);
         const emojiList = await listEmojis();
         setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch emojis for picker:", error);
         toast({
           title: "Emoji Error",
-          description: "Could not load emojis for the picker.",
+          description: `Could not load emojis for the picker. ${error.message || ''}`,
           variant: "destructive",
         });
         setPickerEmojiFilenames([]);
@@ -492,8 +492,9 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsPartnerConnected(false);
         setRoomId(null);
         setPartnerInterests([]);
-        addMessage('You have disconnected. Searching for a new partner...', 'system');
-        setIsFindingPartner(true);
+        // Add "You have disconnected" first, then "Searching for a new partner"
+        addMessage('You have disconnected.', 'system');
+        setIsFindingPartner(true); // This will trigger the "Searching..." message via useEffect
         socket.emit('findPartner', { chatType: 'video', interests });
 
     } else if (isFindingPartner) {
@@ -511,7 +512,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 return;
             }
         }
-        setIsFindingPartner(true);
+        setIsFindingPartner(true); // This will trigger the "Searching..." message via useEffect
         socket.emit('findPartner', { chatType: 'video', interests });
     }
   }, [
@@ -582,12 +583,14 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : '')}>
+             {effectivePageTheme === 'theme-7' && <div className="title-bar-text">Your Video</div>}
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative p-0',
-               effectivePageTheme === 'theme-7' && 'bg-white/30'
+              'window-body flex-grow overflow-hidden relative',
+               effectivePageTheme === 'theme-7' && 'bg-white/30',
+               effectivePageTheme === 'theme-98' && 'p-0' 
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -611,12 +614,14 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : '')}>
+            {effectivePageTheme === 'theme-7' && <div className="title-bar-text">Partner's Video</div>}
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative p-0',
-              effectivePageTheme === 'theme-7' && 'bg-white/30'
+              'window-body flex-grow overflow-hidden relative',
+              effectivePageTheme === 'theme-7' && 'bg-white/30',
+              effectivePageTheme === 'theme-98' && 'p-0' 
               )}
           >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
@@ -780,6 +785,8 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+    
+
     
 
     
