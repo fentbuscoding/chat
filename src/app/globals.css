@@ -237,15 +237,12 @@ video {
 }
 
 /* Ensure title bar text is left-aligned and has shadow in theme-7 */
-.theme-7 .title-bar .title-bar-text {
+/* Also applies to non-glass windows */
+.theme-7 .title-bar-text {
   color: #000; 
   flex-grow: 1; 
   text-align: left !important; 
   text-shadow: 0 1px 1px rgba(0,0,0,0.4); /* Added text shadow */
-}
-/* Fallback for non-glass windows in theme-7 or ensure general title bar has it */
-.theme-7 .title-bar-text {
-  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
 }
 
 
@@ -302,8 +299,17 @@ video {
 .theme-7-text-shadow {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-    
-/* Debugging: Numbered divs - REMOVED */
+
+/* Styles for empty title bars of video feed windows */
+.video-feed-title-bar {
+  height: 0px !important;
+  min-height: 0px !important;
+  padding: 0px !important;
+  border: none !important;
+  background: transparent !important;
+  overflow: hidden; /* Ensure no content accidentally shows */
+}
+
 /*
 body {
   counter-reset: div-counter;
@@ -323,4 +329,5 @@ div::before {
   vertical-align: baseline;
 }
 */
+
 

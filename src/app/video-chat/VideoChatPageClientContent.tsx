@@ -578,11 +578,11 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
+            effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
           </div>
           <div
@@ -608,11 +608,11 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : (effectivePageTheme === 'theme-98' ? 'no-padding-window-body' : '')
+            effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
           style={{width: '250px', height: '200px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+          <div className={cn("title-bar text-sm video-feed-title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="title-bar-text"></div>
           </div>
           <div
@@ -645,15 +645,15 @@ const VideoChatPageClientContent: React.FC = () => {
       >
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
+           {effectivePageTheme === 'theme-7' && (
+            <img
+                src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+                alt="Decorative Goldfish"
+                className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
+                data-ai-hint="goldfish decoration"
+            />
+           )}
         </div>
-        {effectivePageTheme === 'theme-7' && (
-          <img
-            src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-            alt="Decorative Goldfish"
-            className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-20"
-            data-ai-hint="goldfish decoration"
-          />
-        )}
         <div
           ref={chatListContainerRef}
           className={cn(
