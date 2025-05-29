@@ -2,12 +2,24 @@
 import http from 'http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 
-// Explicitly define the allowed origin for your frontend
-const allowedOrigin = "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app";
+// Define the allowed origins
+const allowedOrigins = [
+  "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Production
+  "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev" // Development
+  // Add other origins if needed, e.g., "http://localhost:3000" for local Next.js dev
+];
 
 const server = http.createServer((req, res) => {
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+  } else if (!requestOrigin && req.headers.host?.startsWith('localhost')) {
+    // Fallback for local development if origin header is not present (e.g. server-to-server or older tools)
+    // This part might not be strictly necessary for modern browser-based Socket.IO but can be a fallback.
+    // For browser clients, 'Origin' header is standard.
+    // res.setHeader('Access-Control-Allow-Origin', `http://${req.headers.host}`); // Example
+  }
+  
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Added Authorization as it's common
@@ -19,24 +31,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // For non-OPTIONS requests, provide a basic response or let Socket.IO handle it
-  // This part is mainly for non-Socket.IO paths or a root path check.
+  // For non-OPTIONS requests, provide a basic response or let Socket.IO handle it.
   if (req.url === '/' || req.url === '/health') { // Added a simple health check endpoint
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Socket.IO Server is running.\n');
   } else {
-    // For other paths not handled by Socket.IO, you might return 404
-    // However, Socket.IO will handle its own /socket.io/ path
-    // For simplicity, if it's not a handled path, let's just give a generic response
-    // or let Socket.IO's underlying engine decide if it's a Socket.IO request.
-    // If it's not an OPTIONS or / path, and Socket.IO doesn't handle it,
-    // it might not need an explicit response here unless you have other HTTP routes.
+    // Let Socket.IO handle its own path
   }
 });
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: allowedOrigin,
+    origin: allowedOrigins, // Use the array of allowed origins
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -136,6 +142,7 @@ io.on('connection', (socket: Socket) => {
       if (partnerSocket) {
         partnerSocket.join(roomId);
         console.log(`Partner found for ${currentUser.id} and ${matchedPartner.id}. Room: ${roomId}`);
+        // Include partner's interests in the partnerFound event
         socket.emit('partnerFound', { partnerId: matchedPartner.id, roomId, interests: matchedPartner.interests });
         partnerSocket.emit('partnerFound', { partnerId: currentUser.id, roomId, interests: currentUser.interests });
       } else {
@@ -242,5 +249,3 @@ server.listen(PORT, () => {
 
 // Export an empty object to satisfy TypeScript's module requirements if no other exports exist
 export {};
-
-    
