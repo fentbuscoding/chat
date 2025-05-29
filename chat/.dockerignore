@@ -1,24 +1,39 @@
 node_modules
-.npm
 npm-debug.log
+logs
 *.log
-.DS_Store
 
-# Next.js specific folders (not needed for the standalone Socket.IO server)
+# Next.js frontend specific directories and files
 .next/
-out/
+src/
+components/
+public/
+# The 'chat' directory is the root of this build context, so don't list 'chat/'
 
-# Git folder
+# Next.js frontend files
+next-env.d.ts
+next.config.ts
+postcss.config.mjs
+tailwind.config.ts
+components.json
+studio.code-workspace
+README.md
+unknown
+
+# Git files
 .git/
 .gitignore
 
-# IDE/Editor specific
+# Service account key - should not be in the image
+chitchatconnect-aqa0w-c9e0b73cf349.json
+
+# Build artifacts from other processes if any
+dist/
+build/
+coverage/
+
+# Editor and OS specific files
 .vscode/
-studio.code-workspace
-
-# Service account keys - should not be in the image
-*.json
-
-# Other sensitive files or large unnecessary files
-# e.g., README.md (optional, can be small)
-# docs/ (if large and not needed by server)
+.idea/
+*.DS_Store
+Thumbs.db

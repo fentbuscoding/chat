@@ -1,31 +1,29 @@
-# Dockerfile for the Socket.IO server (server/index.ts)
+# Use an official Node.js runtime as a parent image
 FROM node:20-slim
 
-# Create app directory
+# Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
+# Copy package.json and package-lock.json (or npm-shrinkwrap.json)
+# These are copied first to leverage Docker cache for dependencies
 COPY package*.json ./
 
-# Install all dependencies, including devDependencies needed for tsx and typescript
-# npm ci is generally recommended for CI/CD as it uses package-lock.json strictly
+# Install ALL dependencies (including devDependencies like tsx and typescript, as tsx needs them)
+# npm ci installs based on package-lock.json and is recommended for CI/build environments
 RUN npm ci
 
-# Bundle app source by copying all files from the build context.
-# .dockerignore will control what gets copied.
-COPY . .
+# Copy only the necessary source files for the server
+# This assumes your server code is in the 'server' directory and tsx needs tsconfig.json
+COPY ./server ./server
+COPY tsconfig.json ./tsconfig.json
 
-# Your server in server/index.ts listens on process.env.PORT || 3001.
-# Google Cloud Run sets the PORT environment variable (typically to 8080).
-# EXPOSE is documentation for humans and for Docker to map ports if run locally,
-# but Cloud Run uses the PORT env var to route traffic.
+# The port your app will run on. Cloud Run sets the PORT env var (usually 8080).
+# Your server/index.ts (process.env.PORT || 3001) will pick this up.
 EXPOSE 8080
 
-# Set environment to production
+# Set the environment to production. This can affect how some Node.js libraries behave.
 ENV NODE_ENV=production
 
-# Start the server using tsx
-# npx ensures that tsx (if installed locally in node_modules/.bin) is found
+# Command to run your application using tsx
+# tsx will compile and run server/index.ts directly. No 'watch' needed for production.
 CMD [ "npx", "tsx", "server/index.ts" ]
