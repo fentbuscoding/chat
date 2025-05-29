@@ -485,7 +485,7 @@ const ChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="cursor-pointer hover:bg-navy hover:p-0.5" // Removed w-6 h-6
+                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                                 setIsEmojiPickerOpen(false); // Close picker after selection
@@ -525,6 +525,4 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-    
-
     

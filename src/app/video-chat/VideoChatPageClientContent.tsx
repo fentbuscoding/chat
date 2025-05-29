@@ -583,7 +583,7 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
           style={{width: '250px', height: '200px'}}
         >
@@ -613,7 +613,7 @@ const VideoChatPageClientContent: React.FC = () => {
         <div
           className={cn(
             'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : 'no-padding-window-body'
+            effectivePageTheme === 'theme-7' ? 'glass' : ''
           )}
           style={{width: '250px', height: '200px'}}
         >
@@ -745,7 +745,7 @@ const VideoChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="cursor-pointer hover:bg-navy hover:p-0.5" // Removed w-6 h-6
+                              className="w-6 h-6 cursor-pointer hover:bg-navy hover:p-0.5"
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                                 setIsEmojiPickerOpen(false); // Close picker after selection
@@ -785,6 +785,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-    
-
     
