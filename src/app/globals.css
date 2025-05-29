@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /* For debugging purposes: outline all elements */
-/* * {
+* {
   outline: 1px solid red !important;
-} */
+}
 
 :root {
   --accent-purple: #A020F0; /* Define the vivid purple accent color */
@@ -310,7 +310,7 @@ video {
   overflow: hidden; /* Ensure no content accidentally shows */
 }
 
-/*
+
 body {
   counter-reset: div-counter;
 }
@@ -328,6 +328,5 @@ div::before {
   -ms-user-select: none;
   vertical-align: baseline;
 }
-*/
 
 
