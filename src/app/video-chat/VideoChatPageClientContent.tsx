@@ -583,14 +583,13 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : '')}>
-             {effectivePageTheme === 'theme-7' && <div className="title-bar-text">Your Video</div>}
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : (effectivePageTheme === 'theme-7' ? 'text-black' : ''))}>
+             {effectivePageTheme === 'theme-7' && <div className="title-bar-text"></div>}
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative',
-               effectivePageTheme === 'theme-7' && 'bg-white/30',
-               effectivePageTheme === 'theme-98' && 'p-0' 
+              'window-body flex-grow overflow-hidden relative p-0',
+               effectivePageTheme === 'theme-7' && 'bg-white/30'
             )}
           >
             <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
@@ -614,14 +613,13 @@ const VideoChatPageClientContent: React.FC = () => {
           )}
           style={{width: '325px', height: '198px'}}
         >
-          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : '')}>
-            {effectivePageTheme === 'theme-7' && <div className="title-bar-text">Partner's Video</div>}
+          <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : (effectivePageTheme === 'theme-7' ? 'text-black' : ''))}>
+            {effectivePageTheme === 'theme-7' && <div className="title-bar-text"></div>}
           </div>
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative',
-              effectivePageTheme === 'theme-7' && 'bg-white/30',
-              effectivePageTheme === 'theme-98' && 'p-0' 
+              'window-body flex-grow overflow-hidden relative p-0',
+              effectivePageTheme === 'theme-7' && 'bg-white/30'
               )}
           >
             <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
@@ -684,9 +682,9 @@ const VideoChatPageClientContent: React.FC = () => {
                 {Row}
               </List>
             ) : (
-              <div className="h-full overflow-y-auto">
+              <div className="h-full overflow-y-auto"> {/* Fallback for when List can't render */}
                {messages.map((msg, index) => (
-                   <div key={msg.id}>
+                   <div key={msg.id}> {/* Simple div wrapper for each message */}
                     <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                    </div>
                 ))}
@@ -785,6 +783,8 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+    
+
     
 
     
