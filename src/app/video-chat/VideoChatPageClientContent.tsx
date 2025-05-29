@@ -583,7 +583,7 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text">Your Video</div>
+            <div className="title-bar-text"></div>
           </div>
           <div
             className={cn(
@@ -613,7 +613,7 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '250px', height: '200px'}}
         >
           <div className={cn("title-bar text-sm", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="title-bar-text">Partner's Video</div>
+            <div className="title-bar-text"></div>
           </div>
           <div
             className={cn(
@@ -683,7 +683,9 @@ const VideoChatPageClientContent: React.FC = () => {
             ) : (
               <div className="h-full overflow-y-auto"> 
                {messages.map((msg, index) => ( 
-                   <Row key={`${msg.id}-${index}`} index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
+                   <div key={msg.id}> {/* Ensure key is on the direct child of map */}
+                    <Row index={index} style={{ width: '100%' }} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
+                   </div>
                 ))}
               </div>
             )}
