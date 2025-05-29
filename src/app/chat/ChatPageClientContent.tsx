@@ -317,7 +317,7 @@ const ChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addMessage, toast, interests]); // Removed roomId from dep array as it causes re-connects. Cleanup handles roomId.
+  }, [addMessage, toast, interests]); // Include all stable and changing dependencies
 
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98'; // Use default for SSR, actual for client
@@ -528,7 +528,7 @@ const ChatPageClientContent: React.FC = () => {
                 onClick={handleFindOrDisconnectPartner}
                 disabled={!socket || (!isFindingPartner && !isPartnerConnected && !socket?.connected)}
                 className={cn(
-                  'mr-1', // Reduced margin
+                  'mr-1', 
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
@@ -540,7 +540,7 @@ const ChatPageClientContent: React.FC = () => {
                 onChange={handleInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 w-full px-1 py-1" // Ensure it takes available space
+                className="flex-1 w-full px-1 py-1" 
                 disabled={!isPartnerConnected || isFindingPartner}
               />
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
@@ -549,7 +549,7 @@ const ChatPageClientContent: React.FC = () => {
                     id="emoji-icon-trigger"
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-5 h-5 cursor-pointer inline-block" // Made inline-block for consistency
+                    className="w-5 h-5 cursor-pointer inline-block" 
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -593,7 +593,7 @@ const ChatPageClientContent: React.FC = () => {
                 onClick={handleSendMessage}
                 disabled={!isPartnerConnected || isFindingPartner || !newMessage.trim()}
                 className={cn(
-                  'ml-1', // Reduced margin
+                  'ml-1', 
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
@@ -608,5 +608,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
-    

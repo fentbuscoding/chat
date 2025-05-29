@@ -167,7 +167,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
 
   const listRef = useRef<List>(null);
-  // const messagesEndRef = useRef<HTMLDivElement>(null); // Keep this for the fallback non-virtualized list
+  const messagesEndRef = useRef<HTMLDivElement>(null); 
   const chatListContainerRef = useRef<HTMLDivElement>(null);
   const { width: chatListContainerWidth, height: chatListContainerHeight } = useElementSize(chatListContainerRef);
   
@@ -362,7 +362,7 @@ const VideoChatPageClientContent: React.FC = () => {
             console.error("VideoChatPage: Error creating offer:", error);
         }
     }
-  }, [getCameraStream, toast, cleanupConnections]); // Added cleanupConnections
+  }, [getCameraStream, toast, cleanupConnections]);
 
 
   useEffect(() => {
@@ -375,7 +375,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'] // Explicitly define transports
+      transports: ['websocket', 'polling'] 
     });
     setSocket(newSocket);
 
@@ -420,11 +420,7 @@ const VideoChatPageClientContent: React.FC = () => {
         try {
             if (signalData.type === 'offer' && pc.signalingState !== 'stable') {
                 console.log("VideoChatPage: Received offer, but signaling state is not stable. Potentially ignoring.", pc.signalingState);
-                // Handle glare or ignore if already processing an offer
                 if (pc.signalingState === 'have-local-offer' && signalData.sdp !== pc.localDescription?.sdp) {
-                    // Basic glare handling: if we have a local offer and this is a remote offer,
-                    // we might need more sophisticated logic, or one side needs to "win".
-                    // For now, if we already have a local offer, we might ignore this incoming one if it's not an answer.
                     console.warn("VideoChatPage: Glare condition? Have local offer, received another offer.");
                     return; 
                 }
@@ -437,7 +433,7 @@ const VideoChatPageClientContent: React.FC = () => {
                  } else {
                      console.error("VideoChatPage: Socket or RoomID missing, cannot send answer.");
                  }
-            } else if (signalData.type === 'offer') { // Standard offer handling
+            } else if (signalData.type === 'offer') { 
                 console.log("VideoChatPage: Received offer");
                 await pc.setRemoteDescription(new RTCSessionDescription(signalData));
                 const answer = await pc.createAnswer();
@@ -457,12 +453,10 @@ const VideoChatPageClientContent: React.FC = () => {
                 }
             } else if (signalData.candidate) {
                 console.log("VideoChatPage: Received ICE candidate");
-                // Only add candidate if remote description is set
                 if (pc.remoteDescription) {
                     await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
                 } else {
                     console.warn("VideoChatPage: Received ICE candidate but remote description not set. Caching or ignoring.")
-                    // Implement caching if needed, for now, logging
                 }
             }
         } catch (error) {
@@ -472,9 +466,9 @@ const VideoChatPageClientContent: React.FC = () => {
 
     newSocket.on('partnerLeft', () => {
         addMessage('Your partner has disconnected.', 'system');
-        cleanupConnections(false); // Don't stop local stream, user might want to find new partner
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
-        setIsPartnerTyping(false); // Clear partner typing state
+        setIsPartnerTyping(false); 
         setRoomId(null);
         setPartnerInterests([]);
     });
@@ -485,7 +479,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     newSocket.on('disconnect', (reason) => {
         console.log("VideoChatPage: Disconnected from socket server. Reason:", reason);
-        cleanupConnections(true); // Full cleanup, including local stream
+        cleanupConnections(true); 
         setIsPartnerConnected(false);
         setIsFindingPartner(false);
         setRoomId(null);
@@ -515,7 +509,7 @@ const VideoChatPageClientContent: React.FC = () => {
           description: `Could not load emojis for the picker. ${specificErrorMessage}`,
           variant: "destructive",
         });
-        setPickerEmojiFilenames([]); // Ensure it's an empty array on error
+        setPickerEmojiFilenames([]); 
       } finally {
         setEmojisLoading(false);
       }
@@ -525,7 +519,7 @@ const VideoChatPageClientContent: React.FC = () => {
     return () => {
       cleanupConnections(true);
       if (newSocket && newSocket.connected) {
-        if (roomId) newSocket.emit('leaveChat', { roomId }); // Explicitly leave room on unmount if in one
+        if (roomId) newSocket.emit('leaveChat', { roomId }); 
         newSocket.disconnect();
       }
       if (hoverIntervalRef.current) {
@@ -536,7 +530,7 @@ const VideoChatPageClientContent: React.FC = () => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream]); // Added getCameraStream
+  }, [addMessage, toast, interests, setupWebRTC, cleanupConnections, getCameraStream]); 
 
 
   useEffect(() => {
@@ -546,7 +540,6 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [isMounted, hasCameraPermission, getCameraStream]);
 
   const itemHeight = 30; 
-  // Use chatListContainerHeight for List height calculation directly if available
   const listHeight = chatListContainerHeight > (INPUT_AREA_HEIGHT + (isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0)) 
                      ? chatListContainerHeight - (INPUT_AREA_HEIGHT + (isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0)) 
                      : 0;
@@ -554,11 +547,13 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const itemData = useMemo(() => ({ messages, theme: effectivePageTheme, pickerEmojiFilenames }), [messages, effectivePageTheme, pickerEmojiFilenames]);
 
-  // Effect for scrolling to the bottom of the chat
-  // This effect is now simpler, using listRef which is always for react-window
   useEffect(() => {
-    if (listRef.current && messages.length > 0 && listHeight > 0 && chatListContainerWidth > 0) {
-      listRef.current.scrollToItem(messages.length - 1, "end");
+    if (listHeight > 0 && chatListContainerWidth > 0) { // Ensure dimensions are positive
+        if (listRef.current && messages.length > 0) {
+            listRef.current.scrollToItem(messages.length - 1, "end");
+        }
+    } else if (messagesEndRef.current) { // Fallback to simple scroll if react-window isn't ready/rendered
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, listHeight, chatListContainerWidth]);
 
@@ -603,15 +598,15 @@ const VideoChatPageClientContent: React.FC = () => {
     setNewMessage(e.target.value);
      if (!socket || !roomId || !isPartnerConnected) return;
 
-    if (!typingTimeoutRef.current) { // If not already typing, emit start
+    if (!typingTimeoutRef.current) { 
       socket.emit('typing_start', { roomId });
-    } else { // If already typing, clear existing timeout to extend it
+    } else { 
       clearTimeout(typingTimeoutRef.current);
     }
 
     typingTimeoutRef.current = setTimeout(() => {
       stopLocalTyping();
-    }, 2000); // User is considered to have stopped typing if no input for 2 seconds
+    }, 2000); 
   }, [socket, roomId, isPartnerConnected, setNewMessage, stopLocalTyping]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
@@ -623,7 +618,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected && roomId) { 
         socket.emit('leaveChat', { roomId });
-        cleanupConnections(false); // Don't stop local stream immediately
+        cleanupConnections(false); 
         addMessage('You have disconnected. Searching for a new partner...', 'system');
         setIsPartnerConnected(false);
         setRoomId(null);
@@ -641,10 +636,10 @@ const VideoChatPageClientContent: React.FC = () => {
             toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
             return;
         }
-        if (hasCameraPermission === undefined) { // Attempt to get permission if status is unknown
+        if (hasCameraPermission === undefined) { 
             const stream = await getCameraStream(); 
             if (!stream) { 
-                return; // getCameraStream will show a toast if permission denied
+                return; 
             }
         }
         setIsFindingPartner(true);
@@ -715,8 +710,8 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar", 
-              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar', 
+              "title-bar text-sm", 
+              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7-video-feed-title-bar', 
               effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
@@ -751,8 +746,8 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar", 
-               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar', 
+              "title-bar text-sm", 
+               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7-video-feed-title-bar', 
                effectivePageTheme === 'theme-7' ? 'text-black' : '' 
             )}>
             <div className="title-bar-text">
@@ -807,7 +802,7 @@ const VideoChatPageClientContent: React.FC = () => {
         >
           <div
             className={cn(
-              "flex-grow overflow-y-auto", // Message list area
+              "flex-grow overflow-y-auto", 
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
              style={{ height: `calc(100% - ${INPUT_AREA_HEIGHT}px - ${isPartnerTyping ? TYPING_INDICATOR_HEIGHT : 0}px)` }}
@@ -817,24 +812,21 @@ const VideoChatPageClientContent: React.FC = () => {
                 ref={listRef}
                 height={listHeight}
                 itemCount={messages.length}
-                itemSize={itemHeight} // This should be an estimate of average row height
-                width={chatListContainerWidth} // Ensure this is available and positive
+                itemSize={itemHeight} 
+                width={chatListContainerWidth} 
                 itemData={itemData}
-                className="scroll-area-viewport" // Added for consistency if ScrollArea styles are used
+                className="scroll-area-viewport" 
               >
                 {Row}
               </List>
             ) : (
-              // Fallback for when react-window cannot be used (e.g., container not sized yet)
-              // This part is simplified and might not be seen if react-window conditions are met quickly.
-               <div className="h-full overflow-y-auto p-1"> {/* Ensure fallback list is scrollable */}
+               <div className="h-full overflow-y-auto p-1"> 
                  {messages.map((msg, index) => (
-                    // Directly render Row, no explicit style needed here as it's not virtualized
                     <div key={msg.id}> 
                      <Row index={index} style={{width: '100%'}} data={{messages: messages, theme: effectivePageTheme, pickerEmojiFilenames: pickerEmojiFilenames }} />
                     </div>
                  ))}
-                 {/* <div ref={messagesEndRef} /> Ref for simple scrollIntoView if not using react-window */}
+                 <div ref={messagesEndRef} />
                </div>
             )}
           </div>
@@ -941,5 +933,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-
-    

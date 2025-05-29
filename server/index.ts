@@ -311,5 +311,3 @@ server.listen(PORT, () => {
 // Export {} is used to ensure this file is treated as a module
 // especially when using 'isolatedModules': true in tsconfig.json
 export {};
-
-    
