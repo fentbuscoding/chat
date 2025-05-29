@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -14,9 +14,16 @@ import { useToast } from '@/hooks/use-toast';
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [usersOnline, setUsersOnline] = useState<number | null>(null);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Simulate fetching users online
+    const randomUsers = Math.floor(Math.random() * 200) + 50; // Random number between 50 and 250
+    setUsersOnline(randomUsers);
+  }, []);
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -71,17 +78,12 @@ export default function SelectionLobby() {
     }
 
     let path: string;
-    const queryString = params.toString(); // Get query string once
+    const queryString = params.toString(); 
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { // text chat
-        // For text chat, if params already has 'interests', 'type=text' will be added.
-        // If params is empty, it will just be 'type=text'.
-        const textParams = new URLSearchParams(queryString); // Create new params to avoid modifying original for video
-        textParams.append('type', 'text'); // Keep 'type' parameter for text chat for clarity or future use
-        const textQueryString = textParams.toString();
-        path = `/chat${textQueryString ? `?${textQueryString}` : ''}`;
+    } else { 
+        path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
 
     console.log(`SelectionLobby: Attempting to navigate to path: ${path}`);
@@ -103,8 +105,22 @@ export default function SelectionLobby() {
 
   return (
     <div className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative"> {/* Added relative positioning */}
         <CardHeader>
+          <div className="absolute top-2 right-2 flex items-center text-xs">
+            <img 
+              src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true" 
+              alt="Green light" 
+              className="w-3 h-3 mr-1"
+              data-ai-hint="green light indicator"
+            />
+            {usersOnline !== null ? (
+              <span className="font-bold mr-1">{usersOnline}</span>
+            ) : (
+              <span className="font-bold mr-1">...</span> 
+            )}
+            <span>Users Online!</span>
+          </div>
           <CardTitle>Welcome to Ballscord!</CardTitle>
           <CardDescription>
             Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
@@ -116,7 +132,7 @@ export default function SelectionLobby() {
             <div
               className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
               onClick={focusInput}
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjusted to better fit content
+              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
             >
               {selectedInterests.map((interest) => (
                 <div
