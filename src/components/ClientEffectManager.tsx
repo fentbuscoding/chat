@@ -25,7 +25,7 @@ export function ClientEffectManager() {
     // Stop all cursors initially to prevent multiple active if preferences change
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
-    document.body.style.cursor = 'auto';
+    document.body.style.cursor = 'auto'; // Good default
 
     const savedNekoActive = localStorage.getItem('nekoActive');
     const savedAnimatedCursorUrl = localStorage.getItem('animatedCursorUrl');
@@ -33,14 +33,15 @@ export function ClientEffectManager() {
 
     if (savedNekoActive === 'true') {
       window.startOriginalOneko?.();
-      document.body.style.cursor = 'auto';
+      document.body.style.cursor = 'auto'; // Neko is an overlay, system cursor should be auto
     } else if (savedAnimatedCursorUrl) {
       window.startAnimatedGifCursor?.(savedAnimatedCursorUrl);
-      document.body.style.cursor = 'none';
+      document.body.style.cursor = 'none'; // Hide system cursor for JS animated GIF
     } else if (savedStaticCursorUrl) {
       document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
     } else {
-      document.body.style.cursor = 'auto';
+      // This is the case for "Default Cursor" - ensure it's auto
+      document.body.style.cursor = 'auto'; // Explicitly set for default
     }
 
     const handleMouseOver = (event: MouseEvent) => {
@@ -48,15 +49,13 @@ export function ClientEffectManager() {
       const isInteractive = target.closest('button, a, select, input, textarea, [role="button"], [role="tab"]');
 
       if (isInteractive) {
-        const isNekoActive = localStorage.getItem('nekoActive') === 'true';
         const isAnimatedGifActive = !!localStorage.getItem('animatedCursorUrl');
+        // const isNekoActive = localStorage.getItem('nekoActive') === 'true'; // Neko should not hide
 
-        if (isAnimatedGifActive && !isNekoActive) { // Hide generic animated cursor if it's the active one
+        if (isAnimatedGifActive) { 
           window.hideAnimatedGifCursor?.();
         }
-        if (isNekoActive) { // Always hide Neko if it's active
-          window.hideOriginalOneko?.();
-        }
+        // Neko (OriginalOneko) is no longer hidden on hover
         // CSS :hover rules in globals.css will take care of showing system pointer/text cursor
       }
     };
@@ -69,15 +68,13 @@ export function ClientEffectManager() {
       }
 
       if (!isStillOverInteractive && target.closest('button, a, select, input, textarea, [role="button"], [role="tab"]')) {
-        const isNekoActive = localStorage.getItem('nekoActive') === 'true';
         const isAnimatedGifActive = !!localStorage.getItem('animatedCursorUrl');
+        // const isNekoActive = localStorage.getItem('nekoActive') === 'true'; // Neko should not be shown based on hover out
 
-        if (isAnimatedGifActive && !isNekoActive) {
+        if (isAnimatedGifActive) {
           window.showAnimatedGifCursor?.();
         }
-        if (isNekoActive) {
-          window.showOriginalOneko?.();
-        }
+        // Neko (OriginalOneko) is no longer shown based on hover out
       }
     };
 
@@ -87,6 +84,10 @@ export function ClientEffectManager() {
     return () => {
       document.body.removeEventListener('mouseover', handleMouseOver);
       document.body.removeEventListener('mouseout', handleMouseOut);
+      // Optionally, stop cursors when the component unmounts (e.g., on full page navigation if this manager was per-page)
+      // For a root layout, this cleanup might only run on app close, which is fine.
+      // window.stopOriginalOneko?.();
+      // window.stopAnimatedGifCursor?.();
     };
   }, []);
 
