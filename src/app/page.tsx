@@ -215,7 +215,7 @@ export default function SelectionLobby() {
       </div>
       <footer className="mt-auto py-4 text-center">
         <div className="max-w-md mx-auto"> {/* Container to align with card and center the line */}
-          <div className="w-1/2 mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div> {/* The styled line */}
+          <div className="w-full mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div> {/* The styled line */}
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} TinChat. All rights reserved.
