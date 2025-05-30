@@ -1,17 +1,32 @@
-/* public/win98themes/pink-theme.css */
+/* pink-theme.css */
 
-/* Apply wallpaper to the body for theme-98 when this sub-theme is active */
-html.theme-98 body {
-    background-image: url('/wallpapers/bows4.png') !important;
-    background-repeat: repeat !important;
-    background-attachment: fixed !important; /* Keep wallpaper fixed during scroll */
-    background-size: auto !important; /* Let the image repeat at its natural size */
-}
-
+/* Override base window colors for a pink theme */
 .theme-98 .window {
-    background-color: #FFC0CB !important; /* Pink */
+    /* background-color: #FFC0CB !important; Pink background */
+    /* border-color: #FF69B4 !important; Hot pink border */
 }
 
 .theme-98 .window-body {
-    background-color: #FFF0F5 !important; /* LavenderBlush, a lighter pink */
+    /* background-color: #FFF0F5 !important; Lavender blush body */
+    /* color: #333 !important; Darker text for readability */
+}
+
+/* Example: Pink title bar for active window */
+.theme-98 .window.active > .title-bar {
+    /* background: linear-gradient(to right, #FF69B4, #FFB6C1) !important; Pink gradient */
+}
+
+/* Example: Change button appearance */
+.theme-98 button {
+    /* background-color: #FFDAE0 !important; Light pink buttons */
+    /* border-color: #FF85A1 !important; */
+    /* color: #AD1457 !important; Dark pink text */
+}
+
+/* Apply bows.png wallpaper for the body when pink theme is active under theme-98 */
+.theme-98 body {
+    background-image: url('/wallpapers/bows.png') !important;
+    background-repeat: repeat !important;
+    background-attachment: fixed !important; /* Keep background fixed */
+    background-size: auto !important; /* Repeat at natural size */
 }
