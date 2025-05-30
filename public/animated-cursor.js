@@ -1,83 +1,77 @@
 
-(function animatedCursorScope() {
-  let cursorEl = null;
-  let mousePosX = 0;
-  let mousePosY = 0;
-  let animationFrameId = null;
-  const cursorSize = 32; // Default size, can be adjusted
+// animated-cursor.js - Generic animated GIF cursor follower
 
-  function onMouseMove(event) {
-    mousePosX = event.clientX;
-    mousePosY = event.clientY;
+(function() {
+  if (window.hasRunAnimatedGifCursor) {
+    // console.log("Animated GIF Cursor: Already initialized, skipping.");
+    return;
+  }
+  window.hasRunAnimatedGifCursor = true;
+
+  let followerEl = null;
+  let isFollowing = false;
+  let currentGifUrl = null;
+
+  function createFollowerElement() {
+    if (document.getElementById("animated-gif-cursor-follower")) {
+      followerEl = document.getElementById("animated-gif-cursor-follower");
+      return;
+    }
+    followerEl = document.createElement("div");
+    followerEl.id = "animated-gif-cursor-follower";
+    followerEl.style.position = "fixed";
+    followerEl.style.width = "32px"; // Default size, can be overridden by GIF
+    followerEl.style.height = "32px";
+    followerEl.style.backgroundRepeat = "no-repeat";
+    followerEl.style.backgroundPosition = "center";
+    followerEl.style.backgroundSize = "contain"; // Or "auto" or "cover" depending on desired effect
+    followerEl.style.pointerEvents = "none"; // Crucial
+    followerEl.style.zIndex = "9998"; // Below Neko if both active, adjust as needed
+    followerEl.style.display = "none"; // Initially hidden
+    document.body.appendChild(followerEl);
   }
 
-  function updatePosition() {
-    if (cursorEl) {
-      cursorEl.style.left = `${mousePosX - cursorSize / 2}px`;
-      cursorEl.style.top = `${mousePosY - cursorSize / 2}px`;
-    }
-    animationFrameId = requestAnimationFrame(updatePosition);
+  function updatePosition(event) {
+    if (!isFollowing || !followerEl) return;
+    // Adjust to center the GIF on the cursor or offset as desired
+    followerEl.style.left = `${event.clientX}px`;
+    followerEl.style.top = `${event.clientY}px`;
   }
 
-  window.startAnimatedCursor = function (gifUrl) {
-    if (!gifUrl) return;
-
-    // Stop any existing animated cursor
-    if (window.stopAnimatedCursor) {
-      window.stopAnimatedCursor();
+  window.startAnimatedGifCursor = function(gifUrl) {
+    if (!followerEl) {
+      createFollowerElement();
     }
-     // Stop Neko specifically if it was running under old name
-    if (typeof window.stopOneko === 'function') {
-        window.stopOneko();
+    
+    if (isFollowing && currentGifUrl === gifUrl) return; // Already running with this GIF
+
+    currentGifUrl = gifUrl;
+    followerEl.style.backgroundImage = `url('${gifUrl}')`;
+    followerEl.style.display = "block";
+    
+    if (!isFollowing) {
+      document.addEventListener("mousemove", updatePosition);
+      document.addEventListener("mouseenter", () => { if(followerEl) followerEl.style.display = "block"; });
+      document.addEventListener("mouseleave", () => { if(followerEl) followerEl.style.display = "none"; });
     }
-
-
-    if (!cursorEl) {
-      cursorEl = document.createElement("div");
-      cursorEl.id = "animated-cursor-element";
-      cursorEl.style.width = `${cursorSize}px`;
-      cursorEl.style.height = `${cursorSize}px`;
-      cursorEl.style.position = "fixed";
-      cursorEl.style.pointerEvents = "none";
-      cursorEl.style.imageRendering = "pixelated"; // Good for pixel art GIFs
-      cursorEl.style.zIndex = "99999"; // Keep it on top
-      // Ensure no default cursor is shown over the page
-      document.body.style.cursor = 'none';
-    }
-
-    cursorEl.style.backgroundImage = `url('${gifUrl}')`;
-    cursorEl.style.backgroundSize = "contain"; // Or "cover" or "auto" depending on desired effect
-    cursorEl.style.backgroundRepeat = "no-repeat";
-    cursorEl.style.backgroundPosition = "center";
-
-    if (!document.body.contains(cursorEl)) {
-      document.body.appendChild(cursorEl);
-    }
-
-    document.addEventListener("mousemove", onMouseMove);
-    animationFrameId = requestAnimationFrame(updatePosition);
+    isFollowing = true;
+    document.body.style.cursor = 'none'; // Hide system cursor
+    // console.log("Animated GIF Cursor: Started with", gifUrl);
   };
 
-  window.stopAnimatedCursor = function () {
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-    document.removeEventListener("mousemove", onMouseMove);
-    if (cursorEl && document.body.contains(cursorEl)) {
-      document.body.removeChild(cursorEl);
-    }
-    cursorEl = null; // Reset the element
-    // Restore default system cursor if no other custom cursor is set
-    if (!localStorage.getItem('selectedCursorUrl') && !localStorage.getItem('animatedCursorUrl')) {
-        document.body.style.cursor = 'auto';
-    }
+  window.stopAnimatedGifCursor = function() {
+    if (!isFollowing || !followerEl) return;
+    isFollowing = false;
+    currentGifUrl = null;
+    followerEl.style.display = "none";
+    followerEl.style.backgroundImage = "none";
+    document.removeEventListener("mousemove", updatePosition);
+    // document.body.style.cursor = 'auto'; // Restore system cursor only if Neko isn't also active
+    // console.log("Animated GIF Cursor: Stopped");
   };
-
-  // Clean up if the script is reloaded (e.g., during development with HMR)
-  // This is a simple check; more robust cleanup might be needed in complex scenarios.
-  if (document.getElementById("animated-cursor-element")) {
-     // Potentially stop a previously running instance if script re-evaluates
-     if(window.stopAnimatedCursor) window.stopAnimatedCursor();
+  
+  // Ensure element is created on script load so it's available
+  if (!followerEl) {
+    createFollowerElement();
   }
 })();

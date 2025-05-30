@@ -16,13 +16,6 @@ import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
 
-// Extend window type for animated cursor functions
-declare global {
-  interface Window {
-    startAnimatedCursor?: (gifUrl: string) => void;
-    stopAnimatedCursor?: () => void;
-  }
-}
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -43,24 +36,26 @@ export default function SelectionLobby() {
 
   useEffect(() => {
     // Apply stored cursor state on initial mount
+    const savedNekoActive = localStorage.getItem('nekoActive');
     const savedAnimatedCursorUrl = localStorage.getItem('animatedCursorUrl');
     const savedStaticCursorUrl = localStorage.getItem('selectedCursorUrl');
 
-    if (savedAnimatedCursorUrl) {
-      if (typeof window.startAnimatedCursor === 'function') {
-        window.startAnimatedCursor(savedAnimatedCursorUrl);
-        document.body.style.cursor = 'none'; // Hide system cursor
-      }
+    if (savedNekoActive === 'true') {
+      window.stopAnimatedGifCursor?.();
+      window.startOriginalOneko?.();
+      document.body.style.cursor = 'none'; // Neko provides its own visual
+    } else if (savedAnimatedCursorUrl) {
+      window.stopOriginalOneko?.();
+      window.startAnimatedGifCursor?.(savedAnimatedCursorUrl);
+      document.body.style.cursor = 'none'; // Animated GIF cursor hides system one
     } else if (savedStaticCursorUrl) {
-      if (typeof window.stopAnimatedCursor === 'function') {
-        window.stopAnimatedCursor(); // Stop animated cursor if it was active
-      }
+      window.stopOriginalOneko?.();
+      window.stopAnimatedGifCursor?.();
       document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
     } else {
       // Default state: no custom cursor, Neko not active
-      if (typeof window.stopAnimatedCursor === 'function') {
-        window.stopAnimatedCursor();
-      }
+      window.stopOriginalOneko?.();
+      window.stopAnimatedGifCursor?.();
       document.body.style.cursor = 'auto';
     }
   }, []);
@@ -70,7 +65,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0);
+      setUsersOnline(0); // Or handle error appropriately
       return;
     }
 
@@ -93,21 +88,22 @@ export default function SelectionLobby() {
       
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
+        // Disconnect after getting the count for the home page
         tempSocket?.disconnect();
       });
 
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); 
-        if (tempSocket?.connected) {
+        setUsersOnline(0); // Fallback or error state
+        if (tempSocket?.connected) { // Check before calling disconnect on potentially already disconnected socket
             tempSocket?.disconnect();
         }
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0);
+        setUsersOnline(0); // Fallback or error state
     }
 
     return () => {
@@ -221,35 +217,44 @@ export default function SelectionLobby() {
 
     if (isSettingsOpen) {
       window.addEventListener('resize', updatePosition);
+      updatePosition(); // Call once to position correctly on open
     }
     return () => window.removeEventListener('resize', updatePosition);
   }, [isSettingsOpen]);
 
 
   const handleCursorSelect = (cursorUrl: string) => {
-    if (typeof window.stopAnimatedCursor === 'function') {
-      window.stopAnimatedCursor(); // Stop any current animated cursor
-    }
+    const isNeko = cursorUrl.toLowerCase().includes('neko.gif');
+
+    // Stop any currently active custom cursor/Neko
+    window.stopOriginalOneko?.();
+    window.stopAnimatedGifCursor?.();
     document.body.style.cursor = 'auto'; // Reset to default first
 
-    if (cursorUrl.toLowerCase().endsWith('.gif')) {
-      if (typeof window.startAnimatedCursor === 'function') {
-        window.startAnimatedCursor(cursorUrl);
-        document.body.style.cursor = 'none'; // Hide system cursor for JS animated one
-        localStorage.setItem('animatedCursorUrl', cursorUrl);
-        localStorage.removeItem('selectedCursorUrl');
-      }
-    } else { // For .cur, .png, .ico
+    if (isNeko) {
+      window.startOriginalOneko?.();
+      document.body.style.cursor = 'none'; // Neko script might hide system cursor, or we can force it
+      localStorage.setItem('nekoActive', 'true');
+      localStorage.removeItem('animatedCursorUrl');
+      localStorage.removeItem('selectedCursorUrl');
+    } else if (cursorUrl.toLowerCase().endsWith('.gif')) {
+      window.startAnimatedGifCursor?.(cursorUrl);
+      document.body.style.cursor = 'none';
+      localStorage.setItem('animatedCursorUrl', cursorUrl);
+      localStorage.removeItem('nekoActive');
+      localStorage.removeItem('selectedCursorUrl');
+    } else { // For .cur, .png, .ico (static)
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
+      localStorage.removeItem('nekoActive');
       localStorage.removeItem('animatedCursorUrl');
     }
   };
 
   const handleDefaultCursor = () => {
-    if (typeof window.stopAnimatedCursor === 'function') {
-      window.stopAnimatedCursor();
-    }
+    window.stopOriginalOneko?.();
+    window.stopAnimatedGifCursor?.();
+    localStorage.removeItem('nekoActive');
     localStorage.removeItem('animatedCursorUrl');
     localStorage.removeItem('selectedCursorUrl');
     document.body.style.cursor = 'auto';
@@ -257,9 +262,9 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4">
-      <div className="flex-grow min-h-screen flex items-center justify-center">
-        <div ref={cardWrapperRef} className="w-full max-w-md">
+    <div className="flex flex-1 flex-col px-4 pt-4"> {/* Main page flex container */}
+      <div className="flex-grow min-h-screen flex items-center justify-center"> {/* Centering wrapper for card + settings */}
+        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for card to get its position */}
           <Card className="w-full relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -351,16 +356,16 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-10',
+            'fixed p-2 shadow-lg z-10', // Use fixed positioning
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
               : 'bg-silver border border-gray-400 rounded' 
           )}
           style={{
-            width: '250px',
+            width: '250px', // Fixed width for the panel
             top: `${panelPosition.top}px`,
             left: `${panelPosition.left}px`,
-            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, 
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, // Ensure it doesn't go off-screen vertically
             overflowY: 'auto'
           }}
         >
