@@ -107,7 +107,7 @@ video {
     padding: 0 !important;
 }
 .theme-98 .window-body.p-0\.5 {
-  padding: 0.5px !important;
+  padding: 2px !important; /* 98.css typically has a small padding, 0.5px is not standard */
 }
 
 
@@ -118,7 +118,7 @@ video {
 
 .theme-98 .themed-input {
     background-color: white;
-    border: 1px solid #808080;
+    border: 1px solid #808080; /* This is simplified, 98.css borders are more complex */
     box-shadow: inset 1px 1px #000, inset -1px -1px #dfdfdf, inset 2px 2px #808080, inset -2px -2px #fff;
 }
 
@@ -131,7 +131,7 @@ video {
     border: none !important;
     box-shadow: none !important;
     background-color: transparent !important;
-    padding: 0 !important;
+    padding: 0 !important; /* Adjusted for better integration */
     outline: none !important;
     flex-grow: 1;
     min-width: 60px;
@@ -154,7 +154,7 @@ video {
 
 .animate-rainbow-text-alt {
   animation: rainbow-text-animation 10s linear infinite;
-  animation-delay: 5s;
+  animation-delay: 5s; /* Stagger the animation for the second button */
 }
 
 
@@ -330,29 +330,13 @@ video {
     display: none !important;
 }
 
-/* For debugging purposes: outline all elements */
-/* * {
-  outline: 1px solid red !important;
-} */
+/* Hide scrollbar for Chrome, Safari and Opera */
+body::-webkit-scrollbar {
+  display: none;
+}
 
-/* For div container debugging labels */
-/*
+/* Hide scrollbar for IE, Edge and Firefox */
 body {
-  counter-reset: div-counter;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
-
-div::before {
-  counter-increment: div-counter;
-  content: "[D" counter(div-counter) "]";
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  background-color: rgba(0, 0, 255, 0.7);
-  color: white;
-  font-size: 8px;
-  padding: 0px 2px;
-  z-index: 10000;
-  border-radius: 2px;
-  pointer-events: none;
-}
-*/
