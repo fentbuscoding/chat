@@ -36,7 +36,7 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling'] // Good practice to include transports
+        transports: ['websocket', 'polling']
       });
 
       tempSocket.on('connect', () => {
@@ -46,23 +46,20 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        // Disconnect after getting the count to avoid keeping the socket open unnecessarily
         tempSocket?.disconnect();
       });
 
-      // This listener is mostly for real-time updates if the server broadcasts them.
-      // For a one-time fetch, the above onlineUserCount listener handles it.
       tempSocket.on('onlineUserCountUpdate', (count: number) => {
-        // If you want the lobby page to reflect real-time changes, you would update here
-        // and potentially keep the socket open. For now, it's fetched once.
-        // setUsersOnline(count);
+        // This could be used if the server proactively broadcasts updates,
+        // but for now, it's a one-time fetch on connect.
+        // setUsersOnline(count); 
       });
 
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); // Default to 0 on error
-        if (tempSocket?.connected) { // Check if connected before trying to disconnect
+        setUsersOnline(0); 
+        if (tempSocket?.connected) { 
             tempSocket?.disconnect();
         }
       });
@@ -73,17 +70,15 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Default to 0 on error
+        setUsersOnline(0); 
     }
 
-
-    // Cleanup function for useEffect
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
       }
     };
-  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+  }, []); 
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -117,7 +112,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); // Prevent click event from bubbling to the input focus handler
+    event?.stopPropagation(); 
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -131,7 +126,6 @@ export default function SelectionLobby() {
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
-    // Only add interests to params if there are any selected interests
     if (interestsString) {
         params.append('interests', interestsString);
     }
@@ -141,11 +135,11 @@ export default function SelectionLobby() {
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { // 'text'
+    } else { 
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
-  }, [router, selectedInterests, toast]); // router and toast are stable, selectedInterests is a dependency
+  }, [router, selectedInterests, toast]); 
 
 
   const focusInput = () => {
@@ -181,11 +175,11 @@ export default function SelectionLobby() {
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-2">
                 <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button className="p-0 w-[50px] h-[50px]" aria-label="Settings">
+                <Button className="p-0 w-[50px] h-[50px] flex items-center justify-center" aria-label="Settings">
                   <img
                     src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
                     alt="Settings"
-                    className="w-[50px] h-[50px] object-contain"
+                    className="max-w-full max-h-full object-contain"
                     data-ai-hint="settings icon"
                   />
                 </Button>
@@ -193,19 +187,18 @@ export default function SelectionLobby() {
               <div
                 className={cn(
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
-                  // Add theme-specific classes for border if needed, e.g., theme === 'theme-98' ? 'border-gray-400' : 'border-gray-300'
                 )}
                 onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Approximate height for one line of text + padding + border
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
               >
                 {selectedInterests.map((interest) => (
                   <div
                     key={interest}
-                    className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit" // Use h-fit for auto height
+                    className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
                   >
                     <span>{interest}</span>
                     <X
-                      size={14} // Adjust size as needed
+                      size={14} 
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
                       onClick={(e) => handleRemoveInterest(interest, e)}
                       aria-label={`Remove ${interest}`}
@@ -213,15 +206,15 @@ export default function SelectionLobby() {
                   </div>
                 ))}
                 <Input
-                  id="interests-input-field" // Added id for label association
+                  id="interests-input-field" 
                   ref={inputRef}
                   value={currentInterest}
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                   className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }} // Ensure input doesn't become too small
-                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests reached and no text in input
+                  style={{ minWidth: '80px' }} 
+                  disabled={selectedInterests.length >= 5 && !currentInterest} 
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
