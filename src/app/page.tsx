@@ -27,7 +27,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); 
+      setUsersOnline(0);
       return;
     }
 
@@ -36,7 +36,7 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling'] 
+        transports: ['websocket', 'polling']
       });
 
       tempSocket.on('connect', () => {
@@ -46,7 +46,7 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); 
+        tempSocket?.disconnect();
       });
 
       tempSocket.on('onlineUserCountUpdate', (count: number) => {
@@ -61,8 +61,8 @@ export default function SelectionLobby() {
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); 
-        if (tempSocket?.connected) { 
+        setUsersOnline(0);
+        if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
       });
@@ -73,7 +73,7 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); 
+        setUsersOnline(0);
     }
 
 
@@ -82,7 +82,7 @@ export default function SelectionLobby() {
         tempSocket?.disconnect();
       }
     };
-  }, []); 
+  }, []);
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -95,10 +95,10 @@ export default function SelectionLobby() {
       setCurrentInterest('');
     } else if (newInterest && selectedInterests.includes(newInterest)) {
       toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
-      setCurrentInterest(''); 
+      setCurrentInterest('');
     } else if (selectedInterests.length >= 5) {
       toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
-      setCurrentInterest(''); 
+      setCurrentInterest('');
     }
   }, [selectedInterests, toast]);
 
@@ -116,7 +116,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); 
+    event?.stopPropagation();
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -130,7 +130,7 @@ export default function SelectionLobby() {
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
-    if (interestsString) { 
+    if (interestsString) {
         params.append('interests', interestsString);
     }
 
@@ -139,7 +139,7 @@ export default function SelectionLobby() {
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { 
+    } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
@@ -152,8 +152,8 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4"> {/* Removed pb-16 */}
-      <div className="flex-grow min-h-screen flex items-center justify-center"> {/* Added min-h-screen */}
+    <div className="flex flex-1 flex-col px-4 pt-4">
+      <div className="flex-grow min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md relative">
           <CardHeader>
             <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -177,13 +177,23 @@ export default function SelectionLobby() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="interests-input-field">Your Interests</Label>
+              <div className="flex justify-between items-center mb-2">
+                <Label htmlFor="interests-input-field">Your Interests</Label>
+                <Button className="p-0 w-[50px] h-[50px]" aria-label="Settings">
+                  <img 
+                    src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true" 
+                    alt="Settings" 
+                    className="w-full h-full object-contain"
+                    data-ai-hint="settings icon"
+                  />
+                </Button>
+              </div>
               <div
                 className={cn(
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 )}
-                onClick={focusInput} 
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+                onClick={focusInput}
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -194,7 +204,7 @@ export default function SelectionLobby() {
                     <X
                       size={14}
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                      onClick={(e) => handleRemoveInterest(interest, e)} 
+                      onClick={(e) => handleRemoveInterest(interest, e)}
                       aria-label={`Remove ${interest}`}
                     />
                   </div>
@@ -206,9 +216,9 @@ export default function SelectionLobby() {
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" 
-                  style={{ minWidth: '80px' }} 
-                  disabled={selectedInterests.length >= 5 && !currentInterest} 
+                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
+                  style={{ minWidth: '80px' }}
+                  disabled={selectedInterests.length >= 5 && !currentInterest}
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -216,7 +226,7 @@ export default function SelectionLobby() {
               </p>
             </div>
           </CardContent>
-           <CardFooter className="flex justify-between space-x-4"> 
+           <CardFooter className="flex justify-between space-x-4">
              <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
                <span className="animate-rainbow-text">Start Text Chat</span>
              </Button>
@@ -227,7 +237,7 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        <div className="max-w-5xl mx-auto"> {/* Changed max-w-2xl to max-w-5xl */}
+        <div className="max-w-5xl mx-auto">
          <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
