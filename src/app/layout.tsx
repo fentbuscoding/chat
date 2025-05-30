@@ -39,7 +39,6 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     images: [openGraphImageUrl],
-    // No 'creator' or 'site' needed unless you have specific Twitter handles
   },
 };
 
@@ -58,19 +57,14 @@ export default function RootLayout({
         >
           <FirebaseAnalyticsProvider>
             <ConditionalTopBar />
-            <main className="flex-1 flex flex-col relative"> {/* Added relative for potential absolute children */}
-              {/* <img
-                src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-                alt="Decorative Goldfish"
-                className="absolute top-[-54px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-50"
-                data-ai-hint="goldfish decoration"
-              /> */}
+            <main className="flex-1 flex flex-col relative">
               {children}
             </main>
             <Toaster />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
-        {/* <Script src="/oneko.js" strategy="afterInteractive" /> */}
+        {/* Script to load oneko.js functions; it will be controlled programmatically */}
+        <Script src="/oneko.js" strategy="afterInteractive" />
       </body>
     </html>
   );

@@ -16,6 +16,14 @@ import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
 
+// Extend window type for oneko functions
+declare global {
+  interface Window {
+    startOneko?: () => void;
+    stopOneko?: () => void;
+  }
+}
+
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -32,6 +40,30 @@ export default function SelectionLobby() {
 
   const cardWrapperRef = useRef<HTMLDivElement>(null);
   const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    // Apply stored cursor or Neko state on initial mount
+    const savedCursorUrl = localStorage.getItem('selectedCursorUrl');
+    const nekoWasActive = localStorage.getItem('nekoActive') === 'true';
+
+    if (nekoWasActive) {
+      if (typeof window.startOneko === 'function') {
+        window.startOneko();
+      }
+      document.body.style.cursor = 'auto';
+    } else if (savedCursorUrl) {
+      if (typeof window.stopOneko === 'function') {
+        window.stopOneko();
+      }
+      document.body.style.cursor = `url(${savedCursorUrl}), auto`;
+    } else {
+      if (typeof window.stopOneko === 'function') {
+        window.stopOneko();
+      }
+      document.body.style.cursor = 'auto';
+    }
+  }, []);
+
 
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
@@ -64,10 +96,6 @@ export default function SelectionLobby() {
         if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
-      });
-
-      tempSocket.on('disconnect', () => {
-        // console.log("SelectionLobby: Disconnected from socket server for user count.");
       });
 
     } catch (error) {
@@ -184,17 +212,50 @@ export default function SelectionLobby() {
 
     if (isSettingsOpen) {
       window.addEventListener('resize', updatePosition);
-      updatePosition(); // Recalculate on open, in case of initial layout shifts
+      // updatePosition(); // Recalculate on open, in case of initial layout shifts (already done in handleToggleSettings)
     }
     return () => window.removeEventListener('resize', updatePosition);
   }, [isSettingsOpen]);
 
 
+  const handleCursorSelect = (cursorUrl: string) => {
+    if (cursorUrl.endsWith('neko.gif')) {
+      if (typeof window.stopOneko === 'function') { // Stop any previous custom cursor
+        // No explicit stop for default cursor, just ensure Neko stops if it was active
+      }
+      if (typeof window.startOneko === 'function') {
+        window.startOneko();
+      }
+      localStorage.setItem('nekoActive', 'true');
+      localStorage.removeItem('selectedCursorUrl');
+      document.body.style.cursor = 'auto'; // Neko is its own element
+    } else {
+      if (typeof window.stopOneko === 'function') {
+        window.stopOneko();
+      }
+      localStorage.removeItem('nekoActive');
+      document.body.style.cursor = `url(${cursorUrl}), auto`;
+      localStorage.setItem('selectedCursorUrl', cursorUrl);
+    }
+    setIsSettingsOpen(false); // Close settings panel after selection
+  };
+
+  const handleDefaultCursor = () => {
+    if (typeof window.stopOneko === 'function') {
+      window.stopOneko();
+    }
+    localStorage.removeItem('nekoActive');
+    localStorage.removeItem('selectedCursorUrl');
+    document.body.style.cursor = 'auto';
+    setIsSettingsOpen(false); // Close settings panel
+  };
+
+
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
       <div className="flex-grow min-h-screen flex items-center justify-center">
-        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for the Card to get its position */}
-          <Card className="w-full relative"> {/* Main Card */}
+        <div ref={cardWrapperRef} className="w-full max-w-md">
+          <Card className="w-full relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
@@ -283,25 +344,23 @@ export default function SelectionLobby() {
         </div>
       </div>
 
-      {/* Settings Panel - Positioned with 'fixed' */}
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 rounded-md shadow-lg z-10', // Use fixed positioning, ensure z-index
+            'fixed p-2 rounded-md shadow-lg z-10',
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 dark:bg-neutral-800 dark:bg-opacity-70 dark:border-neutral-600'
-              : 'bg-silver border border-gray-400' // For theme-98, panel itself is not a 'window'
+              : 'bg-silver border border-gray-400'
           )}
           style={{
-            width: '250px', // Fixed width for the panel
+            width: '250px',
             top: `${panelPosition.top}px`,
             left: `${panelPosition.left}px`,
-            // Add max-height and overflow-y if panel content might exceed viewport height
-            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, // 16px for some bottom margin
-            overflowY: 'auto' 
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`,
+            overflowY: 'auto'
           }}
         >
-          <div className={cn(currentTheme === 'theme-98' ? 'p-1' : 'p-1')}> {/* Inner padding consistent */}
+          <div className={cn(currentTheme === 'theme-98' ? 'p-1' : 'p-1')}>
             <menu role="tablist" className={cn(currentTheme === 'theme-98' ? 'mb-0.5' : 'mb-2 border-b border-gray-300 dark:border-gray-600')}>
               <li role="tab" aria-selected="true"
                   className={cn(
@@ -313,15 +372,18 @@ export default function SelectionLobby() {
                 <a>Cursors</a>
               </li>
             </menu>
-            <div // Tab panel content area
+            <div
               className={cn(
-                currentTheme === 'theme-98' ? 'sunken-panel' : '', // Sunken panel for 98.css content area
+                currentTheme === 'theme-98' ? 'sunken-panel' : '',
                 currentTheme === 'theme-7' ? 'bg-white bg-opacity-50 dark:bg-gray-700 dark:bg-opacity-50 border border-gray-300 dark:border-gray-600 rounded' : ''
               )}
               role="tabpanel"
               style={{ marginTop: currentTheme === 'theme-98' ? '1px' : '' }}
             >
               <div className={cn(currentTheme === 'theme-7' ? 'p-2' : 'p-1')}>
+                <Button onClick={handleDefaultCursor} className="w-full mb-2 text-xs">
+                  Default Cursor
+                </Button>
                 {cursorsLoading ? (
                   <p className="text-center">Loading cursors...</p>
                 ) : settingsError ? (
@@ -329,13 +391,13 @@ export default function SelectionLobby() {
                 ) : cursorImages.length > 0 ? (
                   <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
                     {cursorImages.map((url) => (
-                      <div key={url} className="flex items-center justify-center p-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700">
+                      <div key={url} className="flex items-center justify-center p-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
                         <img
                           src={url}
-                          alt="cursor"
+                          alt="cursor preview"
                           className="w-[30px] h-[30px] object-contain cursor-pointer"
-                          data-ai-hint="custom cursor"
-                          // onClick={() => applyCursor(url)} // Implement this later
+                          data-ai-hint="custom cursor preview"
+                          onClick={() => handleCursorSelect(url)}
                         />
                       </div>
                     ))}
@@ -366,4 +428,3 @@ export default function SelectionLobby() {
     </div>
   );
 }
-
