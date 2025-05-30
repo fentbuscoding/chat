@@ -15,8 +15,8 @@ import { ClientEffectManager } from '@/components/ClientEffectManager';
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online";
-const openGraphImageUrl = "https://placehold.co/1200x630.png";
+const siteUrl = "https://tinchat.online"; // Replace with your actual production domain
+const openGraphImageUrl = "https://placehold.co/1200x630.png"; // Replace with your actual OG image URL
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -57,7 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body>
+      <body suppressHydrationWarning={true}>
         <ThemeProvider
           attribute="class"
           defaultTheme="theme-98"
