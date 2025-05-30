@@ -1,29 +1,203 @@
-/* Pink Windows Theme Stamp for Windows 98 Theme */
 
-/* Wallpaper */
+/* Pink Windows Sub-theme for Windows 98 Theme */
+
+/* Main background - already set with bows.png */
 .theme-98 body {
   background-image: url('/wallpapers/bows.png') !important;
   background-repeat: repeat !important;
   background-attachment: fixed !important;
-  background-size: auto !important; /* Or a specific size like '100px' if you want smaller repeats */
+  background-size: auto !important;
 }
 
-/* Window color */
+/* Window itself (outer border/background) */
 .theme-98 .window {
-  background-color: #FFC0CB !important; /* Pink */
+  background-color: #FFC0CB !important; /* Pink background */
+  border-top: 1px solid #FFDEE9 !important; /* Lighter pink */
+  border-left: 1px solid #FFDEE9 !important; /* Lighter pink */
+  border-right: 1px solid #E75480 !important; /* Darker pink */
+  border-bottom: 1px solid #E75480 !important; /* Darker pink */
+  box-shadow: inset 1px 1px 0px #FFB6C1, inset -1px -1px 0px #FF69B4 !important; /* Pink inset shadows */
 }
 
-/* Window body color */
+/* Window Body */
 .theme-98 .window-body {
-  background-color: #FFD1DC !important; /* Light Pink - for the content area */
+  background-color: #FFF0F5 !important; /* LavenderBlush - very light pink for content area */
+  color: #6A0DAD !important; /* Dark purple text for readability on light pink */
+  border-top: 1px solid #E75480 !important;
+  border-left: 1px solid #E75480 !important;
+  border-right: 1px solid #FFDEE9 !important;
+  border-bottom: 1px solid #FFDEE9 !important;
+  box-shadow: inset 1px 1px 0px #FF69B4, inset -1px -1px 0px #FFC0CB !important;
 }
 
-/* Title bar for active window - example: darker pink gradient */
+/* Title Bar - Inactive */
+.theme-98 .title-bar {
+  background: linear-gradient(to right, #FFB6C1, #FFC0CB) !important; /* Light pink gradient */
+  color: #FFFFFF !important; /* White text */
+  padding: 2px 3px !important;
+  text-shadow: 1px 1px #E75480 !important; /* Darker pink shadow for text */
+}
+
+/* Title Bar - Active Window */
 .theme-98 .window.active > .title-bar {
-  background: linear-gradient(to right, #DE6FA1, #F9A7B0) !important; /* Darker to lighter pink */
+  background: linear-gradient(to right, #FF69B4, #FF1493) !important; /* HotPink to DeepPink gradient */
+  color: #FFFFFF !important; /* White text */
+  text-shadow: 1px 1px #C71585 !important; /* MediumVioletRed shadow for text */
 }
 
-/* Title bar for inactive window - example: lighter pink gradient */
-.theme-98 .window:not(.active) > .title-bar {
-  background: linear-gradient(to right, #F9A7B0, #FADADD) !important; /* Lighter to very light pink */
+.theme-98 .title-bar-text {
+  color: #FFFFFF !important;
 }
+
+/* Buttons */
+.theme-98 button,
+.theme-98 .button {
+  background-color: #FFDAE9 !important; /* Light Pink */
+  color: #800080 !important; /* Purple text */
+  border-top: 1px solid #FFE6F0 !important; /* Lighter Pink */
+  border-left: 1px solid #FFE6F0 !important; /* Lighter Pink */
+  border-right: 1px solid #E75480 !important; /* Darker Pink */
+  border-bottom: 1px solid #E75480 !important; /* Darker Pink */
+  box-shadow: inset 1px 1px 0px #FFB6C1, 1px 1px 0px #C71585 !important; /* Pinkish shadows */
+}
+
+.theme-98 button:focus,
+.theme-98 .button:focus {
+  outline: 1px dotted #800080 !important;
+  outline-offset: -3px !important;
+}
+
+.theme-98 button:active,
+.theme-98 .button:active,
+.theme-98 button.active, /* For select trigger */
+.theme-98 .button.active {
+  background-color: #FFC0CB !important; /* Pink */
+  color: #FFFFFF !important; /* White text */
+  border-top: 1px solid #E75480 !important;
+  border-left: 1px solid #E75480 !important;
+  border-right: 1px solid #FFE6F0 !important;
+  border-bottom: 1px solid #FFE6F0 !important;
+  box-shadow: inset 1px 1px 0px #FF69B4 !important; /* Darker pink inset */
+}
+
+/* Input fields (text, password, textarea) */
+.theme-98 input[type="text"],
+.theme-98 input[type="password"],
+.theme-98 textarea,
+.theme-98 .themed-input { /* For our custom themed input wrapper */
+  background-color: #FFF0F5 !important; /* LavenderBlush */
+  color: #6A0DAD !important; /* Dark Purple text */
+  border: 1px solid #FF69B4 !important; /* HotPink border */
+  box-shadow: inset 1px 1px 1px #FFB6C1, inset -1px -1px 1px #FFDEE9 !important; /* Pinkish sunken effect */
+  padding: 2px 3px !important;
+}
+.theme-98 .themed-input-inner { /* Ensure inner input of themed-input is also styled */
+  background-color: transparent !important;
+  color: #6A0DAD !important;
+}
+
+
+/* Sunken Panels (like chat message area or tree view) */
+.theme-98 .sunken-panel,
+.theme-98 .tree-view {
+  background-color: #FFF5FA !important; /* Even lighter pink */
+  border-top: 1px solid #E75480 !important; /* Darker pink */
+  border-left: 1px solid #E75480 !important; /* Darker pink */
+  border-right: 1px solid #FFDEE9 !important; /* Lighter pink */
+  border-bottom: 1px solid #FFDEE9 !important; /* Lighter pink */
+  box-shadow: none !important; /* 98.css .sunken-panel has a complex shadow we simplify here */
+  padding: 2px !important;
+}
+
+/* Select element (dropdown) */
+.theme-98 select,
+.theme-98 .themed-select-trigger { /* Radix trigger */
+  background-color: #FFF0F5 !important; /* LavenderBlush */
+  color: #800080 !important; /* Purple */
+  border-top: 1px solid #FFDEE9 !important;
+  border-left: 1px solid #FFDEE9 !important;
+  border-right: 1px solid #E75480 !important;
+  border-bottom: 1px solid #E75480 !important;
+}
+.theme-98 .themed-select-trigger.button { /* Ensure Radix trigger styled as button gets pink button styles */
+  background-color: #FFDAE9 !important;
+  color: #800080 !important;
+  border-top: 1px solid #FFE6F0 !important;
+  border-left: 1px solid #FFE6F0 !important;
+  border-right: 1px solid #E75480 !important;
+  border-bottom: 1px solid #E75480 !important;
+  box-shadow: inset 1px 1px 0px #FFB6C1, 1px 1px 0px #C71585 !important;
+}
+
+
+.theme-98 .select-content.themed-select-content, /* Radix content */
+.theme-98 .menu { /* General menu class */
+  background-color: #FFDAE9 !important; /* Light Pink */
+  border-color: #FF69B4 !important; /* HotPink */
+}
+
+.theme-98 .select-item.themed-select-item:hover,
+.theme-98 .select-item.themed-select-item[data-highlighted] {
+  background-color: #FF69B4 !important; /* HotPink */
+  color: white !important;
+}
+
+/* Scrollbars for Radix components */
+.theme-98 .themed-scrollbar-98 {
+  background-color: #FFDAE9 !important; /* Light Pink track */
+}
+.theme-98 .themed-scrollbar-98 > [data-radix-scroll-area-thumb] {
+  background-color: #FF69B4 !important; /* HotPink thumb */
+  border-top: 1px solid #FFB6C1 !important; /* Lighter pink highlight */
+  border-left: 1px solid #FFB6C1 !important; /* Lighter pink highlight */
+  border-right: 1px solid #E75480 !important; /* Darker pink shadow */
+  border-bottom: 1px solid #E75480 !important; /* Darker pink shadow */
+  box-shadow: inset 1px 1px #FFC0CB, inset -1px -1px #C71585 !important; /* Pinkish inset effect */
+}
+
+/* Tab controls (if you use them from 98.css) */
+.theme-98 [role="tab"] {
+  background-color: #FFDAE9 !important;
+  border-color: #FFB6C1 #FFB6C1 #E75480 #FFB6C1 !important; /* Typical 98.css tab border */
+}
+.theme-98 [role="tab"][aria-selected="true"] {
+  background-color: #FFF0F5 !important; /* Active tab matches window body */
+  border-bottom-color: #FFF0F5 !important;
+}
+
+/* Labels */
+.theme-98 label, .theme-98 .label, .theme-98 .themed-label {
+    color: #800080 !important; /* Purple */
+}
+
+/* Links (general, if not specifically buttons) */
+.theme-98 a {
+    color: #C71585 !important; /* MediumVioletRed */
+}
+.theme-98 a:hover {
+    color: #FF1493 !important; /* DeepPink */
+}
+
+/* Card components specific overrides */
+.theme-98 .card-title {
+  color: #FFFFFF !important; /* Assuming title is in a title-bar like context */
+}
+.theme-98 .card-description {
+  color: #4B0082 !important; /* Indigo, or a dark pink */
+}
+.theme-98 .card-header { /* Assuming this acts like a mini title-bar or section header */
+  /* background: linear-gradient(to right, #FFB6C1, #FFC0CB) !important; */ /* Optional: match window title bar */
+  /* padding-bottom: 2px !important; */
+  /* border-bottom: 1px solid #E75480 !important; */
+}
+
+
+/* Ensure text in status bar is visible */
+.theme-98 .status-bar, .theme-98 .input-area.status-bar {
+  color: #800080 !important;
+  border-top: 1px solid #E75480 !important; /* Pink separator */
+}
+.theme-98 .status-bar-field {
+  border-right: 1px solid #E75480 !important;
+}
+```
