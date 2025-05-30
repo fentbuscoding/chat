@@ -29,7 +29,7 @@ body {
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
-  
+
   /* Make body a flex container to manage its direct children (like #__next) */
   display: flex;
   flex-direction: column;
@@ -200,7 +200,7 @@ video {
 
 /* For 7.css, ensure title bar text is visible on glass and has shadow */
 .theme-7 .window.glass .title-bar .title-bar-text {
-    color: #000; 
+    color: #000;
     text-shadow: 0 1px 1px rgba(0,0,0,0.4);
 }
 
@@ -243,7 +243,7 @@ video {
   text-align: left !important; /* Forces text to the left */
 }
 .theme-7 .title-bar .title-bar-text { /* Increased specificity for theme-7 title bar text */
-  color: #000; 
+  color: #000;
   text-shadow: 0 1px 1px rgba(0,0,0,0.4); /* Added text shadow */
 }
 
@@ -355,38 +355,9 @@ input[type="submit"]:hover,
 
 input[type="text"]:hover,
 textarea:hover {
-  cursor: text !important; 
+  cursor: text !important;
 }
 
 /* --- Custom Theme 98 Overrides --- */
-
-/* Example: Change the default font for theme-98 */
-.theme-98, .theme-98 body, .theme-98 .window, .theme-98 button, .theme-98 input, .theme-98 select, .theme-98 textarea, .theme-98 label, .theme-98 .title-bar-text {
-  font-family: "Tahoma", "Geneva", sans-serif !important; /* More legible non-pixel font */
-  /* If you want to keep the pixel font but make it slightly larger: */
-  /* font-size: 12px !important; */
-}
-
-/* Example: Change the title bar gradient for theme-98 */
-.theme-98 .title-bar {
-  background: linear-gradient(to right, #3a3a3a, #888888 8%, #cccccc 92%, #a1a1a1) !important; /* Darker gray gradient */
-}
-.theme-98 .window.active > .title-bar { /* Ensure active window title also gets the custom gradient */
-  background: linear-gradient(to right, #000080, #1084d0 8%, #a6c8f0 92%, #7892c8) !important; /* Example: Different active gradient */
-}
-
-/* Example: Change the window body background color for theme-98 */
-.theme-98 .window-body {
-  background-color: #f0f0f0 !important; /* A light gray background */
-}
-
-/* Example: Change button shadows for theme-98 for a flatter look */
-.theme-98 button {
-  box-shadow: 1px 1px 0px #000000, inset 1px 1px 0px #ffffff, inset -1px -1px 0px #808080 !important;
-  border-color: #444444 !important;
-}
-
-.theme-98 button:active, .theme-98 button.active {
-  box-shadow: inset 1px 1px 0px #000000, 1px 1px 0px #ffffff !important;
-}
+/* This section was removed for the revert */
     
