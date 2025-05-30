@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link'; // Import Link
 import { Button } from '@/components/ui/button-themed';
@@ -49,6 +49,16 @@ export default function SelectionLobby() {
         tempSocket?.disconnect(); 
       });
 
+      tempSocket.on('onlineUserCountUpdate', (count: number) => {
+        // This listener is for real-time updates if the server broadcasts them
+        // For now, we'll just use the one-time fetch, but this could be enabled
+        // if the server sends 'onlineUserCountUpdate' to all clients.
+        // For simplicity, this specific listener is not actively updating based on server broadcasts
+        // to avoid keeping a socket open indefinitely on the lobby page just for this.
+        // If you want continuous updates, this logic and the socket disconnection would change.
+      });
+
+
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
         setUsersOnline(0); 
@@ -78,7 +88,7 @@ export default function SelectionLobby() {
     setCurrentInterest(e.target.value);
   };
 
-  const addInterest = useCallback((interestToAdd: string) => {
+  const addInterest = React.useCallback((interestToAdd: string) => {
     const newInterest = interestToAdd.trim().toLowerCase();
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, newInterest]);
@@ -105,12 +115,12 @@ export default function SelectionLobby() {
     }
   };
 
-  const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
+  const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
     event?.stopPropagation(); 
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
-  const handleStartChat = useCallback((type: 'text' | 'video') => {
+  const handleStartChat = React.useCallback((type: 'text' | 'video') => {
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
@@ -142,7 +152,7 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col p-4"> 
+    <div className="flex flex-1 flex-col px-4 pt-4 pb-16"> {/* Changed p-4 to px-4 pt-4 pb-16 */}
       <div className="flex-grow flex items-center justify-center"> 
         <Card className="w-full max-w-md relative">
           <CardHeader>
@@ -217,7 +227,9 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        <div className="max-w-5xl mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div>
+        <div className="max-w-5xl mx-auto">
+         <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
           <span>tinchat.com</span>
           <span>•</span>
