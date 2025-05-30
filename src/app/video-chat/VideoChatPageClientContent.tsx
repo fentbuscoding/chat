@@ -24,6 +24,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
+const TYPING_INDICATOR_HEIGHT = 20; 
 const logPrefix = "VideoChatPage";
 
 interface Message {
@@ -176,13 +177,13 @@ const VideoChatPageClientContent: React.FC = () => {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const [socketError, setSocketError] = useState(false);
-  const partnerLeftRecentlyRef = useRef(false);
-  const selfDisconnectedRecentlyRef = useRef(false);
+  const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false);
+  const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
+  
   const successTransitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const successTransitionEndTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const skippedFaviconTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Typing indicator state
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('.');
   const localTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -221,58 +222,62 @@ const VideoChatPageClientContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Clear previous timers on each run
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
     if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
     if (skippedFaviconTimeoutRef.current) clearTimeout(skippedFaviconTimeoutRef.current);
-
+  
+    let currentMessages = [...messages]; // Create a mutable copy for this effect run
+    const filterSystemMessages = (textPattern: string) => {
+      currentMessages = currentMessages.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes(textPattern)));
+    };
+  
     if (socketError) {
       changeFavicon('/Skipped.ico');
-    } else if (selfDisconnectedRecentlyRef.current) {
-      changeFavicon('/Skipped.ico');
-       skippedFaviconTimeoutRef.current = setTimeout(() => {
-        selfDisconnectedRecentlyRef.current = false;
-      }, 1000);
-    } else if (partnerLeftRecentlyRef.current) {
+    } else if (isSelfDisconnectedRecently) {
       changeFavicon('/Skipped.ico');
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-        partnerLeftRecentlyRef.current = false;
-        changeFavicon('/Idle.ico');
+        setIsSelfDisconnectedRecently(false); 
+      }, 1000);
+    } else if (isPartnerLeftRecently) {
+      changeFavicon('/Skipped.ico');
+      skippedFaviconTimeoutRef.current = setTimeout(() => {
+        setIsPartnerLeftRecently(false);
       }, 1000);
     } else if (isFindingPartner) {
       changeFavicon('/Searching.ico');
       if (prevIsFindingPartnerRef.current === false && !isPartnerConnected) {
-        const existingMessages = messages.filter(msg => !(msg.sender === 'system' && (msg.text.toLowerCase().includes('your partner has disconnected') || msg.text.toLowerCase().includes('you have disconnected') || msg.text.toLowerCase().includes('stopped searching for a partner') )));
-        setMessages([...existingMessages, { id: `${Date.now()}-search`, text: 'Searching for a partner...', sender: 'system', timestamp: new Date() }]);
+        filterSystemMessages('your partner has disconnected');
+        filterSystemMessages('you have disconnected');
+        filterSystemMessages('stopped searching for a partner');
+        currentMessages.push({ id: `${Date.now()}-search`, text: 'Searching for a partner...', sender: 'system', timestamp: new Date() });
       }
     } else if (isPartnerConnected) {
        if (prevIsPartnerConnectedRef.current === false) { 
         let successCount = 0;
+        changeFavicon('/Success.ico');
         successTransitionIntervalRef.current = setInterval(() => {
-          changeFavicon(successCount % 2 === 0 ? '/Success.ico' : '/Idle.ico');
+          changeFavicon(successCount % 2 === 0 ? '/Idle.ico' : '/Success.ico');
           successCount++;
         }, 750);
         successTransitionEndTimeoutRef.current = setTimeout(() => {
           if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
-          changeFavicon('/Success.ico');
+          if (isPartnerConnected) changeFavicon('/Success.ico');
         }, 3000);
 
-        let newMessages = messages.filter(msg =>
-          !(msg.sender === 'system' &&
-            (msg.text.toLowerCase().includes('searching for a partner') ||
-             msg.text.toLowerCase().includes('your partner has disconnected') ||
-             msg.text.toLowerCase().includes('stopped searching for a partner') ||
-             msg.text.toLowerCase().includes('you have disconnected')
-             ))
-        );
-        newMessages.push({ id: `${Date.now()}-connect`, text: 'Connected with a partner. You can start chatting!', sender: 'system', timestamp: new Date() });
+        filterSystemMessages('searching for a partner');
+        filterSystemMessages('your partner has disconnected');
+        filterSystemMessages('stopped searching for a partner');
+        filterSystemMessages('you have disconnected');
+        
+        currentMessages.push({ id: `${Date.now()}-connect`, text: 'Connected with a partner. You can start chatting!', sender: 'system', timestamp: new Date() });
 
         if (interests.length > 0 && partnerInterests.length > 0) {
           const common = interests.filter(interest => partnerInterests.includes(interest));
           if (common.length > 0) {
-            newMessages.push({ id: `${Date.now()}-common`, text: `You both like ${common.join(', ')}.`, sender: 'system', timestamp: new Date() });
+            currentMessages.push({ id: `${Date.now()}-common`, text: `You both like ${common.join(', ')}.`, sender: 'system', timestamp: new Date() });
           }
         }
-        setMessages(newMessages);
       } else {
         if(!successTransitionIntervalRef.current && !successTransitionEndTimeoutRef.current){
            changeFavicon('/Success.ico');
@@ -280,16 +285,22 @@ const VideoChatPageClientContent: React.FC = () => {
      }
     } else { 
       changeFavicon('/Idle.ico');
-      if (prevIsFindingPartnerRef.current === true && !isPartnerConnected && !roomIdRef.current) {
-         const isSearchingMessagePresent = messages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
+      if (prevIsFindingPartnerRef.current === true && !isPartnerConnected && !roomIdRef.current) { // Check roomIdRef instead of roomId state
+         const isSearchingMessagePresent = currentMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
         if (isSearchingMessagePresent) {
-             setMessages(prev => [...prev.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))), { id: `${Date.now()}-stopsearch`, text: 'Stopped searching for a partner.', sender: 'system', timestamp: new Date() }]);
+             filterSystemMessages('searching for a partner');
+             currentMessages.push({ id: `${Date.now()}-stopsearch`, text: 'Stopped searching for a partner.', sender: 'system', timestamp: new Date() });
         }
       }
     }
+    
+    if (currentMessages.length !== messages.length || !currentMessages.every((val, index) => val.id === messages[index]?.id && val.text === messages[index]?.text)) {
+        setMessages(currentMessages);
+    }
+
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-  }, [isPartnerConnected, isFindingPartner, socketError, addMessage, interests, partnerInterests, changeFavicon, messages]);
+  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages, roomId]);
 
 
   const cleanupConnections = useCallback((stopLocalStream = true) => {
@@ -356,6 +367,8 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
+        // Consider further actions, e.g., stopping the partner search if it was just initiated.
+        setIsFindingPartner(false); // Example: stop searching if camera fails
         return;
     }
 
@@ -420,21 +433,21 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [getCameraStream, toast, cleanupConnections]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
-    const currentSocket = socketRef.current; // Use the ref directly
+    const currentSocket = socketRef.current; 
     if (!currentSocket) {
         toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
         return;
     }
 
-    if (isPartnerConnected && roomId) { // Use roomId state
+    if (isPartnerConnected && roomIdRef.current) { 
         addMessage('You have disconnected.', 'system');
-        currentSocket.emit('leaveChat', { roomId });
-        selfDisconnectedRecentlyRef.current = true;
+        currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
+        setIsSelfDisconnectedRecently(true);
         cleanupConnections(false); 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
-        setRoomId(null); // Clear roomId state
-        roomIdRef.current = null; // Clear roomId ref
+        setRoomId(null); 
+        roomIdRef.current = null; 
         setPartnerInterests([]);
         
         setIsFindingPartner(true); 
@@ -447,22 +460,19 @@ const VideoChatPageClientContent: React.FC = () => {
           toast({ title: "Connecting...", description: "Attempting to connect to chat server. Please wait.", variant: "default" });
           return;
         }
-        if (hasCameraPermission === false) { 
-            toast({ title: "Camera Required", description: "Camera permission is required to find a video chat partner.", variant: "destructive"});
-            const stream = await getCameraStream(); 
-            if (!stream) return; 
-        } else if (hasCameraPermission === undefined) { 
-            const stream = await getCameraStream(); 
-            if (!stream) { 
-                return; 
-            }
+        // Ensure camera permission before finding partner
+        const stream = await getCameraStream(); 
+        if (!stream) { // getCameraStream will show a toast if permission is denied or an error occurs
+            setIsFindingPartner(false); // Don't proceed to find partner if camera failed
+            return; 
         }
+
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'video', interests });
     }
   }, [
       addMessage, isPartnerConnected, isFindingPartner, interests,
-      hasCameraPermission, cleanupConnections, getCameraStream, toast, roomId
+      cleanupConnections, getCameraStream, toast, currentTheme 
     ]);
 
   useEffect(() => {
@@ -486,7 +496,7 @@ const VideoChatPageClientContent: React.FC = () => {
     setSocket(newSocket);
 
     return () => {
-      console.log(`${logPrefix}: Cleaning up event listeners for socket ID:`, newSocket.id);
+      console.log(`${logPrefix}: Cleaning up VideoChatPageClientContent. Disconnecting socket ID:`, newSocket.id);
       if (roomIdRef.current) { 
         newSocket.emit('leaveChat', { roomId: roomIdRef.current });
       }
@@ -501,7 +511,8 @@ const VideoChatPageClientContent: React.FC = () => {
       if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
     };
-  }, [toast, changeFavicon, cleanupConnections]); // Minimal dependencies for socket creation/destruction
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   useEffect(() => {
     if(!socket) return;
@@ -509,12 +520,10 @@ const VideoChatPageClientContent: React.FC = () => {
     const handleInitialConnectAndSearch = () => {
         console.log(`${logPrefix}: Socket connected (ID: ${socket.id}). Auto-search status: ${autoSearchDoneRef.current}`);
         setSocketError(false);
-        if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomId) {
-            console.log(`${logPrefix}: Automatically starting partner search on initial connect.`);
-            if (hasCameraPermission !== false) { // Only search if camera permission is not denied
-                socket.emit('findPartner', { chatType: 'video', interests });
-                setIsFindingPartner(true);
-            }
+        if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+            console.log(`${logPrefix}: Automatically starting partner search on initial connect (video).`);
+            // handleFindOrDisconnectPartner will check camera permissions
+            handleFindOrDisconnectPartner(); 
             autoSearchDoneRef.current = true;
         }
     };
@@ -528,13 +537,13 @@ const VideoChatPageClientContent: React.FC = () => {
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
       setRoomId(rId);
-      roomIdRef.current = rId;
+      roomIdRef.current = rId; 
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
-      selfDisconnectedRecentlyRef.current = false; 
-      partnerLeftRecentlyRef.current = false;
-      if (socketRef.current && roomIdRef.current) { // Use refs for setupWebRTC
+      setIsSelfDisconnectedRecently(false); 
+      setIsPartnerLeftRecently(false);
+      if (socketRef.current && roomIdRef.current) { 
         setupWebRTC(socketRef.current, roomIdRef.current, true); 
       }
     };
@@ -565,7 +574,7 @@ const VideoChatPageClientContent: React.FC = () => {
         return;
       }
 
-      if (!pc && isPartnerConnected) { 
+      if (!pc && isPartnerConnected && isMounted) { // Added isMounted check
         console.log(`${logPrefix}: Receiving signal before local PC setup, attempting setup now (non-initiator).`);
         await setupWebRTC(socketRef.current, currentRId, false);
         pc = peerConnectionRef.current;
@@ -616,7 +625,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     const onPartnerLeft = () => {
       addMessage('Your partner has disconnected.', 'system');
-      partnerLeftRecentlyRef.current = true;
+      setIsPartnerLeftRecently(true);
       cleanupConnections(false); 
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
@@ -628,9 +637,11 @@ const VideoChatPageClientContent: React.FC = () => {
 
     const onDisconnect = (reason: string) => {
       console.log(`${logPrefix}: Disconnected from socket server. Reason:`, reason);
-      addMessage('You have been disconnected from the server.', 'system');
+      if (!isSelfDisconnectedRecently && !isPartnerLeftRecently) {
+        addMessage('You have been disconnected from the server.', 'system');
+      }
       setSocketError(true);
-      // cleanupConnections(true); // Moved to main cleanup effect
+      cleanupConnections(true); 
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
@@ -652,7 +663,6 @@ const VideoChatPageClientContent: React.FC = () => {
     };
     socket.on('connect_error', onConnectError);
 
-    // Typing indicator listeners
     socket.on('partner_typing_start', () => {
       setIsPartnerTyping(true);
     });
@@ -675,7 +685,7 @@ const VideoChatPageClientContent: React.FC = () => {
     };
   }, [
       socket, addMessage, toast, interests, currentTheme, isPartnerConnected, isFindingPartner, roomId,
-      setupWebRTC, cleanupConnections, hasCameraPermission // Added setupWebRTC, cleanupConnections, hasCameraPermission
+      setupWebRTC, cleanupConnections, getCameraStream, handleFindOrDisconnectPartner, isMounted // Added isMounted
     ]); 
 
 
@@ -710,7 +720,7 @@ const VideoChatPageClientContent: React.FC = () => {
         setEmojisLoading(false); 
         setPickerEmojiFilenames([]); 
       }
-  },[effectivePageTheme, toast]); // Removed listEmojis from deps
+  },[effectivePageTheme, toast]); 
 
 
   useEffect(() => {
@@ -799,7 +809,6 @@ const VideoChatPageClientContent: React.FC = () => {
     };
   }, [isEmojiPickerOpen]);
 
-  // Animate typing dots
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isPartnerTyping) {
@@ -853,12 +862,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm video-feed-title-bar",
-              effectivePageTheme === 'theme-98' ? '' : 'theme-7', // video-feed-title-bar styles take precedence
+              "title-bar text-sm",
+              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7',
               effectivePageTheme === 'theme-7' && 'text-black' 
             )}>
             <div className="title-bar-text">
-              {/* Empty for video feeds */}
+              {/* Empty for video feeds, text removed as per request */}
             </div>
           </div>
           <div
@@ -889,12 +898,12 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-               "title-bar text-sm video-feed-title-bar",
-               effectivePageTheme === 'theme-98' ? '' : 'theme-7', // video-feed-title-bar styles take precedence
+               "title-bar text-sm",
+               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7',
                effectivePageTheme === 'theme-7' && 'text-black'
             )}>
             <div className="title-bar-text">
-               {/* Empty for video feeds */}
+               {/* Empty for video feeds, text removed as per request */}
             </div>
           </div>
           <div
@@ -925,9 +934,7 @@ const VideoChatPageClientContent: React.FC = () => {
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
       >
-         {effectivePageTheme === 'theme-7' && (
-             <ConditionalGoldfishImage />
-        )}
+         {effectivePageTheme === 'theme-7' && <ConditionalGoldfishImage /> }
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>

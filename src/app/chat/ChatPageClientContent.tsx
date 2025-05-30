@@ -23,6 +23,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
+const TYPING_INDICATOR_HEIGHT = 20; // Approximate height for the typing indicator
 const logPrefix = "ChatPage";
 
 interface Message {
@@ -106,7 +107,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const messageContent = theme === 'theme-98'
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
-    : [message.text]; // For theme-7, render plain text or implement different emoji logic if needed
+    : [message.text]; 
 
 
   return (
@@ -144,9 +145,9 @@ const ChatPageClientContent: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null); // Used to trigger listener setup effect
   const [roomId, setRoomId] = useState<string | null>(null);
-  const roomIdRef = useRef<string | null>(null);
+  const roomIdRef = useRef<string | null>(null); // For use in callbacks/cleanup where state might be stale
   const autoSearchDoneRef = useRef(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -169,8 +170,9 @@ const ChatPageClientContent: React.FC = () => {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const [socketError, setSocketError] = useState(false);
-  const partnerLeftRecentlyRef = useRef(false);
-  const selfDisconnectedRecentlyRef = useRef(false);
+  const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false);
+  const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
+
   const successTransitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const successTransitionEndTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const skippedFaviconTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -211,33 +213,34 @@ const ChatPageClientContent: React.FC = () => {
     });
   }, []);
 
-  // Favicon and system message logic
   useEffect(() => {
-    // Clear previous timers
+    // Clear previous timers on each run
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
     if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
     if (skippedFaviconTimeoutRef.current) clearTimeout(skippedFaviconTimeoutRef.current);
-
-    let newMessages = [...messages];
+  
+    let currentMessages = [...messages]; // Create a mutable copy for this effect run
     const filterSystemMessages = (textPattern: string) => {
-      newMessages = newMessages.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes(textPattern)));
+      currentMessages = currentMessages.filter(msg => !(msg.sender === 'system' && msg.text.toLowerCase().includes(textPattern)));
     };
-
+  
     if (socketError) {
       changeFavicon('/Skipped.ico');
-    } else if (selfDisconnectedRecentlyRef.current) {
+      // No system message here, toast is shown by connect_error handler
+    } else if (isSelfDisconnectedRecently) {
       changeFavicon('/Skipped.ico');
+      // "You have disconnected." message is added by handleFindOrDisconnectPartner
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-        selfDisconnectedRecentlyRef.current = false;
-        // Auto-search will trigger Searching.ico if isFindingPartner becomes true
+        setIsSelfDisconnectedRecently(false); 
+        // The subsequent state change (isFindingPartner) will trigger another effect run
+        // which will set Searching.ico if applicable.
       }, 1000);
-    } else if (partnerLeftRecentlyRef.current) {
+    } else if (isPartnerLeftRecently) {
       changeFavicon('/Skipped.ico');
+      // "Your partner has disconnected." message added by partnerLeft handler
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-        partnerLeftRecentlyRef.current = false;
-        if (!isFindingPartner && !isPartnerConnected) {
-          changeFavicon('/Idle.ico');
-        }
+        setIsPartnerLeftRecently(false);
+        // If not finding and not connected, next run will set Idle.ico
       }, 1000);
     } else if (isFindingPartner) {
       changeFavicon('/Searching.ico');
@@ -245,7 +248,7 @@ const ChatPageClientContent: React.FC = () => {
         filterSystemMessages('your partner has disconnected');
         filterSystemMessages('you have disconnected');
         filterSystemMessages('stopped searching for a partner');
-        newMessages.push({ id: `${Date.now()}-search`, text: 'Searching for a partner...', sender: 'system', timestamp: new Date() });
+        currentMessages.push({ id: `${Date.now()}-search`, text: 'Searching for a partner...', sender: 'system', timestamp: new Date() });
       }
     } else if (isPartnerConnected) {
       if (prevIsPartnerConnectedRef.current === false) { // Just connected
@@ -257,45 +260,46 @@ const ChatPageClientContent: React.FC = () => {
         }, 750);
         successTransitionEndTimeoutRef.current = setTimeout(() => {
           if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
-          changeFavicon('/Success.ico');
+          if (isPartnerConnected) changeFavicon('/Success.ico'); // Ensure it ends on Success if still connected
         }, 3000);
-
+  
         filterSystemMessages('searching for a partner');
         filterSystemMessages('your partner has disconnected');
         filterSystemMessages('you have disconnected');
         filterSystemMessages('stopped searching for a partner');
-
-        newMessages.push({ id: `${Date.now()}-connect`, text: 'Connected with a partner. You can start chatting!', sender: 'system', timestamp: new Date() });
+  
+        currentMessages.push({ id: `${Date.now()}-connect`, text: 'Connected with a partner. You can start chatting!', sender: 'system', timestamp: new Date() });
         if (interests.length > 0 && partnerInterests.length > 0) {
           const common = interests.filter(interest => partnerInterests.includes(interest));
           if (common.length > 0) {
-            newMessages.push({ id: `${Date.now()}-common`, text: `You both like ${common.join(', ')}.`, sender: 'system', timestamp: new Date() });
+            currentMessages.push({ id: `${Date.now()}-common`, text: `You both like ${common.join(', ')}.`, sender: 'system', timestamp: new Date() });
           }
         }
-      } else {
+      } else { // Already connected, ensure favicon is Success if no transition is active
          if(!successTransitionIntervalRef.current && !successTransitionEndTimeoutRef.current){
             changeFavicon('/Success.ico');
          }
       }
-    } else { // Idle state
+    } else { // Idle state (not finding, not connected, no recent disconnects/errors)
       changeFavicon('/Idle.ico');
       if (prevIsFindingPartnerRef.current === true && !isPartnerConnected && !roomId) { // Stopped searching
-         const isSearchingMessagePresent = newMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
+         const isSearchingMessagePresent = currentMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
          if (isSearchingMessagePresent) {
              filterSystemMessages('searching for a partner');
-             newMessages.push({ id: `${Date.now()}-stopsearch`, text: 'Stopped searching for a partner.', sender: 'system', timestamp: new Date() });
+             currentMessages.push({ id: `${Date.now()}-stopsearch`, text: 'Stopped searching for a partner.', sender: 'system', timestamp: new Date() });
          }
       }
     }
-
-    if (newMessages.length !== messages.length || !newMessages.every((val, index) => val === messages[index])) {
-        setMessages(newMessages);
+  
+    // Only update messages state if it has actually changed
+    if (currentMessages.length !== messages.length || !currentMessages.every((val, index) => val.id === messages[index]?.id && val.text === messages[index]?.text)) {
+        setMessages(currentMessages);
     }
-
+  
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-
-  }, [isPartnerConnected, isFindingPartner, socketError, addMessage, interests, partnerInterests, changeFavicon, messages, roomId]);
+  
+  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages, roomId]); // Added isSelfDisconnectedRecently, isPartnerLeftRecently
 
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -306,9 +310,11 @@ const ChatPageClientContent: React.FC = () => {
     }
 
     if (isPartnerConnected && roomIdRef.current) {
-        addMessage('You have disconnected.', 'system'); // Show this before state changes
+        addMessage('You have disconnected.', 'system');
         currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
-        selfDisconnectedRecentlyRef.current = true; // Indicate self-disconnect for favicon logic
+        
+        setIsSelfDisconnectedRecently(true);
+        
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
         setRoomId(null);
@@ -321,8 +327,6 @@ const ChatPageClientContent: React.FC = () => {
 
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        // Server doesn't have a specific "stop searching" event from client.
-        // Client just stops showing "searching..."
         // System message for "Stopped searching" is handled by the favicon useEffect
     } else {
         if (!currentSocket.connected) {
@@ -332,12 +336,11 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-  }, [isPartnerConnected, isFindingPartner, interests, toast, addMessage]); // addMessage is a dependency now
+  }, [isPartnerConnected, isFindingPartner, interests, toast, addMessage, currentTheme]); 
 
-  // Socket connection setup effect
   useEffect(() => {
     setIsMounted(true);
-    changeFavicon('/Idle.ico');
+    changeFavicon('/Idle.ico'); // Set initial favicon
 
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
@@ -350,10 +353,10 @@ const ChatPageClientContent: React.FC = () => {
     console.log(`${logPrefix}: Attempting to connect to socket server: ${socketServerUrl}`);
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'] 
     });
     socketRef.current = newSocket;
-    setSocket(newSocket); // Store socket in state to trigger listener setup effect
+    setSocket(newSocket); 
 
     return () => {
       console.log(`${logPrefix}: Cleaning up ChatPageClientContent. Disconnecting socket ID:`, newSocket.id);
@@ -364,7 +367,7 @@ const ChatPageClientContent: React.FC = () => {
       socketRef.current = null;
       setSocket(null);
 
-      changeFavicon('/favicon.ico', true);
+      changeFavicon('/favicon.ico', true); // Restore default on unmount
       if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
       if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
       if (skippedFaviconTimeoutRef.current) clearTimeout(skippedFaviconTimeoutRef.current);
@@ -374,16 +377,16 @@ const ChatPageClientContent: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Runs once on mount to setup and teardown socket
 
-  // Socket event listeners effect
+
   useEffect(() => {
-    if (!socket) return; // Only run if socket is initialized
+    if (!socket) return; 
 
     const handleInitialConnectAndSearch = () => {
         console.log(`${logPrefix}: Socket connected (ID: ${socket.id}). Auto-search status: ${autoSearchDoneRef.current}`);
-        setSocketError(false);
+        setSocketError(false); // Clear any previous socket error
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
             console.log(`${logPrefix}: Automatically starting partner search on initial connect.`);
-            handleFindOrDisconnectPartner();
+            handleFindOrDisconnectPartner(); // This will set isFindingPartner to true
             autoSearchDoneRef.current = true;
         }
     };
@@ -397,54 +400,55 @@ const ChatPageClientContent: React.FC = () => {
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
       setRoomId(rId);
-      roomIdRef.current = rId;
+      roomIdRef.current = rId; // Sync ref with state
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
-      selfDisconnectedRecentlyRef.current = false;
-      partnerLeftRecentlyRef.current = false;
+      setIsSelfDisconnectedRecently(false); 
+      setIsPartnerLeftRecently(false);
     };
     socket.on('partnerFound', onPartnerFound);
 
     socket.on('waitingForPartner', () => {
       console.log(`${logPrefix}: Server acknowledged 'waitingForPartner' for ${socket.id}`);
-      // isFindingPartner should already be true
+      // UI state should be handled by isFindingPartner
     });
 
     const onFindPartnerCooldown = () => {
       toast({ title: "Slow down!", description: "Please wait a moment before finding a new partner.", variant: "default" });
-      setIsFindingPartner(false);
+      setIsFindingPartner(false); // Reset finding state
     };
     socket.on('findPartnerCooldown', onFindPartnerCooldown);
 
     const onReceiveMessage = ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
       addMessage(receivedMessage, 'partner');
-      setIsPartnerTyping(false);
+      setIsPartnerTyping(false); // Partner sent a message, so they stopped typing
     };
     socket.on('receiveMessage', onReceiveMessage);
 
     const onPartnerLeft = () => {
       addMessage('Your partner has disconnected.', 'system');
-      partnerLeftRecentlyRef.current = true;
+      setIsPartnerLeftRecently(true);
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      roomIdRef.current = null;
+      roomIdRef.current = null; // Sync ref
       setPartnerInterests([]);
     };
     socket.on('partnerLeft', onPartnerLeft);
 
     const onDisconnect = (reason: string) => {
       console.log(`${logPrefix}: Disconnected from socket server. Reason:`, reason);
-      if (!partnerLeftRecentlyRef.current && !selfDisconnectedRecentlyRef.current) {
-        addMessage('You have been disconnected from the server.', 'system');
+      // Avoid adding "You have been disconnected" if it was a self-initiated disconnect or partner left
+      if (!isSelfDisconnectedRecently && !isPartnerLeftRecently) {
+         addMessage('You have been disconnected from the server.', 'system');
       }
       setSocketError(true);
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      roomIdRef.current = null;
+      roomIdRef.current = null; // Sync ref
     };
     socket.on('disconnect', onDisconnect);
 
@@ -456,7 +460,7 @@ const ChatPageClientContent: React.FC = () => {
           description: `Could not connect to chat server: ${err.message}. Please try again later.`,
           variant: "destructive"
         });
-        setIsFindingPartner(false);
+        setIsFindingPartner(false); // Stop searching on connection error
         setIsPartnerTyping(false);
     };
     socket.on('connect_error', onConnectError);
@@ -480,8 +484,7 @@ const ChatPageClientContent: React.FC = () => {
         socket.off('partner_typing_start');
         socket.off('partner_typing_stop');
     };
-  // Add all stable dependencies used within this effect
-  }, [socket, addMessage, toast, interests, handleFindOrDisconnectPartner, isPartnerConnected, isFindingPartner]);
+  }, [socket, addMessage, toast, interests, handleFindOrDisconnectPartner, currentTheme, isPartnerConnected, isFindingPartner, roomId]);
 
 
   useEffect(() => {
@@ -514,7 +517,7 @@ const ChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isPartnerTyping]);
+  }, [messages, isPartnerTyping]); // Scroll when partner typing state changes too
 
   const stopLocalTyping = useCallback(() => {
     if (localTypingTimeoutRef.current) {
@@ -525,7 +528,7 @@ const ChatPageClientContent: React.FC = () => {
       socketRef.current.emit('typing_stop', { roomId: roomIdRef.current });
       isLocalTypingRef.current = false;
     }
-  }, []);
+  }, []); // roomIdRef is a ref, socketRef is a ref
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
@@ -541,13 +544,13 @@ const ChatPageClientContent: React.FC = () => {
         clearTimeout(localTypingTimeoutRef.current);
       }
       localTypingTimeoutRef.current = setTimeout(() => {
-        if (socketRef.current && roomIdRef.current) {
+        if (socketRef.current && roomIdRef.current) { // Check again inside timeout
            socketRef.current.emit('typing_stop', { roomId: roomIdRef.current });
            isLocalTypingRef.current = false;
         }
-      }, 2000);
+      }, 2000); // 2 seconds of inactivity
     }
-  }, [isPartnerConnected, setNewMessage]);
+  }, [isPartnerConnected, setNewMessage]); // Removed stopLocalTyping, socketRef, roomIdRef
 
 
   const handleSendMessage = useCallback(() => {
@@ -556,7 +559,7 @@ const ChatPageClientContent: React.FC = () => {
     addMessage(newMessage, 'me');
     setNewMessage('');
     stopLocalTyping();
-  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, setNewMessage]);
+  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, setNewMessage]); // Added stopLocalTyping, setNewMessage
 
 
   const handleEmojiIconHover = useCallback(() => {
@@ -586,6 +589,7 @@ const ChatPageClientContent: React.FC = () => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
         const emojiIcon = document.getElementById('emoji-icon-trigger');
         if (emojiIcon && emojiIcon.contains(event.target as Node)) {
+          // Click was on the emoji icon itself, toggleEmojiPicker handles it
           return;
         }
         setIsEmojiPickerOpen(false);
@@ -611,7 +615,7 @@ const ChatPageClientContent: React.FC = () => {
         });
       }, 500);
     } else {
-      setTypingDots('.');
+      setTypingDots('.'); // Reset to single dot when not typing
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -664,7 +668,7 @@ const ChatPageClientContent: React.FC = () => {
         >
           <div
             className={cn(
-              "flex-grow overflow-y-auto",
+              "flex-grow overflow-y-auto", // This div will scroll
               effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
             )}
             style={{ height: messagesContainerHeight }}
@@ -675,7 +679,7 @@ const ChatPageClientContent: React.FC = () => {
               ))}
                {isPartnerTyping && (
                 <div className={cn(
-                  "text-xs italic text-left pl-1 py-0.5",
+                  "text-xs italic text-left pl-1 py-0.5", 
                   effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
                 )}>
                   Stranger is typing{typingDots}
@@ -696,7 +700,7 @@ const ChatPageClientContent: React.FC = () => {
                 onClick={handleFindOrDisconnectPartner}
                 disabled={mainButtonDisabled}
                 className={cn(
-                  'mr-1',
+                  'mr-1', // Reduced margin
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
@@ -708,16 +712,16 @@ const ChatPageClientContent: React.FC = () => {
                 onChange={handleInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && !inputAndSendDisabled && handleSendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 w-full px-1 py-1"
+                className="flex-1 w-full px-1 py-1" // Reduced padding
                 disabled={inputAndSendDisabled}
               />
               {effectivePageTheme === 'theme-98' && !emojisLoading && (
                 <div className="relative ml-1 flex-shrink-0">
                   <img
-                    id="emoji-icon-trigger"
+                    id="emoji-icon-trigger" // Unique ID for text chat
                     src={currentEmojiIconUrl}
                     alt="Emoji"
-                    className="w-4 h-4 cursor-pointer inline-block"
+                    className="w-4 h-4 cursor-pointer inline-block" // Size reduced
                     onMouseEnter={handleEmojiIconHover}
                     onMouseLeave={stopEmojiCycle}
                     onClick={toggleEmojiPicker}
@@ -736,7 +740,7 @@ const ChatPageClientContent: React.FC = () => {
                               key={filename}
                               src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                               alt={filename.split('.')[0]}
-                              className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
+                              className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5" // Max size 24x24
                               onClick={() => {
                                 setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
                                 setIsEmojiPickerOpen(false);
@@ -754,14 +758,14 @@ const ChatPageClientContent: React.FC = () => {
               )}
               {effectivePageTheme === 'theme-98' && emojisLoading && (
                  <div className="relative ml-1 flex-shrink-0">
-                    <p className="text-xs p-1">...</p>
+                    <p className="text-xs p-1">...</p> {/* Loading indicator for emojis */}
                  </div>
               )}
               <Button
                 onClick={handleSendMessage}
                 disabled={inputAndSendDisabled || !newMessage.trim()}
                 className={cn(
-                  'ml-1',
+                  'ml-1', // Reduced margin
                   effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                 )}
               >
