@@ -50,14 +50,16 @@ export default function SelectionLobby() {
       });
 
       tempSocket.on('onlineUserCountUpdate', (count: number) => {
-        // setUsersOnline(count); // Potentially re-enable if server broadcasts updates frequently
+        // This listener might be useful if the server broadcasts updates,
+        // but for a one-time fetch, it might not be strictly necessary
+        // setUsersOnline(count); 
       });
 
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); 
-        if (tempSocket?.connected) { 
+        setUsersOnline(0); // Or some other indicator of an error
+        if (tempSocket?.connected) { // Check if connected before trying to disconnect
             tempSocket?.disconnect();
         }
       });
@@ -68,9 +70,10 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); 
+        setUsersOnline(0); // Or some other indicator of an error
     }
 
+    // Cleanup function
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
@@ -110,7 +113,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); 
+    event?.stopPropagation(); // Prevent click from focusing the input field if the tag is inside the clickable area
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -132,7 +135,8 @@ export default function SelectionLobby() {
     const queryString = params.toString();
 
     if (type === 'video') {
-        path = `/video-chat${queryString ? `?${queryString}` : ''}`;
+        // path = `/video-chat${queryString ? `?${queryString}` : ''}`;
+        path = `/video-chat`; // Interests not currently passed to video chat
     } else { 
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
@@ -173,7 +177,7 @@ export default function SelectionLobby() {
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-2">
                 <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button className="p-0 w-[20px] h-[20px] flex items-center justify-center" aria-label="Settings">
+                <Button className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center" aria-label="Settings">
                   <img
                     src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
                     alt="Settings"
@@ -187,7 +191,7 @@ export default function SelectionLobby() {
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 )}
                 onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjust to match typical input height (font-size + padding + border)
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -204,15 +208,15 @@ export default function SelectionLobby() {
                   </div>
                 ))}
                 <Input
-                  id="interests-input-field" 
+                  id="interests-input-field" // Ensure ID is unique if this component is used multiple times on a page, though unlikely here
                   ref={inputRef}
                   value={currentInterest}
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                   className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }} 
-                  disabled={selectedInterests.length >= 5 && !currentInterest} 
+                  style={{ minWidth: '80px' }} // Ensure some minimum width for the input itself
+                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests reached and no current input
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
