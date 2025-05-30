@@ -30,11 +30,14 @@ export default function SelectionLobby() {
   const [cursorsLoading, setCursorsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
+  const cardWrapperRef = useRef<HTMLDivElement>(null);
+  const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
+
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); // Fallback if URL is missing
+      setUsersOnline(0);
       return;
     }
 
@@ -47,36 +50,29 @@ export default function SelectionLobby() {
       });
 
       tempSocket.on('connect', () => {
-        console.log("SelectionLobby: Connected to socket server for user count.");
         tempSocket?.emit('getOnlineUserCount');
       });
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); // Disconnect after getting the count
-      });
-
-      tempSocket.on('onlineUserCountUpdate', (count: number) => {
-        // This event is from the server, useful for live updates if implemented
-        // For now, this page only fetches once on load.
-        // If you want live updates on this page, you'd keep the socket open and listen here.
+        tempSocket?.disconnect();
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); // Fallback on error
-        if (tempSocket?.connected) { // Ensure it's connected before trying to disconnect
+        setUsersOnline(0);
+        if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
       });
 
       tempSocket.on('disconnect', () => {
-          console.log("SelectionLobby: Disconnected from socket server for user count.");
+        // console.log("SelectionLobby: Disconnected from socket server for user count.");
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Fallback on error
+        setUsersOnline(0);
     }
 
     return () => {
@@ -150,28 +146,55 @@ export default function SelectionLobby() {
   const handleToggleSettings = async () => {
     const opening = !isSettingsOpen;
     setIsSettingsOpen(opening);
-    if (opening && cursorImages.length === 0 && !cursorsLoading) {
-      setSettingsError(null);
-      setCursorsLoading(true);
-      try {
-        const fetchedCursors = await listCursors();
-        setCursorImages(fetchedCursors || []);
-      } catch (error: any) {
-        console.error("Error fetching cursors:", error);
-        setSettingsError(error.message || "Failed to load cursors.");
-        setCursorImages([]);
-      } finally {
-        setCursorsLoading(false);
+
+    if (opening && cardWrapperRef.current) {
+      const cardRect = cardWrapperRef.current.getBoundingClientRect();
+      setPanelPosition({
+        top: cardRect.top + window.scrollY,
+        left: cardRect.right + window.scrollX + 16 // 16px = 1rem = Tailwind '4' unit
+      });
+
+      if (cursorImages.length === 0 && !cursorsLoading) {
+        setSettingsError(null);
+        setCursorsLoading(true);
+        try {
+          const fetchedCursors = await listCursors();
+          setCursorImages(fetchedCursors || []);
+        } catch (error: any) {
+          console.error("Error fetching cursors:", error);
+          setSettingsError(error.message || "Failed to load cursors.");
+          setCursorImages([]);
+        } finally {
+          setCursorsLoading(false);
+        }
       }
     }
   };
+
+  useEffect(() => {
+    const updatePosition = () => {
+      if (isSettingsOpen && cardWrapperRef.current) {
+        const cardRect = cardWrapperRef.current.getBoundingClientRect();
+        setPanelPosition({
+          top: cardRect.top + window.scrollY,
+          left: cardRect.right + window.scrollX + 16
+        });
+      }
+    };
+
+    if (isSettingsOpen) {
+      window.addEventListener('resize', updatePosition);
+      updatePosition(); // Recalculate on open, in case of initial layout shifts
+    }
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [isSettingsOpen]);
 
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
       <div className="flex-grow min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center md:flex-row md:items-start gap-4"> {/* Wrapper for Card and Settings Panel */}
-          <Card className="w-full max-w-md relative">
+        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for the Card to get its position */}
+          <Card className="w-full relative"> {/* Main Card */}
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
@@ -212,11 +235,10 @@ export default function SelectionLobby() {
                 <div
                   className={cn(
                     "flex flex-wrap items-center gap-1 p-1.5 border rounded-md cursor-text",
-                    // Apply theme-specific input container styles if available or generic ones
                     currentTheme === 'theme-98' ? 'bg-white shadow-inner border-gray-400' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                   )}
                   onClick={focusInput}
-                  style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Ensure enough height for tags and input
+                  style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
                 >
                   {selectedInterests.map((interest) => (
                     <div
@@ -239,8 +261,8 @@ export default function SelectionLobby() {
                     onChange={handleInterestInputChange}
                     onKeyDown={handleInterestInputKeyDown}
                     placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                    className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" // themed-input-inner is important
-                    style={{ minWidth: '80px' }} // Ensure input has some base width
+                    className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
+                    style={{ minWidth: '80px' }}
                     disabled={selectedInterests.length >= 5 && !currentInterest}
                   />
                 </div>
@@ -258,73 +280,74 @@ export default function SelectionLobby() {
               </Button>
             </CardFooter>
           </Card>
-
-          {isSettingsOpen && (
-            <div // Main settings panel container
-              className={cn(
-                'md:w-64', // Width on medium screens and up
-                'w-full',    // Full width on small screens
-                'p-2 rounded-md shadow-lg',
-                currentTheme === 'theme-7'
-                  ? 'bg-neutral-100 bg-opacity-30 backdrop-filter backdrop-blur-md border border-neutral-300 dark:bg-neutral-800 dark:bg-opacity-30 dark:border-neutral-600'
-                  : 'bg-silver border border-gray-400', // Simpler for theme-98, like a dialog panel
-                currentTheme === 'theme-98' && 'window' // Apply window class for 98.css structure if desired for the panel itself
-              )}
-              style={{
-                width: '250px' // Fixed width for consistency
-              }}
-            >
-              <div className={cn(currentTheme === 'theme-98' && 'window-body p-1')}> {/* Inner padding for theme-98 if panel is window */}
-                <menu role="tablist" className={cn(currentTheme === 'theme-98' ? 'mb-0.5' : 'mb-2 border-b border-gray-300 dark:border-gray-600')}>
-                  <li role="tab" aria-selected="true"
-                      className={cn(
-                        'inline-block py-1 px-2 cursor-default',
-                        currentTheme === 'theme-98' ? 'button raised' : 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400',
-                        currentTheme === 'theme-98' && '[aria-selected=true]:font-bold' // 98.css active tab might need bold
-                      )}
-                  >
-                    <a>Cursors</a>
-                  </li>
-                </menu>
-                <div // Tab panel content area
-                  className={cn(
-                    // For 98.css, use a nested window for tab content if panel isn't a window
-                    currentTheme === 'theme-98' && !isSettingsOpen && 'window', // Add if outer isn't window
-                    currentTheme === 'theme-98' ? 'sunken-panel' : '', // Sunken panel for 98.css content area
-                    currentTheme === 'theme-7' ? 'bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 border border-gray-300 dark:border-gray-600 rounded' : ''
-                  )}
-                  role="tabpanel"
-                  style={{ marginTop: currentTheme === 'theme-98' ? '1px' : '' }}
-                >
-                  <div className={cn(currentTheme === 'theme-7' ? 'p-2' : 'p-1')}>
-                    {cursorsLoading ? (
-                      <p className="text-center">Loading cursors...</p>
-                    ) : settingsError ? (
-                      <p className="text-red-600 text-center">Error: {settingsError}</p>
-                    ) : cursorImages.length > 0 ? (
-                      <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
-                        {cursorImages.map((url) => (
-                          <div key={url} className="flex items-center justify-center p-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700">
-                            <img
-                              src={url}
-                              alt="cursor"
-                              className="w-[30px] h-[30px] object-contain cursor-pointer"
-                              data-ai-hint="custom cursor"
-                              // onClick={() => applyCursor(url)} // Implement this later
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center">No cursors found.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Settings Panel - Positioned with 'fixed' */}
+      {isSettingsOpen && (
+        <div
+          className={cn(
+            'fixed p-2 rounded-md shadow-lg z-10', // Use fixed positioning, ensure z-index
+            currentTheme === 'theme-7'
+              ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 dark:bg-neutral-800 dark:bg-opacity-70 dark:border-neutral-600'
+              : 'bg-silver border border-gray-400' // For theme-98, panel itself is not a 'window'
+          )}
+          style={{
+            width: '250px', // Fixed width for the panel
+            top: `${panelPosition.top}px`,
+            left: `${panelPosition.left}px`,
+            // Add max-height and overflow-y if panel content might exceed viewport height
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, // 16px for some bottom margin
+            overflowY: 'auto' 
+          }}
+        >
+          <div className={cn(currentTheme === 'theme-98' ? 'p-1' : 'p-1')}> {/* Inner padding consistent */}
+            <menu role="tablist" className={cn(currentTheme === 'theme-98' ? 'mb-0.5' : 'mb-2 border-b border-gray-300 dark:border-gray-600')}>
+              <li role="tab" aria-selected="true"
+                  className={cn(
+                    'inline-block py-1 px-2 cursor-default',
+                    currentTheme === 'theme-98' ? 'button raised' : 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400',
+                    currentTheme === 'theme-98' && '[aria-selected=true]:font-bold'
+                  )}
+              >
+                <a>Cursors</a>
+              </li>
+            </menu>
+            <div // Tab panel content area
+              className={cn(
+                currentTheme === 'theme-98' ? 'sunken-panel' : '', // Sunken panel for 98.css content area
+                currentTheme === 'theme-7' ? 'bg-white bg-opacity-50 dark:bg-gray-700 dark:bg-opacity-50 border border-gray-300 dark:border-gray-600 rounded' : ''
+              )}
+              role="tabpanel"
+              style={{ marginTop: currentTheme === 'theme-98' ? '1px' : '' }}
+            >
+              <div className={cn(currentTheme === 'theme-7' ? 'p-2' : 'p-1')}>
+                {cursorsLoading ? (
+                  <p className="text-center">Loading cursors...</p>
+                ) : settingsError ? (
+                  <p className="text-red-600 text-center">Error: {settingsError}</p>
+                ) : cursorImages.length > 0 ? (
+                  <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
+                    {cursorImages.map((url) => (
+                      <div key={url} className="flex items-center justify-center p-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <img
+                          src={url}
+                          alt="cursor"
+                          className="w-[30px] h-[30px] object-contain cursor-pointer"
+                          data-ai-hint="custom cursor"
+                          // onClick={() => applyCursor(url)} // Implement this later
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center">No cursors found.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="mt-auto py-4 text-center">
         <div className="max-w-5xl mx-auto">
@@ -343,3 +366,4 @@ export default function SelectionLobby() {
     </div>
   );
 }
+
