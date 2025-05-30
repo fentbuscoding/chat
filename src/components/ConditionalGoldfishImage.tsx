@@ -11,11 +11,19 @@ export function ConditionalGoldfishImage() {
     return null;
   }
 
+  const imageStyles: React.CSSProperties = {
+    top: '-60px',
+    right: '-34px',
+    width: '150px',
+    height: '150px',
+  };
+
   return (
     <img
       src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
       alt="Decorative Goldfish"
-      className="absolute top-[-60px] right-[-34px] w-[150px] h-[150px] object-contain pointer-events-none select-none z-50"
+      className="absolute object-contain pointer-events-none select-none z-50" // Standard Tailwind classes
+      style={imageStyles} // Styles with arbitrary values moved here
       data-ai-hint="goldfish decoration"
     />
   );
