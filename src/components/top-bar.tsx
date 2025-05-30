@@ -7,6 +7,20 @@ import { Label } from '@/components/ui/label-themed';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select-themed';
 import { cn } from '@/lib/utils';
 
+const DYNAMIC_THEME_STYLE_ID = 'dynamic-win98-theme-style';
+
+interface ThemeStamp {
+  name: string;
+  imageUrl: string;
+  cssFile: string | null; // null for reset/default
+  dataAiHint: string;
+}
+
+const availableStamps: ThemeStamp[] = [
+  { name: 'Pink Windows', imageUrl: '/theme_stamps/starpattern.png', cssFile: 'pink-theme.css', dataAiHint: 'pink theme stamp' },
+  { name: 'Default 98', imageUrl: 'https://placehold.co/100x75/c0c0c0/000000.png?text=Default', cssFile: null, dataAiHint: 'default theme stamp' },
+];
+
 export function TopBar() {
   const { currentTheme, selectedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -20,11 +34,49 @@ export function TopBar() {
     setMounted(true);
   }, []);
 
+  const applyWin98SubTheme = useCallback((cssFile: string | null) => {
+    if (typeof window === 'undefined') return;
+
+    const htmlElement = document.documentElement;
+    htmlElement.classList.add('theme-transitioning');
+
+    let link = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
+
+    if (cssFile) {
+      const newHref = `/win98themes/${cssFile}`;
+      if (link) {
+        link.href = newHref;
+      } else {
+        link = document.createElement('link');
+        link.id = DYNAMIC_THEME_STYLE_ID;
+        link.rel = 'stylesheet';
+        link.href = newHref;
+        document.head.appendChild(link);
+      }
+    } else {
+      // Reset: remove the dynamic stylesheet if it exists
+      if (link) {
+        link.remove();
+      }
+    }
+
+    // Remove the transition class after the transition duration
+    setTimeout(() => {
+      htmlElement.classList.remove('theme-transitioning');
+    }, 500); // Corresponds to 0.5s transition in globals.css
+  }, []);
+
+
   const handleThemeChange = (newThemeString: string) => {
     if (newThemeString === 'theme-98' || newThemeString === 'theme-7') {
       setTheme(newThemeString as Theme);
+      // If switching main theme, remove sub-theme stylesheet
+      const dynamicLink = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
+      if (dynamicLink) {
+          dynamicLink.remove();
+      }
     }
-    setIsCustomizerOpen(false); // Close customizer if theme changes
+    setIsCustomizerOpen(false);
   };
 
   const toggleCustomizer = useCallback(() => {
@@ -32,20 +84,18 @@ export function TopBar() {
 
     if (!isCustomizerOpen) {
       const iconRect = themeIconRef.current.getBoundingClientRect();
-      const windowWidth = 300; // Desired width of the customizer window
+      const windowWidth = 300;
       let leftPosition = iconRect.left + window.scrollX;
       
-      // Adjust if it overflows right edge of viewport
       if (leftPosition + windowWidth > window.innerWidth) {
-        leftPosition = window.innerWidth - windowWidth - 10; // 10px padding from edge
+        leftPosition = window.innerWidth - windowWidth - 10; 
       }
-      // Ensure it doesn't go off the left edge either
       if (leftPosition < 10) {
         leftPosition = 10;
       }
 
       setCustomizerPosition({
-        top: iconRect.bottom + window.scrollY + 5, // 5px below the icon
+        top: iconRect.bottom + window.scrollY + 5,
         left: leftPosition,
       });
     }
@@ -75,7 +125,7 @@ export function TopBar() {
 
   if (!mounted) {
     return (
-      <div className="flex justify-end items-center p-2 space-x-2">
+      <div className="flex justify-end items-center p-2 space-x-2 top-bar-main-body">
         <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
         <select
           id="theme-select-native"
@@ -89,14 +139,13 @@ export function TopBar() {
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-        {/* Placeholder for theme icon to maintain layout consistency before mount */}
         <div style={{ width: '20px', height: '20px' }} />
       </div>
     );
   }
 
   return (
-    <div className="flex justify-end items-center p-2 space-x-2">
+    <div className={cn("flex justify-end items-center p-2 space-x-2", currentTheme === 'theme-7' ? 'top-bar-main-body' : '')}>
       <Label htmlFor={currentTheme === 'theme-98' ? "theme-select-native" : "theme-select-custom"} className="mr-2">Theme:</Label>
       {currentTheme === 'theme-98' ? (
         <select
@@ -141,10 +190,10 @@ export function TopBar() {
           className="window fixed z-50"
           style={{
             width: '300px',
-            maxWidth: '90vw', // Ensure it doesn't exceed viewport width too much
+            maxWidth: '90vw',
             top: `${customizerPosition.top}px`,
             left: `${customizerPosition.left}px`,
-            maxHeight: `calc(100vh - ${customizerPosition.top}px - 20px)`, // Prevent vertical overflow
+            maxHeight: `calc(100vh - ${customizerPosition.top}px - 20px)`,
           }}
         >
           <div className="title-bar">
@@ -155,14 +204,22 @@ export function TopBar() {
               <button aria-label="Close" onClick={() => setIsCustomizerOpen(false)}></button>
             </div>
           </div>
-          <div className="window-body p-2" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' /* Approximate height for title bar + padding */}}>
-            <img 
-              src="/theme_stamps/starpattern.png" 
-              alt="Star Pattern Theme Stamp" 
-              className="max-w-full h-auto mx-auto"
-              data-ai-hint="star pattern decorative" 
-            />
-            {/* Future content for theme customization */}
+          <div className="window-body p-2" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' }}>
+            <p className="text-xs mb-2">Select a theme stamp:</p>
+            <ul className="list-none p-0 m-0">
+              {availableStamps.map((stamp) => (
+                <li key={stamp.name} className="mb-2 p-1 hover:bg-gray-300 cursor-pointer flex items-center" onClick={() => applyWin98SubTheme(stamp.cssFile)}>
+                  <img 
+                    src={stamp.imageUrl}
+                    alt={stamp.name}
+                    className="w-16 h-auto mr-2 border border-gray-400" // approx 65% of a 100px box width, adjust if needed
+                    style={{ imageRendering: 'pixelated' }} // Good for pixel art stamps
+                    data-ai-hint={stamp.dataAiHint}
+                  />
+                  <span className="text-sm">{stamp.name}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}

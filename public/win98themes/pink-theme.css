@@ -1,0 +1,59 @@
+
+/* Pink Sub-Theme for Windows 98 */
+/* This file is dynamically loaded when the 'Pink Windows' stamp is clicked. */
+/* It assumes .theme-98 is active on the HTML element. */
+
+/* Style window backgrounds */
+.theme-98 .window {
+  background-color: #FFC0CB !important; /* Pink */
+}
+
+.theme-98 .window-body {
+  background-color: #FFE4E1 !important; /* MistyRose (lighter pink) */
+}
+
+/* Style title bars */
+.theme-98 .title-bar {
+  background: linear-gradient(90deg, #DB7093, #FFB6C1) !important; /* PaleVioletRed to LightPink gradient */
+}
+.theme-98 .title-bar-text {
+  color: white !important; 
+  text-shadow: 1px 1px #800080; /* Purple shadow for text */
+}
+
+/* Style buttons */
+.theme-98 button {
+  border-top-color: #FFDFEF !important;
+  border-left-color: #FFDFEF !important;
+  border-bottom-color: #D8BFD8 !important; /* Thistle */
+  border-right-color: #D8BFD8 !important;
+  box-shadow: inset 1px 1px #FFFAFA, inset -1px -1px #C71585 !important; /* Snow, MediumVioletRed */
+  background-color: #FFE4E1 !important; /* MistyRose */
+  color: #8B008B !important; /* DarkMagenta */
+}
+
+.theme-98 button:active,
+.theme-98 button.active {
+  border-top-color: #D8BFD8 !important;
+  border-left-color: #D8BFD8 !important;
+  border-bottom-color: #FFDFEF !important;
+  border-right-color: #FFDFEF !important;
+  box-shadow: inset 1px 1px #C71585, inset -1px -1px #FFFAFA !important;
+}
+
+/* Example: Style input fields */
+.theme-98 input[type="text"],
+.theme-98 textarea,
+.theme-98 .tree-view, /* Chat message area */
+.theme-98 select {
+  background-color: #FFF0F5 !important; /* LavenderBlush */
+  border-color: #DB7093 !important; /* PaleVioletRed for sunken effect */
+  box-shadow: inset 1px 1px #C71585, inset -1px -1px #FFFAFA !important; /* For sunken effect */
+  color: #800000 !important; /* Maroon */
+}
+
+/* Status bar (used as input area in chat) */
+.theme-98 .status-bar {
+    background-color: #FFC0CB !important; /* Pink */
+    border-top: 1px solid #DB7093 !important;
+}
