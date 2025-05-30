@@ -7,7 +7,7 @@ const allowedOrigins = [
   "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Production frontend
   "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev", // Development
   "http://localhost:9002", // Local Next.js dev server
-  "https://tinchat.online"
+  "https://tinchat.online" // Added custom domain
 ];
 
 const server = http.createServer((req, res) => {
@@ -55,9 +55,11 @@ const server = http.createServer((req, res) => {
 const io = new SocketIOServer(server, {
   cors: {
     origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`CORS: Denied origin - ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
