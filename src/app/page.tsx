@@ -51,7 +51,13 @@ export default function SelectionLobby() {
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
         setUsersOnline(0); 
-        tempSocket?.disconnect();
+        if (tempSocket?.connected) {
+            tempSocket?.disconnect();
+        }
+      });
+      
+      tempSocket.on('disconnect', () => {
+          console.log("SelectionLobby: Disconnected from socket server for user count.");
       });
 
     } catch (error) {
@@ -61,7 +67,9 @@ export default function SelectionLobby() {
 
 
     return () => {
-      tempSocket?.disconnect();
+      if (tempSocket?.connected) {
+        tempSocket?.disconnect();
+      }
     };
   }, []);
 
@@ -102,8 +110,6 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
-    console.log("SelectionLobby: handleStartChat called with type:", type, "Current Interests:", selectedInterests);
-
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
@@ -125,16 +131,7 @@ export default function SelectionLobby() {
     } else { 
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
-
-    console.log(`SelectionLobby: Attempting to navigate to path: ${path}`);
-
-    try {
-      router.push(path);
-      console.log(`SelectionLobby: router.push('${path}') was called.`);
-    } catch (error) {
-      console.error("SelectionLobby: Error during router.push:", error);
-      toast({ variant: "destructive", title: "Navigation Error", description: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}` });
-    }
+    router.push(path);
   }, [router, selectedInterests, toast]);
 
 
@@ -144,7 +141,7 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col p-4"> {/* Changed to flex-col */}
+    <div className="flex flex-1 flex-col p-4"> {/* Main page container */}
       <div className="flex-grow flex items-center justify-center"> {/* Wrapper for centering the card */}
         <Card className="w-full max-w-md relative">
           <CardHeader>
@@ -207,23 +204,19 @@ export default function SelectionLobby() {
             </div>
           </CardContent>
            <CardFooter className="flex justify-between space-x-4">
-             <Button className="flex-1 accent" onClick={() => {
-                 console.log("SelectionLobby: 'Start Text Chat' button clicked.");
-                 handleStartChat('text');
-              }}>
+             <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
                <span className="animate-rainbow-text">Start Text Chat</span>
              </Button>
-             <Button className="flex-1 accent" onClick={() => {
-                 console.log("SelectionLobby: 'Start Video Chat' button clicked.");
-                 handleStartChat('video');
-              }}>
+             <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
                <span className="animate-rainbow-text-alt">Start Video Chat</span>
              </Button>
            </CardFooter>
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        <div className="w-full max-w-md mx-auto border-t border-gray-300 dark:border-gray-600 my-4"></div>
+        <div className="max-w-md mx-auto"> {/* Container to align with card and center the line */}
+          <div className="w-1/2 mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div> {/* The styled line */}
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} TinChat. All rights reserved.
         </p>
