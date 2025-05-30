@@ -1,32 +1,29 @@
-/* pink-theme.css */
+/* Pink Windows Theme Stamp for Windows 98 Theme */
 
-/* Override base window colors for a pink theme */
-.theme-98 .window {
-    /* background-color: #FFC0CB !important; Pink background */
-    /* border-color: #FF69B4 !important; Hot pink border */
-}
-
-.theme-98 .window-body {
-    /* background-color: #FFF0F5 !important; Lavender blush body */
-    /* color: #333 !important; Darker text for readability */
-}
-
-/* Example: Pink title bar for active window */
-.theme-98 .window.active > .title-bar {
-    /* background: linear-gradient(to right, #FF69B4, #FFB6C1) !important; Pink gradient */
-}
-
-/* Example: Change button appearance */
-.theme-98 button {
-    /* background-color: #FFDAE0 !important; Light pink buttons */
-    /* border-color: #FF85A1 !important; */
-    /* color: #AD1457 !important; Dark pink text */
-}
-
-/* Apply bows.png wallpaper for the body when pink theme is active under theme-98 */
+/* Wallpaper */
 .theme-98 body {
-    background-image: url('/wallpapers/bows.png') !important;
-    background-repeat: repeat !important;
-    background-attachment: fixed !important; /* Keep background fixed */
-    background-size: auto !important; /* Repeat at natural size */
+  background-image: url('/wallpapers/bows.png') !important;
+  background-repeat: repeat !important;
+  background-attachment: fixed !important;
+  background-size: auto !important; /* Or a specific size like '100px' if you want smaller repeats */
+}
+
+/* Window color */
+.theme-98 .window {
+  background-color: #FFC0CB !important; /* Pink */
+}
+
+/* Window body color */
+.theme-98 .window-body {
+  background-color: #FFD1DC !important; /* Light Pink - for the content area */
+}
+
+/* Title bar for active window - example: darker pink gradient */
+.theme-98 .window.active > .title-bar {
+  background: linear-gradient(to right, #DE6FA1, #F9A7B0) !important; /* Darker to lighter pink */
+}
+
+/* Title bar for inactive window - example: lighter pink gradient */
+.theme-98 .window:not(.active) > .title-bar {
+  background: linear-gradient(to right, #F9A7B0, #FADADD) !important; /* Lighter to very light pink */
 }
