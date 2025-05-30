@@ -46,20 +46,20 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect();
+        tempSocket?.disconnect(); // Disconnect after getting the count
       });
 
       tempSocket.on('onlineUserCountUpdate', (count: number) => {
         // This could be used if the server proactively broadcasts updates,
         // but for now, it's a one-time fetch on connect.
-        // setUsersOnline(count); 
+        // setUsersOnline(count);
       });
 
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); 
-        if (tempSocket?.connected) { 
+        setUsersOnline(0); // Fallback or error indication
+        if (tempSocket?.connected) { // Ensure it's connected before trying to disconnect
             tempSocket?.disconnect();
         }
       });
@@ -70,15 +70,16 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); 
+        setUsersOnline(0); // Fallback or error indication
     }
 
+    // Cleanup function to disconnect the socket when the component unmounts
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
       }
     };
-  }, []); 
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -112,7 +113,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); 
+    event?.stopPropagation(); // Stop click from bubbling to the input focus handler
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -134,12 +135,14 @@ export default function SelectionLobby() {
     const queryString = params.toString();
 
     if (type === 'video') {
+        // path = `/video-chat${queryString ? `?type=video&${queryString}` : '?type=video'}`;
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { 
+    } else { // 'text'
+        // path = `/chat${queryString ? `?type=text&${queryString}` : '?type=text'}`;
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
-  }, [router, selectedInterests, toast]); 
+  }, [router, selectedInterests, toast]); // Added toast to dependencies
 
 
   const focusInput = () => {
@@ -175,7 +178,7 @@ export default function SelectionLobby() {
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-2">
                 <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button className="p-0 w-[50px] h-[50px] flex items-center justify-center" aria-label="Settings">
+                <Button className="p-0 w-[25px] h-[25px] flex items-center justify-center" aria-label="Settings">
                   <img
                     src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
                     alt="Settings"
@@ -189,7 +192,7 @@ export default function SelectionLobby() {
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 )}
                 onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Ensure enough height for tags + input line
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -198,7 +201,7 @@ export default function SelectionLobby() {
                   >
                     <span>{interest}</span>
                     <X
-                      size={14} 
+                      size={14} // Adjust size as needed
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
                       onClick={(e) => handleRemoveInterest(interest, e)}
                       aria-label={`Remove ${interest}`}
@@ -206,15 +209,15 @@ export default function SelectionLobby() {
                   </div>
                 ))}
                 <Input
-                  id="interests-input-field" 
+                  id="interests-input-field" // Added id for label association
                   ref={inputRef}
                   value={currentInterest}
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                   className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }} 
-                  disabled={selectedInterests.length >= 5 && !currentInterest} 
+                  style={{ minWidth: '80px' }} // Prevent input from becoming too small
+                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests reached and no current input
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -249,3 +252,4 @@ export default function SelectionLobby() {
     </div>
   );
 }
+
