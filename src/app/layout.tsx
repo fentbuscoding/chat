@@ -9,7 +9,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ConditionalTopBar } from '@/components/conditional-top-bar';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvider';
-import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
+// import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage'; // Removed
 import { ClientEffectManager } from '@/components/ClientEffectManager';
 
 const siteTitle = "TinChat";
@@ -69,7 +69,7 @@ export default function RootLayout({
                 {children}
               </main>
               <Toaster />
-              <ConditionalGoldfishImage />
+              {/* <ConditionalGoldfishImage /> Removed from here */}
               <ClientEffectManager />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
