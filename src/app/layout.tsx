@@ -1,5 +1,6 @@
 
 import type { Metadata } from 'next';
+import Script from 'next/script'; // Import Script
 import './globals.css';
 import './(fonts)/fonts.css'; // Import the font CSS
 import { ThemeProvider } from '@/components/theme-provider';
@@ -10,7 +11,7 @@ import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvide
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://your-production-domain.com"; // Replace with your actual domain later
+const siteUrl = "https://tinchat.online"; // Replace with your actual domain later
 const openGraphImageUrl = "https://placehold.co/1200x630.png"; // Standard OG image size
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default function RootLayout({
             <Toaster />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
+        <Script src="/oneko.js" strategy="afterInteractive" />
       </body>
     </html>
   );
