@@ -7,12 +7,13 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ConditionalTopBar } from '@/components/conditional-top-bar';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvider';
+import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage'; // Added import
 
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online"; 
-const openGraphImageUrl = "https://placehold.co/1200x630.png"; 
+const siteUrl = "https://tinchat.online";
+const openGraphImageUrl = "https://placehold.co/1200x630.png";
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -71,12 +72,7 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
-            <img
-                src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
-                alt="Decorative Goldfish"
-                className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-50"
-                data-ai-hint="goldfish decoration"
-            />
+            <ConditionalGoldfishImage /> {/* Replaced direct img with conditional component */}
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
         {/* Load Oneko (original sprite) script */}
