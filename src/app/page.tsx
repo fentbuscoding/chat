@@ -47,13 +47,15 @@ export default function SelectionLobby() {
     const nekoWasActive = localStorage.getItem('nekoActive') === 'true';
 
     if (nekoWasActive) {
+      if (typeof window.stopOneko === 'function') { // Stop any custom cursor first
+        document.body.style.cursor = 'auto';
+      }
       if (typeof window.startOneko === 'function') {
         window.startOneko();
       }
-      document.body.style.cursor = 'auto';
     } else if (savedCursorUrl) {
       if (typeof window.stopOneko === 'function') {
-        window.stopOneko();
+        window.stopOneko(); // Stop Neko if it was active
       }
       document.body.style.cursor = `url(${savedCursorUrl}), auto`;
     } else {
@@ -82,17 +84,27 @@ export default function SelectionLobby() {
       });
 
       tempSocket.on('connect', () => {
+        console.log("SelectionLobby: Connected to socket server for user count.");
         tempSocket?.emit('getOnlineUserCount');
       });
 
+      tempSocket.on('onlineUserCountUpdate', (count: number) => {
+        setUsersOnline(count);
+      });
+      
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
+        // Disconnect after getting the count to avoid keeping the connection open
+        // if this page is only meant to show the count and not maintain a persistent connection.
+        // If continuous updates are desired, this disconnect should be removed or handled differently.
+        // For now, assuming it's for an initial display:
         tempSocket?.disconnect();
       });
 
+
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0);
+        setUsersOnline(0); 
         if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
@@ -103,8 +115,10 @@ export default function SelectionLobby() {
         setUsersOnline(0);
     }
 
+    // Cleanup on component unmount
     return () => {
       if (tempSocket?.connected) {
+        console.log("SelectionLobby: Disconnecting socket for user count on unmount.");
         tempSocket?.disconnect();
       }
     };
@@ -142,7 +156,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation();
+    event?.stopPropagation(); 
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -154,11 +168,11 @@ export default function SelectionLobby() {
     }
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
-    if (interestsString) {
+    if (interestsString) { 
         params.append('interests', interestsString);
     }
     let path: string;
-    const queryString = params.toString();
+    const queryString = params.toString(); 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
     } else {
@@ -166,6 +180,7 @@ export default function SelectionLobby() {
     }
     router.push(path);
   }, [router, selectedInterests, toast]);
+
 
   const focusInput = () => {
     inputRef.current?.focus();
@@ -179,7 +194,7 @@ export default function SelectionLobby() {
       const cardRect = cardWrapperRef.current.getBoundingClientRect();
       setPanelPosition({
         top: cardRect.top + window.scrollY,
-        left: cardRect.right + window.scrollX + 16 // 16px = 1rem = Tailwind '4' unit
+        left: cardRect.right + window.scrollX + 16 
       });
 
       if (cursorImages.length === 0 && !cursorsLoading) {
@@ -212,32 +227,30 @@ export default function SelectionLobby() {
 
     if (isSettingsOpen) {
       window.addEventListener('resize', updatePosition);
-      // updatePosition(); // Recalculate on open, in case of initial layout shifts (already done in handleToggleSettings)
     }
     return () => window.removeEventListener('resize', updatePosition);
   }, [isSettingsOpen]);
 
 
   const handleCursorSelect = (cursorUrl: string) => {
-    if (cursorUrl.endsWith('neko.gif')) {
-      if (typeof window.stopOneko === 'function') { // Stop any previous custom cursor
-        // No explicit stop for default cursor, just ensure Neko stops if it was active
+    if (cursorUrl.toLowerCase().endsWith('neko.gif')) {
+      if (typeof window.stopOneko === 'function') {
+        window.stopOneko(); // Ensure any existing cursor is stopped
       }
       if (typeof window.startOneko === 'function') {
         window.startOneko();
       }
       localStorage.setItem('nekoActive', 'true');
       localStorage.removeItem('selectedCursorUrl');
-      document.body.style.cursor = 'auto'; // Neko is its own element
+      document.body.style.cursor = 'auto'; // Neko manages its own element, reset body cursor
     } else {
       if (typeof window.stopOneko === 'function') {
-        window.stopOneko();
+        window.stopOneko(); // Stop Neko if active
       }
       localStorage.removeItem('nekoActive');
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
     }
-    setIsSettingsOpen(false); // Close settings panel after selection
   };
 
   const handleDefaultCursor = () => {
@@ -247,14 +260,13 @@ export default function SelectionLobby() {
     localStorage.removeItem('nekoActive');
     localStorage.removeItem('selectedCursorUrl');
     document.body.style.cursor = 'auto';
-    setIsSettingsOpen(false); // Close settings panel
   };
 
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
       <div className="flex-grow min-h-screen flex items-center justify-center">
-        <div ref={cardWrapperRef} className="w-full max-w-md">
+        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for Card to get its position */}
           <Card className="w-full relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -295,8 +307,7 @@ export default function SelectionLobby() {
                 </div>
                 <div
                   className={cn(
-                    "flex flex-wrap items-center gap-1 p-1.5 border rounded-md cursor-text",
-                    currentTheme === 'theme-98' ? 'bg-white shadow-inner border-gray-400' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                    "flex flex-wrap items-center gap-1 p-1.5 cursor-text themed-input rounded-md"
                   )}
                   onClick={focusInput}
                   style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
@@ -347,16 +358,16 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 rounded-md shadow-lg z-10',
+            'fixed p-2 shadow-lg z-10',
             currentTheme === 'theme-7'
-              ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 dark:bg-neutral-800 dark:bg-opacity-70 dark:border-neutral-600'
-              : 'bg-silver border border-gray-400'
+              ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
+              : 'bg-silver border border-gray-400 rounded' 
           )}
           style={{
             width: '250px',
             top: `${panelPosition.top}px`,
             left: `${panelPosition.left}px`,
-            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`,
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, 
             overflowY: 'auto'
           }}
         >
