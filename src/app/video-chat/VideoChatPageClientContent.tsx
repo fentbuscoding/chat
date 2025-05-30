@@ -14,6 +14,7 @@ import { io } from 'socket.io-client';
 import { listEmojis } from '@/ai/flows/list-emojis-flow';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
 
+
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'angel.png', 'bigsmile.png', 'burp.png', 'cool.png', 'crossedlips.png',
@@ -24,6 +25,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
 
 const INPUT_AREA_HEIGHT = 60;
+const TYPING_INDICATOR_HEIGHT = 20; 
 const logPrefix = "VideoChatPage";
 
 interface Message {
@@ -165,13 +167,9 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const prevIsFindingPartnerRef = useRef(isFindingPartner);
   const prevIsPartnerConnectedRef = useRef(isPartnerConnected);
-  const prevIsSelfDisconnectedRecentlyRef = useRef(false); // Ref for favicon effect
-  const prevIsPartnerLeftRecentlyRef = useRef(false); // Ref for favicon effect
-  
   const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false);
   const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
-
-
+  
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
@@ -222,7 +220,6 @@ const VideoChatPageClientContent: React.FC = () => {
     });
   }, []);
 
-  // Effect for managing favicons and system messages based on chat state
  useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
     if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
@@ -242,7 +239,6 @@ const VideoChatPageClientContent: React.FC = () => {
       }, 1000);
     } else if (isPartnerLeftRecently) {
       changeFavicon('/Skipped.ico');
-       // Message "Your partner has disconnected" is added by partnerLeft handler
       skippedFaviconTimeoutRef.current = setTimeout(() => {
         setIsPartnerLeftRecently(false);
       }, 1000);
@@ -254,7 +250,6 @@ const VideoChatPageClientContent: React.FC = () => {
 
       if (justStartedFinding || justFinishedSelfDisconnectAndIsSearching) {
         filterSystemMessages('your partner has disconnected');
-        // Do not filter 'you have disconnected' as it's explicitly added by the skip action.
         filterSystemMessages('stopped searching for a partner');
         if (!currentMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'))) {
             currentMessages.push({ id: `${Date.now()}-search`, text: 'Searching for a partner...', sender: 'system', timestamp: new Date() });
@@ -379,7 +374,6 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
-        // Don't set isFindingPartner(false) here, as it might be called during an ongoing search
         return;
     }
 
@@ -482,11 +476,9 @@ const VideoChatPageClientContent: React.FC = () => {
     }
   }, [
       addMessage, isPartnerConnected, isFindingPartner, interests,
-      cleanupConnections, getCameraStream, toast, setIsFindingPartner, setIsPartnerConnected,
-      setIsSelfDisconnectedRecently, setIsPartnerTyping, setPartnerInterests
+      cleanupConnections, getCameraStream, toast
     ]);
 
-  // Effect for Socket.IO connection and event listeners
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
@@ -525,6 +517,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
+      setMessages([]); // Clear chat history
       roomIdRef.current = rId;
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
@@ -676,16 +669,18 @@ const VideoChatPageClientContent: React.FC = () => {
         if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
         if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
     };
-  }, [addMessage, toast, interests, changeFavicon, setupWebRTC, cleanupConnections, getCameraStream, isMounted, setIsFindingPartner, setIsPartnerConnected, setPartnerInterests, setSocketError, setIsPartnerTyping]); 
+  }, [addMessage, toast, interests, changeFavicon, currentTheme, isFindingPartner, isPartnerConnected, getCameraStream, setupWebRTC, cleanupConnections]); 
 
 
-  // Effect for initial page load favicon and mount status
   useEffect(() => {
     setIsMounted(true);
     changeFavicon('/Idle.ico');
     if (hasCameraPermission === undefined) { 
         getCameraStream();
     }
+    return () => {
+        changeFavicon('/favicon.ico', true);
+    };
   }, [changeFavicon, getCameraStream, hasCameraPermission]);
 
   useEffect(() => {
@@ -835,6 +830,9 @@ const VideoChatPageClientContent: React.FC = () => {
  useEffect(() => { 
     prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
   }, [isPartnerLeftRecently]);
+  useEffect(() => { 
+    prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently;
+  }, [isSelfDisconnectedRecently]);
 
 
   if (!isMounted) {
@@ -859,8 +857,8 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-              "title-bar text-sm", 
-              effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7 text-black'
+              "title-bar text-sm video-feed-title-bar", 
+              effectivePageTheme === 'theme-98' ? '' : 'theme-7 text-black'
             )}>
             <div className="title-bar-text">
             </div>
@@ -893,8 +891,8 @@ const VideoChatPageClientContent: React.FC = () => {
           style={{width: '325px', height: '198px'}}
         >
           <div className={cn(
-               "title-bar text-sm",
-               effectivePageTheme === 'theme-98' ? 'video-feed-title-bar' : 'video-feed-title-bar theme-7 text-black'
+               "title-bar text-sm video-feed-title-bar",
+               effectivePageTheme === 'theme-98' ? '' : 'theme-7 text-black'
             )}>
             <div className="title-bar-text">
             </div>
