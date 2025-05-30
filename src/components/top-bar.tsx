@@ -155,8 +155,13 @@ export function TopBar() {
               <button aria-label="Close" onClick={() => setIsCustomizerOpen(false)}></button>
             </div>
           </div>
-          <div className="window-body" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' /* Approximate height for title bar + padding */}}>
-            <p className="p-2">Theme customization options will go here!</p>
+          <div className="window-body p-2" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 80px)' /* Approximate height for title bar + padding */}}>
+            <img 
+              src="/theme_stamps/starpattern.png" 
+              alt="Star Pattern Theme Stamp" 
+              className="max-w-full h-auto mx-auto"
+              data-ai-hint="star pattern decorative" 
+            />
             {/* Future content for theme customization */}
           </div>
         </div>
