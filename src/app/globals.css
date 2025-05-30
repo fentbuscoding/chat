@@ -29,7 +29,6 @@ body {
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
-  /* overflow: hidden; */ /* REMOVED to allow page scrolling */
   
   /* Make body a flex container to manage its direct children (like #__next) */
   display: flex;
@@ -331,12 +330,16 @@ video {
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
+html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
+html,
 body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+    
