@@ -26,7 +26,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); 
+      setUsersOnline(0);
       return;
     }
 
@@ -45,17 +45,17 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); 
+        tempSocket?.disconnect();
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); 
+        setUsersOnline(0);
         if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
       });
-      
+
       tempSocket.on('disconnect', () => {
           console.log("SelectionLobby: Disconnected from socket server for user count.");
       });
@@ -115,7 +115,7 @@ export default function SelectionLobby() {
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
       return;
     }
-    
+
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
@@ -124,11 +124,11 @@ export default function SelectionLobby() {
     }
 
     let path: string;
-    const queryString = params.toString(); 
+    const queryString = params.toString();
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { 
+    } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
@@ -146,16 +146,16 @@ export default function SelectionLobby() {
         <Card className="w-full max-w-md relative">
           <CardHeader>
             <div className="absolute top-2 right-2 flex items-center text-xs">
-              <img 
-                src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true" 
-                alt="Green light" 
+              <img
+                src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true"
+                alt="Green light"
                 className="w-3 h-3 mr-1"
                 data-ai-hint="green light indicator"
               />
               {usersOnline !== null ? (
                 <span className="font-bold mr-1">{usersOnline}</span>
               ) : (
-                <span className="font-bold mr-1">--</span> 
+                <span className="font-bold mr-1">--</span>
               )}
               <span>Users Online!</span>
             </div>
@@ -170,7 +170,7 @@ export default function SelectionLobby() {
               <div
                 className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -214,9 +214,8 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        <div className="max-w-md mx-auto"> {/* Container to align with card and center the line */}
-          <div className="w-full mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div> {/* The styled line */}
-        </div>
+        {/* The line itself, now wider (max-w-2xl) and centered */}
+        <div className="max-w-2xl mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} TinChat. All rights reserved.
         </p>
