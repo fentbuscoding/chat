@@ -54,23 +54,20 @@ export function TopBar() {
         document.head.appendChild(link);
       }
     } else {
-      // Reset: remove the dynamic stylesheet if it exists
       if (link) {
         link.remove();
       }
     }
 
-    // Remove the transition class after the transition duration
     setTimeout(() => {
       htmlElement.classList.remove('theme-transitioning');
-    }, 500); // Corresponds to 0.5s transition in globals.css
+    }, 500);
   }, []);
 
 
   const handleThemeChange = (newThemeString: string) => {
     if (newThemeString === 'theme-98' || newThemeString === 'theme-7') {
       setTheme(newThemeString as Theme);
-      // If switching main theme, remove sub-theme stylesheet
       const dynamicLink = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
       if (dynamicLink) {
           dynamicLink.remove();
@@ -124,33 +121,50 @@ export function TopBar() {
 
 
   if (!mounted) {
+    // This block renders on SSR and initial client render before useEffect.
+    // It MUST match what the server renders based on defaultTheme ('theme-98').
+    const defaultInitialTheme: Theme = 'theme-98'; // Match ThemeProvider's defaultTheme
     return (
-      <div className="flex justify-end items-center p-2 space-x-2 top-bar-main-body">
+      <div className={cn(
+        "flex justify-end items-center p-2 space-x-2",
+        // No 'top-bar-main-body' class if defaultInitialTheme is 'theme-98'
+        defaultInitialTheme === 'theme-7' ? 'top-bar-main-body' : ''
+      )}>
         <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
         <select
           id="theme-select-native"
-          value="theme-98"
+          value={defaultInitialTheme} // Use the default theme
           disabled
           readOnly
           className="w-[120px] field-row"
           style={{ height: '21px' }}
-          onChange={() => {}}
+          onChange={() => {}} // No-op for disabled select
         >
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-        <div style={{ width: '20px', height: '20px' }} />
+        {/* Theme icon is rendered if defaultInitialTheme is 'theme-98' */}
+        {defaultInitialTheme === 'theme-98' && (
+          <img
+            // ref={themeIconRef} // Avoid ref on SSR for non-interactive elements if it causes issues
+            src="/icons/theme.png"
+            alt="Customize Theme"
+            className="w-5 h-5" // Removed cursor-pointer as it's non-interactive pre-mount
+            data-ai-hint="theme settings icon"
+          />
+        )}
       </div>
     );
   }
 
+  // Main render path (client-side, after mount)
   return (
     <div className={cn("flex justify-end items-center p-2 space-x-2", currentTheme === 'theme-7' ? 'top-bar-main-body' : '')}>
       <Label htmlFor={currentTheme === 'theme-98' ? "theme-select-native" : "theme-select-custom"} className="mr-2">Theme:</Label>
       {currentTheme === 'theme-98' ? (
         <select
           id="theme-select-native"
-          value={selectedTheme}
+          value={selectedTheme} // Reflects user's actual choice
           onChange={(e) => handleThemeChange(e.target.value)}
           className="w-[120px] field-row"
           style={{ height: '21px' }}
@@ -160,7 +174,7 @@ export function TopBar() {
         </select>
       ) : (
         <Select
-          value={selectedTheme}
+          value={selectedTheme} // Reflects user's actual choice
           onValueChange={(value: Theme) => handleThemeChange(value)}
         >
           <SelectTrigger id="theme-select-custom" className="w-[120px]">
@@ -212,8 +226,8 @@ export function TopBar() {
                   <img 
                     src={stamp.imageUrl}
                     alt={stamp.name}
-                    className="w-16 h-auto mr-2 border border-gray-400" // approx 65% of a 100px box width, adjust if needed
-                    style={{ imageRendering: 'pixelated' }} // Good for pixel art stamps
+                    className="w-16 h-auto mr-2 border border-gray-400"
+                    style={{ imageRendering: 'pixelated' }}
                     data-ai-hint={stamp.dataAiHint}
                   />
                   <span className="text-sm">{stamp.name}</span>
