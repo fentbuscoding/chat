@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
-import { listCursors } from '@/ai/flows/list-cursors-flow'; // Import the new flow
+import { listCursors } from '@/ai/flows/list-cursors-flow';
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -23,9 +23,8 @@ export default function SelectionLobby() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Get current theme
+  const { currentTheme } = useTheme();
 
-  // State for settings dialog and cursors
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [cursorImages, setCursorImages] = useState<string[]>([]);
   const [cursorsLoading, setCursorsLoading] = useState(false);
@@ -35,7 +34,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0);
+      setUsersOnline(0); // Fallback if URL is missing
       return;
     }
 
@@ -54,13 +53,19 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect();
+        tempSocket?.disconnect(); // Disconnect after getting the count
+      });
+
+      tempSocket.on('onlineUserCountUpdate', (count: number) => {
+        // This event is from the server, useful for live updates if implemented
+        // For now, this page only fetches once on load.
+        // If you want live updates on this page, you'd keep the socket open and listen here.
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0);
-        if (tempSocket?.connected) {
+        setUsersOnline(0); // Fallback on error
+        if (tempSocket?.connected) { // Ensure it's connected before trying to disconnect
             tempSocket?.disconnect();
         }
       });
@@ -71,7 +76,7 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0);
+        setUsersOnline(0); // Fallback on error
     }
 
     return () => {
@@ -142,10 +147,11 @@ export default function SelectionLobby() {
     inputRef.current?.focus();
   };
 
-  const handleOpenSettings = async () => {
-    setIsSettingsOpen(true);
-    setSettingsError(null); // Reset error on open
-    if (cursorImages.length === 0 && !cursorsLoading) {
+  const handleToggleSettings = async () => {
+    const opening = !isSettingsOpen;
+    setIsSettingsOpen(opening);
+    if (opening && cursorImages.length === 0 && !cursorsLoading) {
+      setSettingsError(null);
       setCursorsLoading(true);
       try {
         const fetchedCursors = await listCursors();
@@ -153,154 +159,176 @@ export default function SelectionLobby() {
       } catch (error: any) {
         console.error("Error fetching cursors:", error);
         setSettingsError(error.message || "Failed to load cursors.");
-        setCursorImages([]); // Ensure it's empty on error
+        setCursorImages([]);
       } finally {
         setCursorsLoading(false);
       }
     }
   };
 
-  const handleCloseSettings = () => {
-    setIsSettingsOpen(false);
-  };
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
       <div className="flex-grow min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md relative">
-          <CardHeader>
-            <div className="absolute top-2 right-2 flex items-center text-xs">
-              <img
-                src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true"
-                alt="Green light"
-                className="w-3 h-3 mr-1"
-                data-ai-hint="green light indicator"
-              />
-              {usersOnline !== null ? (
-                <span className="font-bold mr-1">{usersOnline}</span>
-              ) : (
-                <span className="font-bold mr-1">--</span>
-              )}
-              <span>Users Online!</span>
-            </div>
-            <CardTitle>Welcome to TinChat!</CardTitle>
-            <CardDescription>
-              Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-2">
-                <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button
-                  className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center"
-                  aria-label="Settings"
-                  onClick={handleOpenSettings}
-                >
-                  <img
-                    src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
-                    alt="Settings"
-                    className="max-w-full max-h-full object-contain"
-                    data-ai-hint="settings icon"
-                  />
-                </Button>
-              </div>
-              <div
-                className={cn(
-                  "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
-                )}
-                onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
-              >
-                {selectedInterests.map((interest) => (
-                  <div
-                    key={interest}
-                    className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
-                  >
-                    <span>{interest}</span>
-                    <X
-                      size={14}
-                      className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                      onClick={(e) => handleRemoveInterest(interest, e)}
-                      aria-label={`Remove ${interest}`}
-                    />
-                  </div>
-                ))}
-                <Input
-                  id="interests-input-field"
-                  ref={inputRef}
-                  value={currentInterest}
-                  onChange={handleInterestInputChange}
-                  onKeyDown={handleInterestInputKeyDown}
-                  placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }}
-                  disabled={selectedInterests.length >= 5 && !currentInterest}
+        <div className="flex flex-col items-center md:flex-row md:items-start gap-4"> {/* Wrapper for Card and Settings Panel */}
+          <Card className="w-full max-w-md relative">
+            <CardHeader>
+              <div className="absolute top-2 right-2 flex items-center text-xs">
+                <img
+                  src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true"
+                  alt="Green light"
+                  className="w-3 h-3 mr-1"
+                  data-ai-hint="green light indicator"
                 />
+                {usersOnline !== null ? (
+                  <span className="font-bold mr-1">{usersOnline}</span>
+                ) : (
+                  <span className="font-bold mr-1">--</span>
+                )}
+                <span>Users Online!</span>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Type an interest and press Comma, Space, or Enter. Backspace on empty input to remove last. Leave blank for random match.
-              </p>
-            </div>
-          </CardContent>
-           <CardFooter className="flex justify-between space-x-4">
-             <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
-               <span className="animate-rainbow-text">Start Text Chat</span>
-             </Button>
-             <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
-               <span className="animate-rainbow-text-alt">Start Video Chat</span>
-             </Button>
-           </CardFooter>
-        </Card>
-      </div>
-
-      {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={cn("window", currentTheme === 'theme-7' ? 'glass' : '')} style={{ width: '350px' }}>
-            <div className={cn("title-bar", currentTheme === 'theme-7' ? 'text-black' : '')}>
-              <div className="title-bar-text">Settings</div>
-              <div className="title-bar-controls">
-                <button aria-label="Close" onClick={handleCloseSettings}></button>
-              </div>
-            </div>
-            <div className={cn("window-body", currentTheme === 'theme-7' ? 'has-space' : '')}>
-              <menu role="tablist">
-                <li role="tab" aria-selected="true"><a>Cursors</a></li>
-                {/* Add other tabs here if needed in the future */}
-              </menu>
-              <div className={cn("window", currentTheme === 'theme-7' ? 'glass' : '')} role="tabpanel" style={{ marginTop: '1px' }}> {/* Added marginTop for spacing in 98 theme */}
-                <div className={cn("window-body", currentTheme === 'theme-7' ? 'has-space' : 'p-1')}>
-                  {cursorsLoading ? (
-                    <p>Loading cursors...</p>
-                  ) : settingsError ? (
-                     <p className="text-red-600">Error: {settingsError}</p>
-                  ) : cursorImages.length > 0 ? (
-                    <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
-                      {cursorImages.map((url) => (
-                        <div key={url} className="flex items-center justify-center p-1 border border-gray-300 hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
-                          <img
-                            src={url}
-                            alt="cursor"
-                            className="w-[30px] h-[30px] object-contain cursor-pointer"
-                            data-ai-hint="custom cursor"
-                            // onClick={() => applyCursor(url)} // Implement this later
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p>No cursors found.</p>
+              <CardTitle>Welcome to TinChat!</CardTitle>
+              <CardDescription>
+                Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <Label htmlFor="interests-input-field">Your Interests</Label>
+                  <Button
+                    className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center"
+                    aria-label="Settings"
+                    onClick={handleToggleSettings}
+                  >
+                    <img
+                      src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
+                      alt="Settings"
+                      className="max-w-full max-h-full object-contain"
+                      data-ai-hint="settings icon"
+                    />
+                  </Button>
+                </div>
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center gap-1 p-1.5 border rounded-md cursor-text",
+                    // Apply theme-specific input container styles if available or generic ones
+                    currentTheme === 'theme-98' ? 'bg-white shadow-inner border-gray-400' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                   )}
+                  onClick={focusInput}
+                  style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Ensure enough height for tags and input
+                >
+                  {selectedInterests.map((interest) => (
+                    <div
+                      key={interest}
+                      className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
+                    >
+                      <span>{interest}</span>
+                      <X
+                        size={14}
+                        className="ml-1 text-white hover:text-gray-300 cursor-pointer"
+                        onClick={(e) => handleRemoveInterest(interest, e)}
+                        aria-label={`Remove ${interest}`}
+                      />
+                    </div>
+                  ))}
+                  <Input
+                    id="interests-input-field"
+                    ref={inputRef}
+                    value={currentInterest}
+                    onChange={handleInterestInputChange}
+                    onKeyDown={handleInterestInputKeyDown}
+                    placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
+                    className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" // themed-input-inner is important
+                    style={{ minWidth: '80px' }} // Ensure input has some base width
+                    disabled={selectedInterests.length >= 5 && !currentInterest}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Type an interest and press Comma, Space, or Enter. Backspace on empty input to remove last. Leave blank for random match.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between space-x-4">
+              <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
+                <span className="animate-rainbow-text">Start Text Chat</span>
+              </Button>
+              <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
+                <span className="animate-rainbow-text-alt">Start Video Chat</span>
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {isSettingsOpen && (
+            <div // Main settings panel container
+              className={cn(
+                'md:w-64', // Width on medium screens and up
+                'w-full',    // Full width on small screens
+                'p-2 rounded-md shadow-lg',
+                currentTheme === 'theme-7'
+                  ? 'bg-neutral-100 bg-opacity-30 backdrop-filter backdrop-blur-md border border-neutral-300 dark:bg-neutral-800 dark:bg-opacity-30 dark:border-neutral-600'
+                  : 'bg-silver border border-gray-400', // Simpler for theme-98, like a dialog panel
+                currentTheme === 'theme-98' && 'window' // Apply window class for 98.css structure if desired for the panel itself
+              )}
+              style={{
+                width: '250px' // Fixed width for consistency
+              }}
+            >
+              <div className={cn(currentTheme === 'theme-98' && 'window-body p-1')}> {/* Inner padding for theme-98 if panel is window */}
+                <menu role="tablist" className={cn(currentTheme === 'theme-98' ? 'mb-0.5' : 'mb-2 border-b border-gray-300 dark:border-gray-600')}>
+                  <li role="tab" aria-selected="true"
+                      className={cn(
+                        'inline-block py-1 px-2 cursor-default',
+                        currentTheme === 'theme-98' ? 'button raised' : 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400',
+                        currentTheme === 'theme-98' && '[aria-selected=true]:font-bold' // 98.css active tab might need bold
+                      )}
+                  >
+                    <a>Cursors</a>
+                  </li>
+                </menu>
+                <div // Tab panel content area
+                  className={cn(
+                    // For 98.css, use a nested window for tab content if panel isn't a window
+                    currentTheme === 'theme-98' && !isSettingsOpen && 'window', // Add if outer isn't window
+                    currentTheme === 'theme-98' ? 'sunken-panel' : '', // Sunken panel for 98.css content area
+                    currentTheme === 'theme-7' ? 'bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20 border border-gray-300 dark:border-gray-600 rounded' : ''
+                  )}
+                  role="tabpanel"
+                  style={{ marginTop: currentTheme === 'theme-98' ? '1px' : '' }}
+                >
+                  <div className={cn(currentTheme === 'theme-7' ? 'p-2' : 'p-1')}>
+                    {cursorsLoading ? (
+                      <p className="text-center">Loading cursors...</p>
+                    ) : settingsError ? (
+                      <p className="text-red-600 text-center">Error: {settingsError}</p>
+                    ) : cursorImages.length > 0 ? (
+                      <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
+                        {cursorImages.map((url) => (
+                          <div key={url} className="flex items-center justify-center p-1 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <img
+                              src={url}
+                              alt="cursor"
+                              className="w-[30px] h-[30px] object-contain cursor-pointer"
+                              data-ai-hint="custom cursor"
+                              // onClick={() => applyCursor(url)} // Implement this later
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center">No cursors found.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       <footer className="mt-auto py-4 text-center">
         <div className="max-w-5xl mx-auto">
-         <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
+          <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
           <span>tinchat.com</span>
