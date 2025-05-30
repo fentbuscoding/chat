@@ -152,8 +152,8 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4 pb-16"> {/* Changed p-4 to px-4 pt-4 pb-16 */}
-      <div className="flex-grow flex items-center justify-center"> 
+    <div className="flex flex-1 flex-col px-4 pt-4"> {/* Removed pb-16 */}
+      <div className="flex-grow min-h-screen flex items-center justify-center"> {/* Added min-h-screen */}
         <Card className="w-full max-w-md relative">
           <CardHeader>
             <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -227,7 +227,7 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto"> {/* Changed max-w-2xl to max-w-5xl */}
          <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">

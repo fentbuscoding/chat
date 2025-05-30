@@ -29,7 +29,7 @@ body {
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
-  overflow: hidden; /* Prevent scrollbars due to absolute positioning */
+  /* overflow: hidden; */ /* REMOVED to allow page scrolling */
   
   /* Make body a flex container to manage its direct children (like #__next) */
   display: flex;
@@ -330,22 +330,29 @@ video {
     display: none !important;
 }
 
+/* For debugging purposes: outline all elements */
+/* * {
+  outline: 1px solid red !important;
+} */
+
+/* For div container debugging labels */
 /*
-.div-debug-label {
-  position: relative;
+body {
+  counter-reset: div-counter;
 }
 
-.div-debug-label::before {
-  content: attr(data-debug-id);
+div::before {
+  counter-increment: div-counter;
+  content: "[D" counter(div-counter) "]";
   position: absolute;
-  top: 0;
-  left: 0;
-  background-color: rgba(255, 0, 0, 0.7);
+  top: -1px;
+  left: -1px;
+  background-color: rgba(0, 0, 255, 0.7);
   color: white;
-  font-size: 10px;
-  padding: 1px 3px;
-  z-index: 9999;
-  border-radius: 3px;
+  font-size: 8px;
+  padding: 0px 2px;
+  z-index: 10000;
+  border-radius: 2px;
   pointer-events: none;
 }
 */
