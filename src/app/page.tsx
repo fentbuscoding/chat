@@ -1,9 +1,9 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Label } from '@/components/ui/label-themed';
@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-
+import { useTheme } from '@/components/theme-provider';
+import { listCursors } from '@/ai/flows/list-cursors-flow'; // Import the new flow
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -22,12 +23,19 @@ export default function SelectionLobby() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { currentTheme } = useTheme(); // Get current theme
+
+  // State for settings dialog and cursors
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [cursorImages, setCursorImages] = useState<string[]>([]);
+  const [cursorsLoading, setCursorsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); 
+      setUsersOnline(0);
       return;
     }
 
@@ -46,20 +54,13 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); 
+        tempSocket?.disconnect();
       });
-
-      tempSocket.on('onlineUserCountUpdate', (count: number) => {
-        // This listener might be useful if the server broadcasts updates,
-        // but for a one-time fetch, it might not be strictly necessary
-        // setUsersOnline(count); 
-      });
-
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); // Or some other indicator of an error
-        if (tempSocket?.connected) { // Check if connected before trying to disconnect
+        setUsersOnline(0);
+        if (tempSocket?.connected) {
             tempSocket?.disconnect();
         }
       });
@@ -70,22 +71,21 @@ export default function SelectionLobby() {
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Or some other indicator of an error
+        setUsersOnline(0);
     }
 
-    // Cleanup function
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
       }
     };
-  }, []); 
+  }, []);
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
   };
 
-  const addInterest = React.useCallback((interestToAdd: string) => {
+  const addInterest = useCallback((interestToAdd: string) => {
     const newInterest = interestToAdd.trim().toLowerCase();
     if (newInterest && !selectedInterests.includes(newInterest) && selectedInterests.length < 5) {
       setSelectedInterests(prev => [...prev, newInterest]);
@@ -112,42 +112,57 @@ export default function SelectionLobby() {
     }
   };
 
-  const handleRemoveInterest = React.useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); // Prevent click from focusing the input field if the tag is inside the clickable area
+  const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
-  const handleStartChat = React.useCallback((type: 'text' | 'video') => {
+  const handleStartChat = useCallback((type: 'text' | 'video') => {
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
       return;
     }
-
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
-
     if (interestsString) {
         params.append('interests', interestsString);
     }
-
     let path: string;
     const queryString = params.toString();
-
     if (type === 'video') {
-        // path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-        path = `/video-chat`; // Interests not currently passed to video chat
-    } else { 
+        path = `/video-chat${queryString ? `?${queryString}` : ''}`;
+    } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
   }, [router, selectedInterests, toast]);
 
-
   const focusInput = () => {
     inputRef.current?.focus();
   };
 
+  const handleOpenSettings = async () => {
+    setIsSettingsOpen(true);
+    setSettingsError(null); // Reset error on open
+    if (cursorImages.length === 0 && !cursorsLoading) {
+      setCursorsLoading(true);
+      try {
+        const fetchedCursors = await listCursors();
+        setCursorImages(fetchedCursors || []);
+      } catch (error: any) {
+        console.error("Error fetching cursors:", error);
+        setSettingsError(error.message || "Failed to load cursors.");
+        setCursorImages([]); // Ensure it's empty on error
+      } finally {
+        setCursorsLoading(false);
+      }
+    }
+  };
+
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
+  };
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
@@ -177,7 +192,11 @@ export default function SelectionLobby() {
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-2">
                 <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center" aria-label="Settings">
+                <Button
+                  className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center"
+                  aria-label="Settings"
+                  onClick={handleOpenSettings}
+                >
                   <img
                     src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
                     alt="Settings"
@@ -191,7 +210,7 @@ export default function SelectionLobby() {
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 )}
                 onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Adjust to match typical input height (font-size + padding + border)
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -200,7 +219,7 @@ export default function SelectionLobby() {
                   >
                     <span>{interest}</span>
                     <X
-                      size={14} 
+                      size={14}
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
                       onClick={(e) => handleRemoveInterest(interest, e)}
                       aria-label={`Remove ${interest}`}
@@ -208,15 +227,15 @@ export default function SelectionLobby() {
                   </div>
                 ))}
                 <Input
-                  id="interests-input-field" // Ensure ID is unique if this component is used multiple times on a page, though unlikely here
+                  id="interests-input-field"
                   ref={inputRef}
                   value={currentInterest}
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                   className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }} // Ensure some minimum width for the input itself
-                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests reached and no current input
+                  style={{ minWidth: '80px' }}
+                  disabled={selectedInterests.length >= 5 && !currentInterest}
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -234,6 +253,51 @@ export default function SelectionLobby() {
            </CardFooter>
         </Card>
       </div>
+
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={cn("window", currentTheme === 'theme-7' ? 'glass' : '')} style={{ width: '350px' }}>
+            <div className={cn("title-bar", currentTheme === 'theme-7' ? 'text-black' : '')}>
+              <div className="title-bar-text">Settings</div>
+              <div className="title-bar-controls">
+                <button aria-label="Close" onClick={handleCloseSettings}></button>
+              </div>
+            </div>
+            <div className={cn("window-body", currentTheme === 'theme-7' ? 'has-space' : '')}>
+              <menu role="tablist">
+                <li role="tab" aria-selected="true"><a>Cursors</a></li>
+                {/* Add other tabs here if needed in the future */}
+              </menu>
+              <div className={cn("window", currentTheme === 'theme-7' ? 'glass' : '')} role="tabpanel" style={{ marginTop: '1px' }}> {/* Added marginTop for spacing in 98 theme */}
+                <div className={cn("window-body", currentTheme === 'theme-7' ? 'has-space' : 'p-1')}>
+                  {cursorsLoading ? (
+                    <p>Loading cursors...</p>
+                  ) : settingsError ? (
+                     <p className="text-red-600">Error: {settingsError}</p>
+                  ) : cursorImages.length > 0 ? (
+                    <div className="h-48 overflow-y-auto grid grid-cols-4 gap-2 p-1">
+                      {cursorImages.map((url) => (
+                        <div key={url} className="flex items-center justify-center p-1 border border-gray-300 hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
+                          <img
+                            src={url}
+                            alt="cursor"
+                            className="w-[30px] h-[30px] object-contain cursor-pointer"
+                            data-ai-hint="custom cursor"
+                            // onClick={() => applyCursor(url)} // Implement this later
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No cursors found.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="mt-auto py-4 text-center">
         <div className="max-w-5xl mx-auto">
          <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
