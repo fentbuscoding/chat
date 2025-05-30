@@ -16,11 +16,11 @@ import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
 
-// Extend window type for oneko functions
+// Extend window type for animated cursor functions
 declare global {
   interface Window {
-    startOneko?: () => void;
-    stopOneko?: () => void;
+    startAnimatedCursor?: (gifUrl: string) => void;
+    stopAnimatedCursor?: () => void;
   }
 }
 
@@ -42,25 +42,24 @@ export default function SelectionLobby() {
   const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    // Apply stored cursor or Neko state on initial mount
-    const savedCursorUrl = localStorage.getItem('selectedCursorUrl');
-    const nekoWasActive = localStorage.getItem('nekoActive') === 'true';
+    // Apply stored cursor state on initial mount
+    const savedAnimatedCursorUrl = localStorage.getItem('animatedCursorUrl');
+    const savedStaticCursorUrl = localStorage.getItem('selectedCursorUrl');
 
-    if (nekoWasActive) {
-      if (typeof window.stopOneko === 'function') { // Stop any custom cursor first
-        document.body.style.cursor = 'auto';
+    if (savedAnimatedCursorUrl) {
+      if (typeof window.startAnimatedCursor === 'function') {
+        window.startAnimatedCursor(savedAnimatedCursorUrl);
+        document.body.style.cursor = 'none'; // Hide system cursor
       }
-      if (typeof window.startOneko === 'function') {
-        window.startOneko();
+    } else if (savedStaticCursorUrl) {
+      if (typeof window.stopAnimatedCursor === 'function') {
+        window.stopAnimatedCursor(); // Stop animated cursor if it was active
       }
-    } else if (savedCursorUrl) {
-      if (typeof window.stopOneko === 'function') {
-        window.stopOneko(); // Stop Neko if it was active
-      }
-      document.body.style.cursor = `url(${savedCursorUrl}), auto`;
+      document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
     } else {
-      if (typeof window.stopOneko === 'function') {
-        window.stopOneko();
+      // Default state: no custom cursor, Neko not active
+      if (typeof window.stopAnimatedCursor === 'function') {
+        window.stopAnimatedCursor();
       }
       document.body.style.cursor = 'auto';
     }
@@ -94,10 +93,6 @@ export default function SelectionLobby() {
       
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        // Disconnect after getting the count to avoid keeping the connection open
-        // if this page is only meant to show the count and not maintain a persistent connection.
-        // If continuous updates are desired, this disconnect should be removed or handled differently.
-        // For now, assuming it's for an initial display:
         tempSocket?.disconnect();
       });
 
@@ -115,7 +110,6 @@ export default function SelectionLobby() {
         setUsersOnline(0);
     }
 
-    // Cleanup on component unmount
     return () => {
       if (tempSocket?.connected) {
         console.log("SelectionLobby: Disconnecting socket for user count on unmount.");
@@ -233,31 +227,30 @@ export default function SelectionLobby() {
 
 
   const handleCursorSelect = (cursorUrl: string) => {
-    if (cursorUrl.toLowerCase().endsWith('neko.gif')) {
-      if (typeof window.stopOneko === 'function') {
-        window.stopOneko(); // Ensure any existing cursor is stopped
+    if (typeof window.stopAnimatedCursor === 'function') {
+      window.stopAnimatedCursor(); // Stop any current animated cursor
+    }
+    document.body.style.cursor = 'auto'; // Reset to default first
+
+    if (cursorUrl.toLowerCase().endsWith('.gif')) {
+      if (typeof window.startAnimatedCursor === 'function') {
+        window.startAnimatedCursor(cursorUrl);
+        document.body.style.cursor = 'none'; // Hide system cursor for JS animated one
+        localStorage.setItem('animatedCursorUrl', cursorUrl);
+        localStorage.removeItem('selectedCursorUrl');
       }
-      if (typeof window.startOneko === 'function') {
-        window.startOneko();
-      }
-      localStorage.setItem('nekoActive', 'true');
-      localStorage.removeItem('selectedCursorUrl');
-      document.body.style.cursor = 'auto'; // Neko manages its own element, reset body cursor
-    } else {
-      if (typeof window.stopOneko === 'function') {
-        window.stopOneko(); // Stop Neko if active
-      }
-      localStorage.removeItem('nekoActive');
+    } else { // For .cur, .png, .ico
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
+      localStorage.removeItem('animatedCursorUrl');
     }
   };
 
   const handleDefaultCursor = () => {
-    if (typeof window.stopOneko === 'function') {
-      window.stopOneko();
+    if (typeof window.stopAnimatedCursor === 'function') {
+      window.stopAnimatedCursor();
     }
-    localStorage.removeItem('nekoActive');
+    localStorage.removeItem('animatedCursorUrl');
     localStorage.removeItem('selectedCursorUrl');
     document.body.style.cursor = 'auto';
   };
@@ -266,7 +259,7 @@ export default function SelectionLobby() {
   return (
     <div className="flex flex-1 flex-col px-4 pt-4">
       <div className="flex-grow min-h-screen flex items-center justify-center">
-        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for Card to get its position */}
+        <div ref={cardWrapperRef} className="w-full max-w-md">
           <Card className="w-full relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">

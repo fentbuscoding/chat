@@ -1,8 +1,8 @@
 
 import type { Metadata } from 'next';
-import Script from 'next/script'; // Import Script
+import Script from 'next/script';
 import './globals.css';
-import './(fonts)/fonts.css'; // Import the font CSS
+import './(fonts)/fonts.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ConditionalTopBar } from '@/components/conditional-top-bar';
 import { Toaster } from '@/components/ui/toaster';
@@ -11,8 +11,8 @@ import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvide
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online"; // Replace with your actual domain later
-const openGraphImageUrl = "https://placehold.co/1200x630.png"; // Standard OG image size
+const siteUrl = "https://tinchat.online";
+const openGraphImageUrl = "https://placehold.co/1200x630.png";
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     type: "website",
-    url: siteUrl, // It's good practice to have a canonical URL
+    url: siteUrl,
     images: [
       {
         url: openGraphImageUrl,
@@ -63,8 +63,7 @@ export default function RootLayout({
             <Toaster />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
-        {/* Script to load oneko.js functions; it will be controlled programmatically */}
-        <Script src="/oneko.js" strategy="afterInteractive" />
+        <Script src="/animated-cursor.js" strategy="afterInteractive" />
       </body>
     </html>
   );
