@@ -35,33 +35,7 @@ export default function SelectionLobby() {
   const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    // Apply stored cursor state on initial mount
-    // This logic is now primarily in RootLayout, but keeping a basic reset here
-    // can be a fallback or for components that might not re-trigger layout effects.
-    // The RootLayout effect is the source of truth for initial load.
-    const savedNekoActive = localStorage.getItem('nekoActive');
-    const savedAnimatedCursorUrl = localStorage.getItem('animatedCursorUrl');
-    const savedStaticCursorUrl = localStorage.getItem('selectedCursorUrl');
-
-    if (typeof window !== 'undefined') {
-        if (savedNekoActive === 'true') {
-            window.stopAnimatedGifCursor?.();
-            window.startOriginalOneko?.();
-            document.body.style.cursor = 'auto'; // Ensure system cursor visible with Neko
-        } else if (savedAnimatedCursorUrl) {
-            window.stopOriginalOneko?.();
-            window.startAnimatedGifCursor?.(savedAnimatedCursorUrl);
-            document.body.style.cursor = 'none';
-        } else if (savedStaticCursorUrl) {
-            window.stopOriginalOneko?.();
-            window.stopAnimatedGifCursor?.();
-            document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
-        } else {
-            window.stopOriginalOneko?.();
-            window.stopAnimatedGifCursor?.();
-            document.body.style.cursor = 'auto';
-        }
-    }
+    // Initial cursor setup is handled by RootLayout's useEffect
   }, []);
 
 
@@ -69,7 +43,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0);
+      setUsersOnline(0); 
       return;
     }
 
@@ -78,23 +52,18 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'] 
       });
 
       tempSocket.on('connect', () => {
         console.log("SelectionLobby: Connected to socket server for user count.");
         tempSocket?.emit('getOnlineUserCount');
       });
-
-      tempSocket.on('onlineUserCountUpdate', (count: number) => {
-        setUsersOnline(count);
-      });
       
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect();
+        tempSocket?.disconnect(); 
       });
-
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
@@ -168,7 +137,7 @@ export default function SelectionLobby() {
     const queryString = params.toString(); 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else {
+    } else { 
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
@@ -229,30 +198,25 @@ export default function SelectionLobby() {
   const handleCursorSelect = (cursorUrl: string) => {
     if (typeof window === 'undefined') return;
 
-    const isNekoGif = cursorUrl.toLowerCase().includes('neko.gif');
-
-    // Stop any currently active custom cursors
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
-    document.body.style.cursor = 'auto'; // Reset to default first
+    document.body.style.cursor = 'auto'; 
 
-    if (isNekoGif) {
+    localStorage.removeItem('nekoActive');
+    localStorage.removeItem('animatedCursorUrl');
+    localStorage.removeItem('selectedCursorUrl');
+
+    if (cursorUrl.toLowerCase().includes('neko.gif')) {
       window.startOriginalOneko?.();
-      document.body.style.cursor = 'auto'; // Neko is an overlay, system cursor can remain 'auto' or be 'none' if Neko hides it visually
+      document.body.style.cursor = 'auto'; 
       localStorage.setItem('nekoActive', 'true');
-      localStorage.removeItem('animatedCursorUrl');
-      localStorage.removeItem('selectedCursorUrl');
     } else if (cursorUrl.toLowerCase().endsWith('.gif')) {
       window.startAnimatedGifCursor?.(cursorUrl);
-      document.body.style.cursor = 'none'; // Hide system cursor for generic animated GIFs
+      document.body.style.cursor = 'none'; 
       localStorage.setItem('animatedCursorUrl', cursorUrl);
-      localStorage.removeItem('nekoActive');
-      localStorage.removeItem('selectedCursorUrl');
-    } else { // For .cur, .png, .ico (static)
+    } else { 
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
-      localStorage.removeItem('nekoActive');
-      localStorage.removeItem('animatedCursorUrl');
     }
   };
 
@@ -268,10 +232,10 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4">
+    <div className="flex flex-1 flex-col px-4 pt-4"> 
       <div className="flex-grow min-h-screen flex items-center justify-center"> 
         <div ref={cardWrapperRef} className="w-full max-w-md"> 
-          <Card className="w-full relative">
+          <Card className="w-full relative"> 
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
@@ -443,3 +407,4 @@ export default function SelectionLobby() {
     </div>
   );
 }
+

@@ -342,4 +342,19 @@ body {
   scrollbar-width: none;  /* Firefox */
 }
 
+/* CSS for hiding/showing custom cursors on interactive element hover */
+button:hover,
+a:hover,
+select:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+[role="button"]:hover,
+[role="tab"]:hover {
+  cursor: pointer !important;
+}
+
+input[type="text"]:hover,
+textarea:hover {
+  cursor: text !important; 
+}
     

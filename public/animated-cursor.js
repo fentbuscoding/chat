@@ -1,77 +1,92 @@
-
-// animated-cursor.js - Generic animated GIF cursor follower
-
+// public/animated-cursor.js
 (function() {
-  if (window.hasRunAnimatedGifCursor) {
-    // console.log("Animated GIF Cursor: Already initialized, skipping.");
-    return;
-  }
-  window.hasRunAnimatedGifCursor = true;
+  let animatedCursorEl = null;
+  let animationFrameId = null;
+  let mousePosX = 0;
+  let mousePosY = 0;
+  let isGloballyStopped = true; // True if stopAnimatedGifCursor was called, start stopped
+  let isHiddenByHover = false;   // True if hidden due to hover over interactive element
 
-  let followerEl = null;
-  let isFollowing = false;
-  let currentGifUrl = null;
+  const cursorWidth = 32; 
+  const cursorHeight = 32;
 
-  function createFollowerElement() {
-    if (document.getElementById("animated-gif-cursor-follower")) {
-      followerEl = document.getElementById("animated-gif-cursor-follower");
-      return;
+  function createCursorDiv(gifUrl) {
+    if (!animatedCursorEl) {
+      animatedCursorEl = document.createElement("div");
+      animatedCursorEl.id = "animated-gif-cursor";
+      animatedCursorEl.style.position = "fixed";
+      animatedCursorEl.style.width = `${cursorWidth}px`;
+      animatedCursorEl.style.height = `${cursorHeight}px`;
+      animatedCursorEl.style.pointerEvents = "none";
+      animatedCursorEl.style.zIndex = "10000"; 
+      animatedCursorEl.style.imageRendering = "pixelated"; 
+      animatedCursorEl.style.willChange = "transform";
+      document.body.appendChild(animatedCursorEl);
     }
-    followerEl = document.createElement("div");
-    followerEl.id = "animated-gif-cursor-follower";
-    followerEl.style.position = "fixed";
-    followerEl.style.width = "32px"; // Default size, can be overridden by GIF
-    followerEl.style.height = "32px";
-    followerEl.style.backgroundRepeat = "no-repeat";
-    followerEl.style.backgroundPosition = "center";
-    followerEl.style.backgroundSize = "contain"; // Or "auto" or "cover" depending on desired effect
-    followerEl.style.pointerEvents = "none"; // Crucial
-    followerEl.style.zIndex = "9998"; // Below Neko if both active, adjust as needed
-    followerEl.style.display = "none"; // Initially hidden
-    document.body.appendChild(followerEl);
+    animatedCursorEl.style.backgroundImage = `url('${gifUrl}')`;
+    animatedCursorEl.style.backgroundRepeat = 'no-repeat';
+    animatedCursorEl.style.backgroundPosition = 'center center';
+    animatedCursorEl.style.backgroundSize = 'contain'; 
+    animatedCursorEl.style.display = 'none'; // Start hidden
   }
 
-  function updatePosition(event) {
-    if (!isFollowing || !followerEl) return;
-    // Adjust to center the GIF on the cursor or offset as desired
-    followerEl.style.left = `${event.clientX}px`;
-    followerEl.style.top = `${event.clientY}px`;
+  function updatePosition() {
+    if (animatedCursorEl && animatedCursorEl.style.display === 'block') {
+      animatedCursorEl.style.transform = `translate(${mousePosX - cursorWidth / 2}px, ${mousePosY - cursorHeight / 2}px)`;
+    }
+    if (!isGloballyStopped) { 
+        animationFrameId = requestAnimationFrame(updatePosition);
+    }
+  }
+
+  function onMouseMove(event) {
+    mousePosX = event.clientX;
+    mousePosY = event.clientY;
   }
 
   window.startAnimatedGifCursor = function(gifUrl) {
-    if (!followerEl) {
-      createFollowerElement();
+    if (typeof window === 'undefined') return;
+    isGloballyStopped = false;
+    isHiddenByHover = false; 
+    createCursorDiv(gifUrl);
+    if (animatedCursorEl) {
+      animatedCursorEl.style.display = 'block';
     }
-    
-    if (isFollowing && currentGifUrl === gifUrl) return; // Already running with this GIF
-
-    currentGifUrl = gifUrl;
-    followerEl.style.backgroundImage = `url('${gifUrl}')`;
-    followerEl.style.display = "block";
-    
-    if (!isFollowing) {
-      document.addEventListener("mousemove", updatePosition);
-      document.addEventListener("mouseenter", () => { if(followerEl) followerEl.style.display = "block"; });
-      document.addEventListener("mouseleave", () => { if(followerEl) followerEl.style.display = "none"; });
+    document.removeEventListener('mousemove', onMouseMove); 
+    document.addEventListener('mousemove', onMouseMove);
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
     }
-    isFollowing = true;
-    document.body.style.cursor = 'none'; // Hide system cursor
-    // console.log("Animated GIF Cursor: Started with", gifUrl);
+    animationFrameId = requestAnimationFrame(updatePosition);
   };
 
   window.stopAnimatedGifCursor = function() {
-    if (!isFollowing || !followerEl) return;
-    isFollowing = false;
-    currentGifUrl = null;
-    followerEl.style.display = "none";
-    followerEl.style.backgroundImage = "none";
-    document.removeEventListener("mousemove", updatePosition);
-    // document.body.style.cursor = 'auto'; // Restore system cursor only if Neko isn't also active
-    // console.log("Animated GIF Cursor: Stopped");
+    if (typeof window === 'undefined') return;
+    isGloballyStopped = true;
+    isHiddenByHover = false;
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    document.removeEventListener('mousemove', onMouseMove);
+    if (animatedCursorEl) {
+      animatedCursorEl.style.display = 'none';
+    }
   };
-  
-  // Ensure element is created on script load so it's available
-  if (!followerEl) {
-    createFollowerElement();
-  }
+
+  window.hideAnimatedGifCursor = function() {
+    if (typeof window === 'undefined') return;
+    if (!isGloballyStopped && animatedCursorEl && animatedCursorEl.style.display !== 'none') {
+      isHiddenByHover = true;
+      animatedCursorEl.style.display = 'none';
+    }
+  };
+
+  window.showAnimatedGifCursor = function() {
+    if (typeof window === 'undefined') return;
+    if (!isGloballyStopped && isHiddenByHover && animatedCursorEl) {
+      isHiddenByHover = false;
+      animatedCursorEl.style.display = 'block';
+    }
+  };
 })();
