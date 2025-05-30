@@ -10,14 +10,13 @@ import { ConditionalTopBar } from '@/components/conditional-top-bar';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvider';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
-// REMOVED: import React, { useEffect } from 'react';
-import { ClientEffectManager } from '@/components/ClientEffectManager'; // ADDED
+import { ClientEffectManager } from '@/components/ClientEffectManager';
 
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online"; 
-const openGraphImageUrl = "https://placehold.co/1200x630.png"; 
+const siteUrl = "https://tinchat.online";
+const openGraphImageUrl = "https://placehold.co/1200x630.png";
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -45,31 +44,16 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [openGraphImageUrl],
   },
+  icons: {
+    icon: '/favicon.ico', // Default favicon for all pages
+  },
 };
-
-// The global Window interface augmentation is better placed in a global .d.ts file
-// or within ClientEffectManager.tsx if only used there.
-// For now, assuming it's picked up or you'll move it.
-// declare global {
-//   interface Window {
-//     startOriginalOneko?: () => void;
-//     stopOriginalOneko?: () => void;
-//     hideOriginalOneko?: () => void;
-//     showOriginalOneko?: () => void;
-//     startAnimatedGifCursor?: (gifUrl: string) => void;
-//     stopAnimatedGifCursor?: () => void;
-//     hideAnimatedGifCursor?: () => void;
-//     showAnimatedGifCursor?: () => void;
-//   }
-// }
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // REMOVED useEffect hook for cursor logic
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
@@ -86,9 +70,10 @@ export default function RootLayout({
               </main>
               <Toaster />
               <ConditionalGoldfishImage />
-              <ClientEffectManager /> {/* ADDED ClientEffectManager here */}
+              <ClientEffectManager />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
+        {/* Scripts for custom cursors are loaded here but managed by ClientEffectManager */}
         <Script src="/animated-cursor.js" strategy="afterInteractive" />
         <Script src="/oneko.js" strategy="afterInteractive" />
       </body>
