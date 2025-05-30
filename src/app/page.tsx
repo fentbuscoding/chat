@@ -26,7 +26,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0);
+      setUsersOnline(0); // Set to 0 or some placeholder if URL is missing
       return;
     }
 
@@ -35,7 +35,7 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'] // Explicitly define transports
       });
 
       tempSocket.on('connect', () => {
@@ -45,13 +45,13 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect();
+        tempSocket?.disconnect(); // Disconnect after getting the count
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0);
-        if (tempSocket?.connected) {
+        setUsersOnline(0); // Set to 0 on error
+        if (tempSocket?.connected) { // Check if connected before trying to disconnect
             tempSocket?.disconnect();
         }
       });
@@ -61,17 +61,19 @@ export default function SelectionLobby() {
       });
 
     } catch (error) {
+        // This catch block might not catch errors from io() directly if they are async
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0);
+        setUsersOnline(0); // Set to 0 on error
     }
 
 
+    // Cleanup function to disconnect the socket when the component unmounts
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
       }
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -84,12 +86,12 @@ export default function SelectionLobby() {
       setCurrentInterest('');
     } else if (newInterest && selectedInterests.includes(newInterest)) {
       toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
-      setCurrentInterest('');
+      setCurrentInterest(''); // Clear input even if duplicate
     } else if (selectedInterests.length >= 5) {
       toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
-      setCurrentInterest('');
+      setCurrentInterest(''); // Clear input if max reached
     }
-  }, [selectedInterests, toast]);
+  }, [selectedInterests, toast]); // Removed setCurrentInterest from dependencies as it's directly called
 
   const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
@@ -105,7 +107,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation();
+    event?.stopPropagation(); // Prevent click from bubbling to the parent div (which focuses input)
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -119,7 +121,7 @@ export default function SelectionLobby() {
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
-    if (interestsString) {
+    if (interestsString) { // Only add if interestsString is not empty
         params.append('interests', interestsString);
     }
 
@@ -128,13 +130,14 @@ export default function SelectionLobby() {
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else {
+    } else { // Default to text chat
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
   }, [router, selectedInterests, toast]);
 
 
+  // Function to focus the input field
   const focusInput = () => {
     inputRef.current?.focus();
   };
@@ -167,10 +170,13 @@ export default function SelectionLobby() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="interests-input-field">Your Interests</Label>
+              {/* Container for tags and input */}
               <div
-                className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
-                onClick={focusInput}
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}}
+                className={cn(
+                  "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
+                )}
+                onClick={focusInput} // Focus input when clicking the container
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Ensure minimum height for better clickability
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -181,7 +187,7 @@ export default function SelectionLobby() {
                     <X
                       size={14}
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                      onClick={(e) => handleRemoveInterest(interest, e)}
+                      onClick={(e) => handleRemoveInterest(interest, e)} // Pass event to stop propagation
                       aria-label={`Remove ${interest}`}
                     />
                   </div>
@@ -193,9 +199,9 @@ export default function SelectionLobby() {
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                  style={{ minWidth: '80px' }}
-                  disabled={selectedInterests.length >= 5 && !currentInterest}
+                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" // Ensure input specific styles don't override
+                  style={{ minWidth: '80px' }} // Ensure input doesn't collapse too much
+                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests and no current input
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -203,7 +209,7 @@ export default function SelectionLobby() {
               </p>
             </div>
           </CardContent>
-           <CardFooter className="flex justify-between space-x-4">
+           <CardFooter className="flex justify-between space-x-4"> {/* Ensures space between buttons */}
              <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
                <span className="animate-rainbow-text">Start Text Chat</span>
              </Button>
@@ -214,8 +220,8 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        {/* The line itself, now wider (max-w-2xl) and centered */}
-        <div className="max-w-2xl mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div>
+        {/* The line itself, now wider (max-w-5xl) and centered */}
+        <div className="max-w-5xl mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} TinChat. All rights reserved.
         </p>
