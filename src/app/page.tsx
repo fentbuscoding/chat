@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { io, type Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -24,7 +26,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(null); // Or some error indicator
+      setUsersOnline(0); 
       return;
     }
 
@@ -43,18 +45,18 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); // Disconnect after getting the count
+        tempSocket?.disconnect(); 
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(null); // Or some error indicator
+        setUsersOnline(0); 
         tempSocket?.disconnect();
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(null);
+        setUsersOnline(0);
     }
 
 
@@ -142,82 +144,90 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-md relative">
-        <CardHeader>
-          <div className="absolute top-2 right-2 flex items-center text-xs">
-            <img 
-              src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true" 
-              alt="Green light" 
-              className="w-3 h-3 mr-1"
-              data-ai-hint="green light indicator"
-            />
-            {usersOnline !== null ? (
-              <span className="font-bold mr-1">{usersOnline}</span>
-            ) : (
-              <span className="font-bold mr-1">--</span> 
-            )}
-            <span>Users Online!</span>
-          </div>
-          <CardTitle>Welcome to Ballscord!</CardTitle>
-          <CardDescription>
-            Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="interests-input-field">Your Interests</Label>
-            <div
-              className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
-              onClick={focusInput}
-              style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
-            >
-              {selectedInterests.map((interest) => (
-                <div
-                  key={interest}
-                  className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
-                >
-                  <span>{interest}</span>
-                  <X
-                    size={14}
-                    className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                    onClick={(e) => handleRemoveInterest(interest, e)}
-                    aria-label={`Remove ${interest}`}
-                  />
-                </div>
-              ))}
-              <Input
-                id="interests-input-field"
-                ref={inputRef}
-                value={currentInterest}
-                onChange={handleInterestInputChange}
-                onKeyDown={handleInterestInputKeyDown}
-                placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
-                style={{ minWidth: '80px' }}
-                disabled={selectedInterests.length >= 5 && !currentInterest}
+    <div className="flex flex-1 flex-col p-4"> {/* Changed to flex-col */}
+      <div className="flex-grow flex items-center justify-center"> {/* Wrapper for centering the card */}
+        <Card className="w-full max-w-md relative">
+          <CardHeader>
+            <div className="absolute top-2 right-2 flex items-center text-xs">
+              <img 
+                src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true" 
+                alt="Green light" 
+                className="w-3 h-3 mr-1"
+                data-ai-hint="green light indicator"
               />
+              {usersOnline !== null ? (
+                <span className="font-bold mr-1">{usersOnline}</span>
+              ) : (
+                <span className="font-bold mr-1">--</span> 
+              )}
+              <span>Users Online!</span>
             </div>
-            <p className="text-xs text-gray-500">
-              Type an interest and press Comma, Space, or Enter. Backspace on empty input to remove last. Leave blank for random match.
-            </p>
-          </div>
-        </CardContent>
-         <CardFooter className="flex justify-between space-x-4">
-           <Button className="flex-1 accent" onClick={() => {
-               console.log("SelectionLobby: 'Start Text Chat' button clicked.");
-               handleStartChat('text');
-            }}>
-             <span className="animate-rainbow-text">Start Text Chat</span>
-           </Button>
-           <Button className="flex-1 accent" onClick={() => {
-               console.log("SelectionLobby: 'Start Video Chat' button clicked.");
-               handleStartChat('video');
-            }}>
-             <span className="animate-rainbow-text-alt">Start Video Chat</span>
-           </Button>
-         </CardFooter>
-      </Card>
+            <CardTitle>Welcome to TinChat!</CardTitle>
+            <CardDescription>
+              Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="interests-input-field">Your Interests</Label>
+              <div
+                className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
+                onClick={focusInput}
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
+              >
+                {selectedInterests.map((interest) => (
+                  <div
+                    key={interest}
+                    className="bg-black text-white pl-2 pr-1 py-0.5 rounded-sm flex items-center text-xs h-fit"
+                  >
+                    <span>{interest}</span>
+                    <X
+                      size={14}
+                      className="ml-1 text-white hover:text-gray-300 cursor-pointer"
+                      onClick={(e) => handleRemoveInterest(interest, e)}
+                      aria-label={`Remove ${interest}`}
+                    />
+                  </div>
+                ))}
+                <Input
+                  id="interests-input-field"
+                  ref={inputRef}
+                  value={currentInterest}
+                  onChange={handleInterestInputChange}
+                  onKeyDown={handleInterestInputKeyDown}
+                  placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
+                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
+                  style={{ minWidth: '80px' }}
+                  disabled={selectedInterests.length >= 5 && !currentInterest}
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Type an interest and press Comma, Space, or Enter. Backspace on empty input to remove last. Leave blank for random match.
+              </p>
+            </div>
+          </CardContent>
+           <CardFooter className="flex justify-between space-x-4">
+             <Button className="flex-1 accent" onClick={() => {
+                 console.log("SelectionLobby: 'Start Text Chat' button clicked.");
+                 handleStartChat('text');
+              }}>
+               <span className="animate-rainbow-text">Start Text Chat</span>
+             </Button>
+             <Button className="flex-1 accent" onClick={() => {
+                 console.log("SelectionLobby: 'Start Video Chat' button clicked.");
+                 handleStartChat('video');
+              }}>
+               <span className="animate-rainbow-text-alt">Start Video Chat</span>
+             </Button>
+           </CardFooter>
+        </Card>
+      </div>
+      <footer className="mt-auto py-4 text-center">
+        <div className="w-full max-w-md mx-auto border-t border-gray-300 dark:border-gray-600 my-4"></div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          © {new Date().getFullYear()} TinChat. All rights reserved.
+        </p>
+      </footer>
     </div>
   );
 }
