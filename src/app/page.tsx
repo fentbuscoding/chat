@@ -27,7 +27,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); // Set to 0 or some placeholder if URL is missing
+      setUsersOnline(0); 
       return;
     }
 
@@ -36,7 +36,7 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling'] // Explicitly define transports
+        transports: ['websocket', 'polling'] 
       });
 
       tempSocket.on('connect', () => {
@@ -46,13 +46,13 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); // Disconnect after getting the count
+        tempSocket?.disconnect(); 
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); // Set to 0 on error
-        if (tempSocket?.connected) { // Check if connected before trying to disconnect
+        setUsersOnline(0); 
+        if (tempSocket?.connected) { 
             tempSocket?.disconnect();
         }
       });
@@ -62,19 +62,17 @@ export default function SelectionLobby() {
       });
 
     } catch (error) {
-        // This catch block might not catch errors from io() directly if they are async
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Set to 0 on error
+        setUsersOnline(0); 
     }
 
 
-    // Cleanup function to disconnect the socket when the component unmounts
     return () => {
       if (tempSocket?.connected) {
         tempSocket?.disconnect();
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []); 
 
   const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
@@ -87,10 +85,10 @@ export default function SelectionLobby() {
       setCurrentInterest('');
     } else if (newInterest && selectedInterests.includes(newInterest)) {
       toast({ title: "Duplicate Interest", description: `"${newInterest}" is already added.`, variant: "default" });
-      setCurrentInterest(''); // Clear input even if duplicate
+      setCurrentInterest(''); 
     } else if (selectedInterests.length >= 5) {
       toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
-      setCurrentInterest(''); // Clear input if max reached
+      setCurrentInterest(''); 
     }
   }, [selectedInterests, toast]);
 
@@ -108,7 +106,7 @@ export default function SelectionLobby() {
   };
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); // Prevent click from bubbling to the parent div (which focuses input)
+    event?.stopPropagation(); 
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -122,7 +120,7 @@ export default function SelectionLobby() {
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
 
-    if (interestsString) { // Only add if interestsString is not empty
+    if (interestsString) { 
         params.append('interests', interestsString);
     }
 
@@ -131,22 +129,21 @@ export default function SelectionLobby() {
 
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { // Default to text chat
+    } else { 
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
   }, [router, selectedInterests, toast]);
 
 
-  // Function to focus the input field
   const focusInput = () => {
     inputRef.current?.focus();
   };
 
 
   return (
-    <div className="flex flex-1 flex-col p-4"> {/* Main page container */}
-      <div className="flex-grow flex items-center justify-center"> {/* Wrapper for centering the card */}
+    <div className="flex flex-1 flex-col p-4"> 
+      <div className="flex-grow flex items-center justify-center"> 
         <Card className="w-full max-w-md relative">
           <CardHeader>
             <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -171,13 +168,12 @@ export default function SelectionLobby() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="interests-input-field">Your Interests</Label>
-              {/* Container for tags and input */}
               <div
                 className={cn(
                   "flex flex-wrap items-center gap-1 p-1.5 border rounded-md themed-input cursor-text"
                 )}
-                onClick={focusInput} // Focus input when clicking the container
-                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} // Ensure minimum height for better clickability
+                onClick={focusInput} 
+                style={{ minHeight: 'calc(1.5rem + 12px + 2px)'}} 
               >
                 {selectedInterests.map((interest) => (
                   <div
@@ -188,7 +184,7 @@ export default function SelectionLobby() {
                     <X
                       size={14}
                       className="ml-1 text-white hover:text-gray-300 cursor-pointer"
-                      onClick={(e) => handleRemoveInterest(interest, e)} // Pass event to stop propagation
+                      onClick={(e) => handleRemoveInterest(interest, e)} 
                       aria-label={`Remove ${interest}`}
                     />
                   </div>
@@ -200,9 +196,9 @@ export default function SelectionLobby() {
                   onChange={handleInterestInputChange}
                   onKeyDown={handleInterestInputKeyDown}
                   placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
-                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" // Ensure input specific styles don't override
-                  style={{ minWidth: '80px' }} // Ensure input doesn't collapse too much
-                  disabled={selectedInterests.length >= 5 && !currentInterest} // Disable if max interests and no current input
+                  className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner" 
+                  style={{ minWidth: '80px' }} 
+                  disabled={selectedInterests.length >= 5 && !currentInterest} 
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -210,7 +206,7 @@ export default function SelectionLobby() {
               </p>
             </div>
           </CardContent>
-           <CardFooter className="flex justify-between space-x-4"> {/* Ensures space between buttons */}
+           <CardFooter className="flex justify-between space-x-4"> 
              <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
                <span className="animate-rainbow-text">Start Text Chat</span>
              </Button>
@@ -225,11 +221,11 @@ export default function SelectionLobby() {
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
           <span>tinchat.com</span>
           <span>•</span>
-          <Link href="/rules" className="hover:underline">Rules</Link>
+          <Link href="/rules" className="text-red-600 hover:underline">Rules</Link>
           <span>•</span>
-          <Link href="/terms" className="hover:underline">Terms Of Service</Link>
+          <Link href="/terms" className="text-red-600 hover:underline">Terms Of Service</Link>
           <span>•</span>
-          <Link href="/privacy" className="hover:underline">Privacy</Link>
+          <Link href="/privacy" className="text-red-600 hover:underline">Privacy</Link>
         </p>
       </footer>
     </div>
