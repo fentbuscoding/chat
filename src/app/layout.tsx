@@ -11,8 +11,8 @@ import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvide
 const siteTitle = "TinChat";
 const siteDescription = "Connect with people through text or video chat.";
 const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online"; // Replace with your actual production domain
-const openGraphImageUrl = "https://placehold.co/1200x630.png"; // Replace with your actual OG image URL
+const siteUrl = "https://tinchat.online"; 
+const openGraphImageUrl = "https://placehold.co/1200x630.png"; 
 
 export const metadata: Metadata = {
   title: siteTitle,
@@ -66,13 +66,17 @@ export default function RootLayout({
           enableSystem={false}
         >
           <FirebaseAnalyticsProvider>
-            <div className="flex flex-col min-h-screen relative"> {/* Added relative for potential absolute children like Neko */}
-              <ConditionalTopBar />
-              <main className="flex-1 flex flex-col relative">
-                {children}
-              </main>
-              <Toaster />
-            </div>
+            <ConditionalTopBar />
+            <main className="flex-1 flex flex-col relative">
+              {children}
+            </main>
+            <Toaster />
+            <img
+                src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+                alt="Decorative Goldfish"
+                className="absolute top-[-60px] right-4 w-[150px] h-[150px] object-contain pointer-events-none select-none z-50"
+                data-ai-hint="goldfish decoration"
+            />
           </FirebaseAnalyticsProvider>
         </ThemeProvider>
         {/* Load Oneko (original sprite) script */}

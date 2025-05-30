@@ -36,27 +36,31 @@ export default function SelectionLobby() {
 
   useEffect(() => {
     // Apply stored cursor state on initial mount
+    // This logic is now primarily in RootLayout, but keeping a basic reset here
+    // can be a fallback or for components that might not re-trigger layout effects.
+    // The RootLayout effect is the source of truth for initial load.
     const savedNekoActive = localStorage.getItem('nekoActive');
     const savedAnimatedCursorUrl = localStorage.getItem('animatedCursorUrl');
     const savedStaticCursorUrl = localStorage.getItem('selectedCursorUrl');
 
-    if (savedNekoActive === 'true') {
-      window.stopAnimatedGifCursor?.();
-      window.startOriginalOneko?.();
-      document.body.style.cursor = 'none'; // Neko provides its own visual
-    } else if (savedAnimatedCursorUrl) {
-      window.stopOriginalOneko?.();
-      window.startAnimatedGifCursor?.(savedAnimatedCursorUrl);
-      document.body.style.cursor = 'none'; // Animated GIF cursor hides system one
-    } else if (savedStaticCursorUrl) {
-      window.stopOriginalOneko?.();
-      window.stopAnimatedGifCursor?.();
-      document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
-    } else {
-      // Default state: no custom cursor, Neko not active
-      window.stopOriginalOneko?.();
-      window.stopAnimatedGifCursor?.();
-      document.body.style.cursor = 'auto';
+    if (typeof window !== 'undefined') {
+        if (savedNekoActive === 'true') {
+            window.stopAnimatedGifCursor?.();
+            window.startOriginalOneko?.();
+            document.body.style.cursor = 'auto'; // Ensure system cursor visible with Neko
+        } else if (savedAnimatedCursorUrl) {
+            window.stopOriginalOneko?.();
+            window.startAnimatedGifCursor?.(savedAnimatedCursorUrl);
+            document.body.style.cursor = 'none';
+        } else if (savedStaticCursorUrl) {
+            window.stopOriginalOneko?.();
+            window.stopAnimatedGifCursor?.();
+            document.body.style.cursor = `url(${savedStaticCursorUrl}), auto`;
+        } else {
+            window.stopOriginalOneko?.();
+            window.stopAnimatedGifCursor?.();
+            document.body.style.cursor = 'auto';
+        }
     }
   }, []);
 
@@ -65,7 +69,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); // Or handle error appropriately
+      setUsersOnline(0);
       return;
     }
 
@@ -88,22 +92,21 @@ export default function SelectionLobby() {
       
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        // Disconnect after getting the count for the home page
         tempSocket?.disconnect();
       });
 
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count:", err.message);
-        setUsersOnline(0); // Fallback or error state
-        if (tempSocket?.connected) { // Check before calling disconnect on potentially already disconnected socket
+        setUsersOnline(0); 
+        if (tempSocket?.connected) { 
             tempSocket?.disconnect();
         }
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Fallback or error state
+        setUsersOnline(0); 
     }
 
     return () => {
@@ -217,29 +220,31 @@ export default function SelectionLobby() {
 
     if (isSettingsOpen) {
       window.addEventListener('resize', updatePosition);
-      updatePosition(); // Call once to position correctly on open
+      updatePosition(); 
     }
     return () => window.removeEventListener('resize', updatePosition);
   }, [isSettingsOpen]);
 
 
   const handleCursorSelect = (cursorUrl: string) => {
-    const isNeko = cursorUrl.toLowerCase().includes('neko.gif');
+    if (typeof window === 'undefined') return;
 
-    // Stop any currently active custom cursor/Neko
+    const isNekoGif = cursorUrl.toLowerCase().includes('neko.gif');
+
+    // Stop any currently active custom cursors
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
     document.body.style.cursor = 'auto'; // Reset to default first
 
-    if (isNeko) {
+    if (isNekoGif) {
       window.startOriginalOneko?.();
-      document.body.style.cursor = 'none'; // Neko script might hide system cursor, or we can force it
+      document.body.style.cursor = 'auto'; // Neko is an overlay, system cursor can remain 'auto' or be 'none' if Neko hides it visually
       localStorage.setItem('nekoActive', 'true');
       localStorage.removeItem('animatedCursorUrl');
       localStorage.removeItem('selectedCursorUrl');
     } else if (cursorUrl.toLowerCase().endsWith('.gif')) {
       window.startAnimatedGifCursor?.(cursorUrl);
-      document.body.style.cursor = 'none';
+      document.body.style.cursor = 'none'; // Hide system cursor for generic animated GIFs
       localStorage.setItem('animatedCursorUrl', cursorUrl);
       localStorage.removeItem('nekoActive');
       localStorage.removeItem('selectedCursorUrl');
@@ -252,6 +257,7 @@ export default function SelectionLobby() {
   };
 
   const handleDefaultCursor = () => {
+    if (typeof window === 'undefined') return;
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
     localStorage.removeItem('nekoActive');
@@ -262,9 +268,9 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4"> {/* Main page flex container */}
-      <div className="flex-grow min-h-screen flex items-center justify-center"> {/* Centering wrapper for card + settings */}
-        <div ref={cardWrapperRef} className="w-full max-w-md"> {/* Wrapper for card to get its position */}
+    <div className="flex flex-1 flex-col px-4 pt-4">
+      <div className="flex-grow min-h-screen flex items-center justify-center"> 
+        <div ref={cardWrapperRef} className="w-full max-w-md"> 
           <Card className="w-full relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
@@ -356,16 +362,16 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-10', // Use fixed positioning
+            'fixed p-2 shadow-lg z-10', 
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
               : 'bg-silver border border-gray-400 rounded' 
           )}
           style={{
-            width: '250px', // Fixed width for the panel
+            width: '250px', 
             top: `${panelPosition.top}px`,
             left: `${panelPosition.left}px`,
-            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, // Ensure it doesn't go off-screen vertically
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, 
             overflowY: 'auto'
           }}
         >
