@@ -135,10 +135,8 @@ export default function SelectionLobby() {
     const queryString = params.toString();
 
     if (type === 'video') {
-        // path = `/video-chat${queryString ? `?type=video&${queryString}` : '?type=video'}`;
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
     } else { // 'text'
-        // path = `/chat${queryString ? `?type=text&${queryString}` : '?type=text'}`;
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
@@ -178,7 +176,7 @@ export default function SelectionLobby() {
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-2">
                 <Label htmlFor="interests-input-field">Your Interests</Label>
-                <Button className="p-0 w-[25px] h-[25px] flex items-center justify-center" aria-label="Settings">
+                <Button className="p-0 w-[12.5px] h-[25px] flex items-center justify-center" aria-label="Settings">
                   <img
                     src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
                     alt="Settings"
@@ -252,4 +250,3 @@ export default function SelectionLobby() {
     </div>
   );
 }
-
