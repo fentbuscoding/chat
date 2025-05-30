@@ -3,6 +3,7 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // Import Link
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Label } from '@/components/ui/label-themed';
@@ -91,7 +92,7 @@ export default function SelectionLobby() {
       toast({ title: "Max Interests Reached", description: "You can add up to 5 interests.", variant: "default" });
       setCurrentInterest(''); // Clear input if max reached
     }
-  }, [selectedInterests, toast]); // Removed setCurrentInterest from dependencies as it's directly called
+  }, [selectedInterests, toast]);
 
   const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
@@ -220,10 +221,15 @@ export default function SelectionLobby() {
         </Card>
       </div>
       <footer className="mt-auto py-4 text-center">
-        {/* The line itself, now wider (max-w-5xl) and centered */}
         <div className="max-w-5xl mx-auto border-t-2 border-gray-300 dark:border-gray-600 my-4"></div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          © {new Date().getFullYear()} TinChat. All rights reserved.
+        <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
+          <span>tinchat.com</span>
+          <span>•</span>
+          <Link href="/rules" className="hover:underline">Rules</Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:underline">Terms Of Service</Link>
+          <span>•</span>
+          <Link href="/privacy" className="hover:underline">Privacy</Link>
         </p>
       </footer>
     </div>
