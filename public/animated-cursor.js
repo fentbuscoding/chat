@@ -1,42 +1,35 @@
-// public/animated-cursor.js
-(function() {
+
+(function animatedGifCursor() {
+  const cursorWidth = 32; // Define cursor width
+  const cursorHeight = 32; // Define cursor height
   let animatedCursorEl = null;
-  let animationFrameId = null;
   let mousePosX = 0;
   let mousePosY = 0;
-  let isGloballyStopped = true; // True if stopAnimatedGifCursor was called, start stopped
-  let isHiddenByHover = false;   // True if hidden due to hover over interactive element
+  let isGloballyStopped = true;
+  let isHiddenByHover = false;
+  let currentGifUrl = null;
 
-  const cursorWidth = 32; 
-  const cursorHeight = 32;
-
-  function createCursorDiv(gifUrl) {
+  function createCursorElement() {
     if (!animatedCursorEl) {
       animatedCursorEl = document.createElement("div");
       animatedCursorEl.id = "animated-gif-cursor";
-      animatedCursorEl.style.position = "fixed";
       animatedCursorEl.style.width = `${cursorWidth}px`;
       animatedCursorEl.style.height = `${cursorHeight}px`;
+      animatedCursorEl.style.position = "fixed";
       animatedCursorEl.style.pointerEvents = "none";
-      animatedCursorEl.style.zIndex = "10000"; 
-      animatedCursorEl.style.imageRendering = "pixelated"; 
+      animatedCursorEl.style.imageRendering = "pixelated";
+      animatedCursorEl.style.zIndex = "10000"; // High z-index
       animatedCursorEl.style.willChange = "transform";
       document.body.appendChild(animatedCursorEl);
     }
-    animatedCursorEl.style.backgroundImage = `url('${gifUrl}')`;
-    animatedCursorEl.style.backgroundRepeat = 'no-repeat';
-    animatedCursorEl.style.backgroundPosition = 'center center';
-    animatedCursorEl.style.backgroundSize = 'contain'; 
-    animatedCursorEl.style.display = 'none'; // Start hidden
   }
 
   function updatePosition() {
-    if (animatedCursorEl && animatedCursorEl.style.display === 'block') {
-      animatedCursorEl.style.transform = `translate(${mousePosX - cursorWidth / 2}px, ${mousePosY - cursorHeight / 2}px)`;
+    if (animatedCursorEl && !isGloballyStopped && !isHiddenByHover) {
+      // Align top-left of the cursor div with the mouse pointer
+      animatedCursorEl.style.transform = `translate(${mousePosX}px, ${mousePosY}px)`;
     }
-    if (!isGloballyStopped) { 
-        animationFrameId = requestAnimationFrame(updatePosition);
-    }
+    requestAnimationFrame(updatePosition);
   }
 
   function onMouseMove(event) {
@@ -44,49 +37,42 @@
     mousePosY = event.clientY;
   }
 
-  window.startAnimatedGifCursor = function(gifUrl) {
-    if (typeof window === 'undefined') return;
+  window.startAnimatedGifCursor = function (gifUrl) {
+    if (!gifUrl) return;
+    createCursorElement();
+
     isGloballyStopped = false;
-    isHiddenByHover = false; 
-    createCursorDiv(gifUrl);
-    if (animatedCursorEl) {
-      animatedCursorEl.style.display = 'block';
-    }
-    document.removeEventListener('mousemove', onMouseMove); 
-    document.addEventListener('mousemove', onMouseMove);
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-    }
-    animationFrameId = requestAnimationFrame(updatePosition);
-  };
-
-  window.stopAnimatedGifCursor = function() {
-    if (typeof window === 'undefined') return;
-    isGloballyStopped = true;
     isHiddenByHover = false;
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-    document.removeEventListener('mousemove', onMouseMove);
+    currentGifUrl = gifUrl;
+
     if (animatedCursorEl) {
-      animatedCursorEl.style.display = 'none';
+      animatedCursorEl.style.backgroundImage = `url('${gifUrl}')`;
+      animatedCursorEl.style.display = "block";
     }
+    document.addEventListener("mousemove", onMouseMove);
+    requestAnimationFrame(updatePosition); // Start the animation frame loop
   };
 
-  window.hideAnimatedGifCursor = function() {
-    if (typeof window === 'undefined') return;
-    if (!isGloballyStopped && animatedCursorEl && animatedCursorEl.style.display !== 'none') {
+  window.stopAnimatedGifCursor = function () {
+    isGloballyStopped = true;
+    if (animatedCursorEl) {
+      animatedCursorEl.style.display = "none";
+    }
+    document.removeEventListener("mousemove", onMouseMove);
+    // No need to cancelAnimationFrame if updatePosition checks isGloballyStopped
+  };
+
+  window.hideAnimatedGifCursor = function () {
+    if (!isGloballyStopped && animatedCursorEl) {
       isHiddenByHover = true;
-      animatedCursorEl.style.display = 'none';
+      animatedCursorEl.style.display = "none";
     }
   };
 
-  window.showAnimatedGifCursor = function() {
-    if (typeof window === 'undefined') return;
+  window.showAnimatedGifCursor = function () {
     if (!isGloballyStopped && isHiddenByHover && animatedCursorEl) {
       isHiddenByHover = false;
-      animatedCursorEl.style.display = 'block';
+      animatedCursorEl.style.display = "block";
     }
   };
 })();
