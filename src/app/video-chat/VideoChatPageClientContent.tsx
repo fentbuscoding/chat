@@ -643,13 +643,13 @@ const VideoChatPageClientContent: React.FC = () => {
     };
     
     const onConnectError = (err: Error) => {
-      console.error(`${logPrefix}: Socket connection error:`, err.message);
+      console.error(`${logPrefix}: Socket connection error:`, err);
       setSocketError(true);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       toast({
         title: "Connection Error",
-        description: `Could not connect to chat server: ${err.message}. Please try again later.`,
+        description: `Could not connect to chat server. ${String(err)}. Please try again later.`,
         variant: "destructive"
       });
     };
@@ -1080,3 +1080,5 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
+    
