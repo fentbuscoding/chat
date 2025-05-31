@@ -6,19 +6,21 @@ import {googleAI} from '@genkit-ai/googleai';
 const googleApiKey = process.env.GOOGLE_API_KEY;
 
 if (!googleApiKey) {
-  console.warn(
-    'GOOGLE_API_KEY environment variable is not set. Genkit Google AI plugin may not function correctly.'
-  );
-  // Depending on your error handling strategy, you might throw an error here
-  // throw new Error('GOOGLE_API_KEY environment variable is not set.');
+  const errorMessage = 'CRITICAL SERVER ERROR: GOOGLE_API_KEY environment variable is not set. The Genkit Google AI plugin cannot initialize, and any Genkit flows (including listEmojis, listCursors, etc.) may fail with a FAILED_PRECONDITION error. Please set this environment variable in your server environment where Next.js runs.';
+  console.error('********************************************************************************************************************************************************************************');
+  console.error(errorMessage);
+  console.error('Refer to https://firebase.google.com/docs/genkit/plugins/google-genai for details on API key setup.');
+  console.error('********************************************************************************************************************************************************************************');
+  // This warning will appear in your server-side logs if the key is missing.
+  // The FAILED_PRECONDITION error will still likely be thrown by the googleAI plugin when a flow is invoked.
 }
 
 export const ai = genkit({
   promptDir: './prompts',
   plugins: [
     googleAI({
-      apiKey: googleApiKey, // Use the API key from environment variable
+      apiKey: googleApiKey, // This will be undefined if the environment variable is not set, causing plugin initialization issues.
     }),
   ],
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.0-flash', // Default model for the 'ai' instance.
 });
