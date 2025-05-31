@@ -34,7 +34,8 @@ interface Message {
 
 interface EmoteData {
   filename: string;
-  // other properties from emote_index.json if needed
+  width?: number;
+  height?: number;
 }
 
 const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
@@ -63,7 +64,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle"
+          className="inline max-h-5 w-auto mx-0.5 align-middle"
           data-ai-hint="chat emoji"
         />
       );
@@ -706,7 +707,7 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json') // Fetch from public root
+      fetch('/emote_index.json') 
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);

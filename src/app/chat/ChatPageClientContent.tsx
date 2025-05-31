@@ -35,7 +35,8 @@ interface Message {
 
 interface EmoteData {
   filename: string;
-  // other properties from emote_index.json if needed, like width, height
+  width?: number; // Optional, as per original EmoteGallery
+  height?: number; // Optional
 }
 
 const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
@@ -64,7 +65,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
           key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline h-5 w-5 mx-0.5 align-middle"
+          className="inline max-h-5 w-auto mx-0.5 align-middle"
           data-ai-hint="chat emoji"
         />
       );
@@ -480,7 +481,7 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json') // Fetch from public root
+      fetch('/emote_index.json') 
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
@@ -492,10 +493,10 @@ const ChatPageClientContent: React.FC = () => {
           setPickerEmojiFilenames(filenames);
         })
         .catch((err) => {
-          console.error(`${logPrefix}: Failed to load emojis from emote_index.json:`, err);
+          console.error(`${logPrefix}: Error in listEmojis flow (client-side):`, err.message, err);
           toast({
             title: "Emoji Error",
-            description: `Could not load emojis for picker: ${err.message}`,
+            description: `Could not load emojis for the picker. ${err.message}`,
             variant: "destructive"
           });
           setPickerEmojiFilenames([]);
@@ -572,7 +573,6 @@ const ChatPageClientContent: React.FC = () => {
       clearInterval(hoverIntervalRef.current);
       hoverIntervalRef.current = null;
     }
-    // Reset to a default emoji if needed, e.g., the smile emoji
     setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   }, []);
   
