@@ -17,7 +17,8 @@ interface ThemeStamp {
 }
 
 const availableStamps: ThemeStamp[] = [
-  { name: 'Pink Windows', imageUrl: '/theme_stamps/starpattern.png', cssFile: 'pink-theme.css', dataAiHint: 'pink theme stamp' },
+  { name: 'Pink Windows', imageUrl: '/theme_stamps/coquette.png', cssFile: 'pink-theme.css', dataAiHint: 'pink theme stamp' },
+  { name: 'Star Pattern', imageUrl: '/theme_stamps/starpattern.png', cssFile: 'starpattern-theme.css', dataAiHint: 'star pattern theme stamp' },
   { name: 'Default 98', imageUrl: 'https://placehold.co/100x75/c0c0c0/000000.png?text=Default', cssFile: null, dataAiHint: 'default theme stamp' },
 ];
 
@@ -38,6 +39,20 @@ export function TopBar() {
     if (typeof window === 'undefined') return;
 
     const htmlElement = document.documentElement;
+    const subThemeClassName = cssFile ? `subtheme-${cssFile.replace('.css', '')}` : null;
+
+    // Remove any existing subtheme classes
+    availableStamps.forEach(stamp => {
+      if (stamp.cssFile) {
+        htmlElement.classList.remove(`subtheme-${stamp.cssFile.replace('.css', '')}`);
+      }
+    });
+
+    // Add new subtheme class if applicable
+    if (subThemeClassName) {
+      htmlElement.classList.add(subThemeClassName);
+    }
+    
     htmlElement.classList.add('theme-transitioning');
 
     let link = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
@@ -53,10 +68,12 @@ export function TopBar() {
         link.href = newHref;
         document.head.appendChild(link);
       }
+      localStorage.setItem('selectedWin98SubTheme', cssFile);
     } else {
       if (link) {
         link.remove();
       }
+      localStorage.removeItem('selectedWin98SubTheme');
     }
 
     setTimeout(() => {
@@ -68,9 +85,15 @@ export function TopBar() {
   const handleThemeChange = (newThemeString: string) => {
     if (newThemeString === 'theme-98' || newThemeString === 'theme-7') {
       setTheme(newThemeString as Theme);
-      const dynamicLink = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
-      if (dynamicLink) {
-          dynamicLink.remove();
+      // If changing to theme-7, remove Win98 subtheme
+      if (newThemeString === 'theme-7') {
+        applyWin98SubTheme(null); 
+      } else {
+        // If changing back to theme-98, reapply stored subtheme if any
+        const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
+        if (storedSubTheme) {
+          applyWin98SubTheme(storedSubTheme);
+        }
       }
     }
     setIsCustomizerOpen(false);
@@ -127,29 +150,26 @@ export function TopBar() {
     return (
       <div className={cn(
         "flex justify-end items-center p-2 space-x-2",
-        // No 'top-bar-main-body' class if defaultInitialTheme is 'theme-98'
         defaultInitialTheme === 'theme-7' ? 'top-bar-main-body' : ''
       )}>
-        <Label htmlFor="theme-select-native" className="mr-2">Theme:</Label>
+        <Label htmlFor="theme-select-dropdown" className="mr-2" suppressHydrationWarning>Theme:</Label>
         <select
-          id="theme-select-native"
-          value={defaultInitialTheme} // Use the default theme
+          id="theme-select-dropdown"
+          value={defaultInitialTheme} 
           disabled
           readOnly
           className="w-[120px] field-row"
           style={{ height: '21px' }}
-          onChange={() => {}} // No-op for disabled select
+          onChange={() => {}} 
         >
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-        {/* Theme icon is rendered if defaultInitialTheme is 'theme-98' */}
         {defaultInitialTheme === 'theme-98' && (
           <img
-            // ref={themeIconRef} // Avoid ref on SSR for non-interactive elements if it causes issues
             src="/icons/theme.png"
             alt="Customize Theme"
-            className="w-5 h-5" // Removed cursor-pointer as it's non-interactive pre-mount
+            className="w-5 h-5 cursor-pointer" 
             data-ai-hint="theme settings icon"
           />
         )}
@@ -160,10 +180,10 @@ export function TopBar() {
   // Main render path (client-side, after mount)
   return (
     <div className={cn("flex justify-end items-center p-2 space-x-2", currentTheme === 'theme-7' ? 'top-bar-main-body' : '')}>
-      <Label htmlFor={currentTheme === 'theme-98' ? "theme-select-native" : "theme-select-custom"} className="mr-2">Theme:</Label>
+      <Label htmlFor={currentTheme === 'theme-98' ? "theme-select-dropdown" : "theme-select-custom"} className="mr-2" suppressHydrationWarning>Theme:</Label>
       {currentTheme === 'theme-98' ? (
         <select
-          id="theme-select-native"
+          id="theme-select-dropdown"
           value={selectedTheme} // Reflects user's actual choice
           onChange={(e) => handleThemeChange(e.target.value)}
           className="w-[120px] field-row"
