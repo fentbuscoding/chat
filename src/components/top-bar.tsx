@@ -19,6 +19,7 @@ interface ThemeStamp {
 const availableStamps: ThemeStamp[] = [
   { name: 'Pink Windows', imageUrl: '/theme_stamps/coquette.png', cssFile: 'pink-theme.css', dataAiHint: 'pink theme stamp' },
   { name: 'Star Pattern', imageUrl: '/theme_stamps/starpattern.png', cssFile: 'starpattern-theme.css', dataAiHint: 'star pattern theme stamp' },
+  { name: 'Dark Theme', imageUrl: '/theme_stamps/darktheme.png', cssFile: 'dark-theme.css', dataAiHint: 'dark theme stamp' },
   { name: 'Default 98', imageUrl: 'https://placehold.co/100x75/c0c0c0/000000.png?text=Default', cssFile: null, dataAiHint: 'default theme stamp' },
 ];
 
@@ -92,7 +93,7 @@ export function TopBar() {
     setTimeout(() => {
       htmlElement.classList.remove('theme-transitioning');
       console.log("TopBar: Removed theme-transitioning class for sub-theme.");
-    }, 150); // Increased timeout from 50ms to 150ms
+    }, 150);
 
   }, []);
 
@@ -105,7 +106,7 @@ export function TopBar() {
             applyWin98SubTheme(storedSubTheme);
         }
     }
-  }, [selectedTheme, applyWin98SubTheme]); // Added applyWin98SubTheme to dependency array
+  }, [selectedTheme, applyWin98SubTheme]);
 
 
   const handleThemeChange = (newThemeString: string) => {
