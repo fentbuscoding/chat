@@ -6,7 +6,7 @@ const socketServerHostname = new URL(NEXT_PUBLIC_SOCKET_SERVER_URL).hostname;
 
 const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com/firebasejs/ https://static.cloudflareinsights.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com/firebasejs/ https://static.cloudflareinsights.com https://www.googletagmanager.com;
     style-src 'self' 'unsafe-inline' https://unpkg.com;
     img-src 'self' data: https://placehold.co https://github.com https://storage.googleapis.com;
     font-src 'self' https://unpkg.com;
@@ -14,10 +14,11 @@ const cspHeader = `
     frame-src 'self';
     object-src 'none';
     base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
+    form-action 'self' https://studio.firebase.google.com;
+    frame-ancestors 'self' https://studio.firebase.google.com;
     upgrade-insecure-requests;
-`.replace(/\s{2,}/g, ' ').trim(); // Replace multiple spaces and newlines
+`.replace(/\s{2,}/g, ' ').trim();
+
 
 const nextConfig: NextConfig = {
   /* config options here */

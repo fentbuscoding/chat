@@ -20,7 +20,7 @@ export function ConditionalGoldfishImage() {
 
   return (
     <img
-      src="https://github.com/ekansh28/files/blob/main/goldfish.png?raw=true"
+      src="icons/goldfish.png"
       alt="Decorative Goldfish"
       className="absolute object-contain pointer-events-none select-none z-50" // Standard Tailwind classes
       style={imageStyles} // Styles with arbitrary values moved here

@@ -66,11 +66,10 @@ export default function SelectionLobby() {
       });
 
       tempSocket.on('connect_error', (err) => {
-        console.error("SelectionLobby: Socket connection error for user count:", err.message);
+        console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
         setUsersOnline(0); 
-        if (tempSocket?.connected) { 
-            tempSocket?.disconnect();
-        }
+        // The socket is not connected if connect_error was emitted.
+        // The main cleanup function will handle disconnecting if the socket instance exists.
       });
 
     } catch (error) {
@@ -82,6 +81,12 @@ export default function SelectionLobby() {
       if (tempSocket?.connected) {
         console.log("SelectionLobby: Disconnecting socket for user count on unmount.");
         tempSocket?.disconnect();
+      } else if (tempSocket) {
+        // If the socket exists but is not connected (e.g., due to connect_error),
+        // ensure it's still cleaned up to prevent lingering event listeners.
+        console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
+        tempSocket.removeAllListeners(); // Remove listeners to be safe
+        tempSocket.disconnect(); // Attempt disconnect
       }
     };
   }, []);
@@ -239,7 +244,7 @@ export default function SelectionLobby() {
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
-                  src="https://github.com/ekansh28/files/blob/main/greenlight.gif?raw=true"
+                  src="/icons/greenlight.gif"
                   alt="Green light"
                   className="w-3 h-3 mr-1"
                   data-ai-hint="green light indicator"
@@ -266,7 +271,7 @@ export default function SelectionLobby() {
                     onClick={handleToggleSettings}
                   >
                     <img
-                      src="https://github.com/ekansh28/files/blob/main/gears-0.png?raw=true"
+                      src="/icons/gears-0.png"
                       alt="Settings"
                       className="max-w-full max-h-full object-contain"
                       data-ai-hint="settings icon"
@@ -407,4 +412,3 @@ export default function SelectionLobby() {
     </div>
   );
 }
-

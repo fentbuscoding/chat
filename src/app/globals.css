@@ -25,7 +25,7 @@ body {
   background-color: #fff;
   color: #000;
   /* Added GIF background */
-  background-image: url('https://github.com/ekansh28/files/blob/main/stars.gif?raw=true');
+  background-image: url('/wallpapers/stars.gif');
   background-repeat: repeat; /* Ensure the GIF tiles/repeats */
   background-attachment: fixed; /* Keep the background fixed during scroll */
   background-size: 200px; /* Make the GIF smaller to repeat more */
@@ -64,7 +64,7 @@ html.theme-7 {
 
 /* Apply Frutiger background directly to body for theme-7, overriding stars */
 html.theme-7 body {
-  background-image: url("https://github.com/ekansh28/files/blob/main/frutiger1.jpeg?raw=true");
+  background-image: url("/wallpapers/frutiger1.jpeg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
