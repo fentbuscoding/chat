@@ -1,7 +1,7 @@
 
 import type {NextConfig} from 'next';
 
-const NEXT_PUBLIC_SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'https://socket-server-638800277531.us-central1.run.app';
+const NEXT_PUBLIC_SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'https://chat-g145.onrender.com';
 const socketServerHostname = new URL(NEXT_PUBLIC_SOCKET_SERVER_URL).hostname;
 
 const cspHeader = `
