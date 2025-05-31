@@ -11,7 +11,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-// import { listEmojis } from '@/ai/flows/list-emojis-flow'; // No longer fetching from GCS
+// import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage'; // Not used here but could be
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -20,10 +20,7 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
-const EMOJI_BASE_URL_PICKER = "/emotes/"; // Changed to local path
-
-// IMPORTANT: Update this array with the filenames of your emojis in public/emotes/
-const localEmoteFilenames = ['smile.png', 'wink.gif', 'cool.png', 'sad.png', 'cry.png', 'laugh.gif'];
+const EMOJI_BASE_URL_PICKER = "/emotes/"; // Local path
 
 const INPUT_AREA_HEIGHT = 60;
 const logPrefix = "VideoChatPage";
@@ -33,6 +30,11 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
+}
+
+interface EmoteData {
+  filename: string;
+  // other properties from emote_index.json if needed
 }
 
 const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
@@ -175,7 +177,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
-  const [emojisLoading, setEmojisLoading] = useState(true); // Will be set to false after initial setup
+  const [emojisLoading, setEmojisLoading] = useState(true);
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -261,11 +263,6 @@ const VideoChatPageClientContent: React.FC = () => {
       if (justStartedFinding || justFinishedSelfDisconnectAndIsSearching) {
         filterSystemMessages('your partner has disconnected');
         filterSystemMessages('stopped searching for a partner');
-        // if (isSelfDisconnectedRecently && messages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('you have disconnected'))) {
-        //   // Keep "You have disconnected"
-        // } else {
-        //   filterSystemMessages('you have disconnected');
-        // }
         addSystemMessageIfNotPresent('Searching for a partner...', 'search');
       }
     } else if (isPartnerConnected) {
@@ -283,7 +280,6 @@ const VideoChatPageClientContent: React.FC = () => {
   
         filterSystemMessages('searching for a partner');
         filterSystemMessages('your partner has disconnected');
-        // filterSystemMessages('you have disconnected'); // Kept if user action
         filterSystemMessages('stopped searching for a partner');
   
         addSystemMessageIfNotPresent('Connected with a partner. You can start chatting!', 'connect');
@@ -381,7 +377,6 @@ const VideoChatPageClientContent: React.FC = () => {
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
         console.log(`${logPrefix}: Local stream stopped and video ref cleared.`);
     } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject) {
-        // If stream exists but not on element, re-assign (might happen after cleanupConnections(false))
         localVideoRef.current.srcObject = localStreamRef.current;
     }
     
@@ -406,7 +401,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (peerConnectionRef.current) {
         console.warn(`${logPrefix}: PeerConnection already exists during setupWebRTC. Closing existing before creating new.`);
-        cleanupConnections(false); // Keep local stream if already active
+        cleanupConnections(false); 
     }
 
     const pc = new RTCPeerConnection({
@@ -461,7 +456,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
     const currentSocket = socketRef.current;
-    if (!currentSocket) { // Check if socketRef.current is null
+    if (!currentSocket) { 
         toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
         return;
     }
@@ -474,7 +469,7 @@ const VideoChatPageClientContent: React.FC = () => {
         addMessage('You have disconnected.', 'system');
         currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
         setIsSelfDisconnectedRecently(true);
-        cleanupConnections(false); // Keep local stream if user wants to find new partner
+        cleanupConnections(false); 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
         setRoomId(null);
@@ -513,7 +508,7 @@ const VideoChatPageClientContent: React.FC = () => {
       console.error(`${logPrefix}: Socket server URL is not defined.`);
       toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
       setSocketError(true);
-      return () => {}; // Return empty cleanup
+      return () => {}; 
     }
 
     console.log(`${logPrefix}: Attempting to connect to socket server: ${socketServerUrl}`);
@@ -529,12 +524,10 @@ const VideoChatPageClientContent: React.FC = () => {
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
             console.log(`${logPrefix}: Automatically starting partner search on initial connect (video).`);
              if (hasCameraPermission === undefined) {
-                await getCameraStream(); // Attempt to get permission if not determined
+                await getCameraStream(); 
             }
-            // Re-check after attempt; getCameraStream updates hasCameraPermission state
-            // This relies on getCameraStream being stable (which it is due to useCallback)
-            const stream = await getCameraStream(); // Ensure stream is active or get it
-            if (stream) { // Proceed if stream is available (implies permission true or undefined but successful get)
+            const stream = await getCameraStream(); 
+            if (stream) { 
                 setIsFindingPartner(true);
                 newSocket.emit('findPartner', { chatType: 'video', interests });
                 autoSearchDoneRef.current = true;
@@ -549,14 +542,14 @@ const VideoChatPageClientContent: React.FC = () => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
       setMessages([]); 
       setRoomId(rId);
-      roomIdRef.current = rId; // Synchronously update ref
+      roomIdRef.current = rId; 
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      if (isMounted) { // Check isMounted
-          setupWebRTC(true); // User finding a partner is the initiator
+      if (isMounted) { 
+          setupWebRTC(true); 
       }
     };
     
@@ -576,17 +569,15 @@ const VideoChatPageClientContent: React.FC = () => {
     
     const onWebRTCSignal = async (signalData: any) => {
       let pc = peerConnectionRef.current;
-      // const currentRIdVal = roomIdRef.current; // Not needed here, already in PC scope via setupWebRTC
 
-      if (!newSocket || !roomIdRef.current) { // Use roomIdRef for safety
+      if (!newSocket || !roomIdRef.current) { 
         console.error(`${logPrefix}: Socket or RoomID missing for WebRTC signal.`);
         return;
       }
       
-      // Ensure PC is created if receiving signal before local setup (non-initiator)
       if (!pc && isPartnerConnected && isMounted) { 
           console.log(`${logPrefix}: Receiving signal, local PC not yet set up. Setting up now (non-initiator).`);
-          await setupWebRTC(false); // This user is not the initiator
+          await setupWebRTC(false); 
           pc = peerConnectionRef.current; 
       }
       
@@ -626,27 +617,25 @@ const VideoChatPageClientContent: React.FC = () => {
     const onPartnerLeft = () => {
       addMessage('Your partner has disconnected.', 'system');
       setIsPartnerLeftRecently(true); 
-      cleanupConnections(false); // Keep local stream if user wants to find new partner
+      cleanupConnections(false); 
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null); 
-      // roomIdRef.current = null; // Handled by separate effect
       setPartnerInterests([]);
     };
     
     const onDisconnect = (reason: string) => {
       console.log(`${logPrefix}: Disconnected from socket server. Reason:`, reason);
       setSocketError(true);
-      cleanupConnections(true); // Stop local stream on full disconnect
+      cleanupConnections(true); 
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null); 
-      // roomIdRef.current = null; // Handled by separate effect
     };
     
     const onConnectError = (err: Error) => {
-      console.error(`${logPrefix}: Socket connection error:`, err);
+      console.error(`${logPrefix}: Socket connection error:`, String(err), err);
       setSocketError(true);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
@@ -696,7 +685,7 @@ const VideoChatPageClientContent: React.FC = () => {
             newSocket.disconnect();
         }
         socketRef.current = null;
-        cleanupConnections(true); // Ensure all streams and PC are cleaned on unmount
+        cleanupConnections(true); 
         changeFavicon('/favicon.ico', true);
         if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
         if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
@@ -704,17 +693,11 @@ const VideoChatPageClientContent: React.FC = () => {
         if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
         if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
     };
-  // Main dependencies for socket setup:
-  // - Stable functions: addMessage, toast, changeFavicon, getCameraStream, setupWebRTC, cleanupConnections
-  // - Stable values: interests (memoized)
-  // - isMounted: ensures setupWebRTC is called only when mounted (relevant for partnerFound)
-  // - hasCameraPermission: for auto-search logic
   }, [addMessage, toast, interests, changeFavicon, getCameraStream, setupWebRTC, cleanupConnections, isMounted, hasCameraPermission, isPartnerConnected, isFindingPartner]);
 
 
   useEffect(() => {
-    setIsMounted(true); // Initial mount state
-    // Attempt to get camera permission on initial load if not already determined
+    setIsMounted(true); 
     if (hasCameraPermission === undefined) {
         getCameraStream(); 
     }
@@ -722,14 +705,35 @@ const VideoChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
-        // Use the hardcoded list of emoji filenames
-        setPickerEmojiFilenames(localEmoteFilenames);
-        setEmojisLoading(false); // No longer loading asynchronously
-      } else {
-        setEmojisLoading(false);
-        setPickerEmojiFilenames([]);
-      }
-  },[effectivePageTheme]);
+      setEmojisLoading(true);
+      fetch('/emote_index.json') // Fetch from public root
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then((data: EmoteData[]) => {
+          const filenames = data.map(emote => emote.filename);
+          setPickerEmojiFilenames(filenames);
+        })
+        .catch((err) => {
+          console.error(`${logPrefix}: Failed to load emojis from emote_index.json:`, err);
+          toast({
+            title: "Emoji Error",
+            description: `Could not load emojis for picker: ${err.message}`,
+            variant: "destructive"
+          });
+          setPickerEmojiFilenames([]);
+        })
+        .finally(() => {
+          setEmojisLoading(false);
+        });
+    } else {
+      setEmojisLoading(false);
+      setPickerEmojiFilenames([]);
+    }
+  },[effectivePageTheme, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -872,7 +876,6 @@ const VideoChatPageClientContent: React.FC = () => {
               effectivePageTheme === 'theme-98' ? '' : 'theme-7'
             )}>
             <div className="title-bar-text">
-              {/* Text removed */}
             </div>
           </div>
           <div
@@ -907,7 +910,6 @@ const VideoChatPageClientContent: React.FC = () => {
                effectivePageTheme === 'theme-98' ? '' : 'theme-7'
             )}>
             <div className="title-bar-text">
-              {/* Text removed */}
             </div>
           </div>
           <div
@@ -943,7 +945,7 @@ const VideoChatPageClientContent: React.FC = () => {
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
       >
-         {effectivePageTheme === 'theme-7' && <ConditionalGoldfishImage />}
+        {/* ConditionalGoldfishImage could be added here for theme-7 if desired */}
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
           <div className="title-bar-text">Chat</div>
         </div>
@@ -1002,7 +1004,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 className="flex-1 w-full px-1 py-1"
                 disabled={inputAndSendDisabled}
               />
-              {effectivePageTheme === 'theme-98' && !emojisLoading && (
+              {effectivePageTheme === 'theme-98' && (
                 <div className="relative ml-1 flex-shrink-0">
                   <img
                     id="emoji-icon-trigger-video"
@@ -1020,7 +1022,9 @@ const VideoChatPageClientContent: React.FC = () => {
                       className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
-                       {pickerEmojiFilenames.length > 0 ? (
+                       {emojisLoading ? (
+                         <p className="text-center w-full text-xs">Loading emojis...</p>
+                       ): pickerEmojiFilenames.length > 0 ? (
                         <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
                           {pickerEmojiFilenames.map((filename) => (
                             <img
@@ -1037,16 +1041,11 @@ const VideoChatPageClientContent: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                         <p className="text-center w-full text-xs">No emojis available. Add filenames to localEmoteFilenames array.</p>
+                         <p className="text-center w-full text-xs">No emojis found or failed to load. Check emote_index.json.</p>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-              {effectivePageTheme === 'theme-98' && emojisLoading && (
-                 <div className="relative ml-1 flex-shrink-0">
-                    <p className="text-xs p-1">...</p>
-                 </div>
               )}
               <Button
                 onClick={handleSendMessage}
@@ -1067,5 +1066,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-
-    

@@ -10,8 +10,9 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-// import { listEmojis } from '@/ai/flows/list-emojis-flow'; // No longer fetching from GCS
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
+// EmoteGallery import is not needed here as we are replicating its fetch logic
+// import EmoteGallery from "@/components/EmoteGallery";
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -20,20 +21,21 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
-const EMOJI_BASE_URL_PICKER = "/emotes/"; // Changed to local path
-
-// IMPORTANT: Update this array with the filenames of your emojis in public/emotes/
-const localEmoteFilenames = ['smile.png', 'wink.gif', 'cool.png', 'sad.png', 'cry.png', 'laugh.gif'];
+const EMOJI_BASE_URL_PICKER = "/emotes/"; // Local path for emojis in the picker
 
 const INPUT_AREA_HEIGHT = 60;
 const logPrefix = "ChatPage";
-
 
 interface Message {
   id: string;
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
+}
+
+interface EmoteData {
+  filename: string;
+  // other properties from emote_index.json if needed, like width, height
 }
 
 const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
@@ -171,7 +173,7 @@ const ChatPageClientContent: React.FC = () => {
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
-  const [emojisLoading, setEmojisLoading] = useState(true); // Will be set to false after initial setup
+  const [emojisLoading, setEmojisLoading] = useState(true);
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -257,11 +259,6 @@ const ChatPageClientContent: React.FC = () => {
       if (justStartedFinding || justFinishedSelfDisconnectAndIsSearching) {
         filterSystemMessages('your partner has disconnected');
         filterSystemMessages('stopped searching for a partner');
-        // if (justFinishedSelfDisconnectAndIsSearching && messages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('you have disconnected'))) {
-        //    // Keep "You have disconnected"
-        // } else {
-        //    filterSystemMessages('you have disconnected');
-        // }
         addSystemMessageIfNotPresent('Searching for a partner...', 'search');
       }
     } else if (isPartnerConnected) {
@@ -279,7 +276,6 @@ const ChatPageClientContent: React.FC = () => {
 
         filterSystemMessages('searching for a partner');
         filterSystemMessages('your partner has disconnected');
-        // filterSystemMessages('you have disconnected'); // Keep this if it was just added by user action
         filterSystemMessages('stopped searching for a partner');
 
         addSystemMessageIfNotPresent('Connected with a partner. You can start chatting!', 'connect');
@@ -379,7 +375,6 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
       setMessages([]); 
       setRoomId(rId);
-      // roomIdRef.current = rId; // Handled by separate effect
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
@@ -407,7 +402,6 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current = null; // Handled by separate effect
       setPartnerInterests([]);
     };
     
@@ -418,11 +412,10 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false); 
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current = null; // Handled by separate effect
     };
     
     const onConnectError = (err: Error) => {
-        console.error(`${logPrefix}: Socket connection error:`, err);
+        console.error(`${logPrefix}: Socket connection error:`, String(err), err);
         setSocketError(true);
         toast({
           title: "Connection Error",
@@ -469,7 +462,6 @@ const ChatPageClientContent: React.FC = () => {
       newSocket.disconnect();
       socketRef.current = null;
 
-      // Favicon cleanup
       changeFavicon('/favicon.ico', true);
       if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
       if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
@@ -487,14 +479,35 @@ const ChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
-        // Use the hardcoded list of emoji filenames
-        setPickerEmojiFilenames(localEmoteFilenames);
-        setEmojisLoading(false); // No longer loading asynchronously
-      } else {
-        setEmojisLoading(false);
-        setPickerEmojiFilenames([]);
-      }
-  }, [effectivePageTheme]);
+      setEmojisLoading(true);
+      fetch('/emote_index.json') // Fetch from public root
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then((data: EmoteData[]) => {
+          const filenames = data.map(emote => emote.filename);
+          setPickerEmojiFilenames(filenames);
+        })
+        .catch((err) => {
+          console.error(`${logPrefix}: Failed to load emojis from emote_index.json:`, err);
+          toast({
+            title: "Emoji Error",
+            description: `Could not load emojis for picker: ${err.message}`,
+            variant: "destructive"
+          });
+          setPickerEmojiFilenames([]);
+        })
+        .finally(() => {
+          setEmojisLoading(false);
+        });
+    } else {
+      setEmojisLoading(false);
+      setPickerEmojiFilenames([]);
+    }
+  }, [effectivePageTheme, toast]);
 
 
   useEffect(() => {
@@ -547,7 +560,7 @@ const ChatPageClientContent: React.FC = () => {
   const handleEmojiIconHover = useCallback(() => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
     if (STATIC_DISPLAY_EMOJI_FILENAMES.length === 0) return;
-
+  
     hoverIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * STATIC_DISPLAY_EMOJI_FILENAMES.length);
       setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${STATIC_DISPLAY_EMOJI_FILENAMES[randomIndex]}`);
@@ -559,8 +572,10 @@ const ChatPageClientContent: React.FC = () => {
       clearInterval(hoverIntervalRef.current);
       hoverIntervalRef.current = null;
     }
+    // Reset to a default emoji if needed, e.g., the smile emoji
     setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   }, []);
+  
 
   const toggleEmojiPicker = useCallback(() => {
     setIsEmojiPickerOpen(prev => !prev);
@@ -697,7 +712,7 @@ const ChatPageClientContent: React.FC = () => {
                 className="flex-1 w-full px-1 py-1"
                 disabled={inputAndSendDisabled}
               />
-              {effectivePageTheme === 'theme-98' && !emojisLoading && (
+              {effectivePageTheme === 'theme-98' && (
                 <div className="relative ml-1 flex-shrink-0">
                   <img
                     id="emoji-icon-trigger"
@@ -715,7 +730,9 @@ const ChatPageClientContent: React.FC = () => {
                       className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                       style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
                     >
-                      {pickerEmojiFilenames.length > 0 ? (
+                      {emojisLoading ? (
+                         <p className="text-center w-full text-xs">Loading emojis...</p>
+                      ) : pickerEmojiFilenames.length > 0 ? (
                         <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
                           {pickerEmojiFilenames.map((filename) => (
                             <img
@@ -732,16 +749,11 @@ const ChatPageClientContent: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                         <p className="text-center w-full text-xs">No emojis available. Add filenames to localEmoteFilenames array.</p>
+                         <p className="text-center w-full text-xs">No emojis found or failed to load. Check emote_index.json.</p>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-              {effectivePageTheme === 'theme-98' && emojisLoading && (
-                 <div className="relative ml-1 flex-shrink-0">
-                    <p className="text-xs p-1">...</p>
-                 </div>
               )}
               <Button
                 onClick={handleSendMessage}
@@ -762,5 +774,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
-    
