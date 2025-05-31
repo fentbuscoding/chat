@@ -71,7 +71,7 @@
       nekoEl.style.width = "32px";
       nekoEl.style.height = "32px";
       nekoEl.style.position = "fixed";
-      nekoEl.style.backgroundImage = "url('/cursors/oneko.gif)";
+      nekoEl.style.backgroundImage = "url('/oneko.gif)";
       nekoEl.style.imageRendering = "pixelated";
       nekoEl.style.zIndex = "9999";
       nekoEl.style.pointerEvents = "none"; // Neko itself should not capture mouse events
