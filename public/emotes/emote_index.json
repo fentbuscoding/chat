@@ -1,0 +1,734 @@
+[
+    {
+        "filename": "afro.gif",
+        "width": 25,
+        "height": 23,
+        "size_bytes": 245
+    },
+    {
+        "filename": "amen.gif",
+        "width": 33,
+        "height": 31,
+        "size_bytes": 2959
+    },
+    {
+        "filename": "angryfire.gif",
+        "width": 32,
+        "height": 31,
+        "size_bytes": 1196
+    },
+    {
+        "filename": "angryfire2.gif",
+        "width": 16,
+        "height": 16,
+        "size_bytes": 1793
+    },
+    {
+        "filename": "angryfist.gif",
+        "width": 32,
+        "height": 15,
+        "size_bytes": 257
+    },
+    {
+        "filename": "angryg.gif",
+        "width": 15,
+        "height": 22,
+        "size_bytes": 1978
+    },
+    {
+        "filename": "angrylighting.gif",
+        "width": 60,
+        "height": 35,
+        "size_bytes": 13014
+    },
+    {
+        "filename": "angrypop.gif",
+        "width": 17,
+        "height": 17,
+        "size_bytes": 3652
+    },
+    {
+        "filename": "angryr.gif",
+        "width": 16,
+        "height": 16,
+        "size_bytes": 970
+    },
+    {
+        "filename": "assholebanner.gif",
+        "width": 95,
+        "height": 15,
+        "size_bytes": 675
+    },
+    {
+        "filename": "bananadance.gif",
+        "width": 33,
+        "height": 35,
+        "size_bytes": 1606
+    },
+    {
+        "filename": "batvamp.gif",
+        "width": 64,
+        "height": 30,
+        "size_bytes": 7711
+    },
+    {
+        "filename": "beerclink.gif",
+        "width": 60,
+        "height": 40,
+        "size_bytes": 2265
+    },
+    {
+        "filename": "biggrin.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 347
+    },
+    {
+        "filename": "bigwave.gif",
+        "width": 30,
+        "height": 20,
+        "size_bytes": 661
+    },
+    {
+        "filename": "BJ.gif",
+        "width": 40,
+        "height": 25,
+        "size_bytes": 419
+    },
+    {
+        "filename": "bluecry.gif",
+        "width": 21,
+        "height": 16,
+        "size_bytes": 1934
+    },
+    {
+        "filename": "bluesad.gif",
+        "width": 15,
+        "height": 22,
+        "size_bytes": 1204
+    },
+    {
+        "filename": "bonghit.gif",
+        "width": 23,
+        "height": 25,
+        "size_bytes": 9986
+    },
+    {
+        "filename": "bounce.gif",
+        "width": 15,
+        "height": 46,
+        "size_bytes": 2005
+    },
+    {
+        "filename": "bouncebiggrin.gif",
+        "width": 42,
+        "height": 32,
+        "size_bytes": 2550
+    },
+    {
+        "filename": "bounching.gif",
+        "width": 31,
+        "height": 31,
+        "size_bytes": 2670
+    },
+    {
+        "filename": "bow.gif",
+        "width": 27,
+        "height": 22,
+        "size_bytes": 518
+    },
+    {
+        "filename": "chairhit.gif",
+        "width": 41,
+        "height": 33,
+        "size_bytes": 2451
+    },
+    {
+        "filename": "chill.gif",
+        "width": 27,
+        "height": 15,
+        "size_bytes": 210
+    },
+    {
+        "filename": "chug.gif",
+        "width": 45,
+        "height": 20,
+        "size_bytes": 6847
+    },
+    {
+        "filename": "clap.gif",
+        "width": 30,
+        "height": 15,
+        "size_bytes": 1565
+    },
+    {
+        "filename": "clapbounce.gif",
+        "width": 25,
+        "height": 27,
+        "size_bytes": 584
+    },
+    {
+        "filename": "classicwink.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 439
+    },
+    {
+        "filename": "clown.gif",
+        "width": 28,
+        "height": 18,
+        "size_bytes": 1048
+    },
+    {
+        "filename": "clown2.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 1016
+    },
+    {
+        "filename": "coolsmoker.gif",
+        "width": 22,
+        "height": 24,
+        "size_bytes": 857
+    },
+    {
+        "filename": "crazyfire.gif",
+        "width": 46,
+        "height": 25,
+        "size_bytes": 1253
+    },
+    {
+        "filename": "cry.gif",
+        "width": 37,
+        "height": 15,
+        "size_bytes": 689
+    },
+    {
+        "filename": "crygreen.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 383
+    },
+    {
+        "filename": "crying.gif",
+        "width": 40,
+        "height": 15,
+        "size_bytes": 291
+    },
+    {
+        "filename": "curse rant.gif",
+        "width": 33,
+        "height": 36,
+        "size_bytes": 3024
+    },
+    {
+        "filename": "devil.gif",
+        "width": 19,
+        "height": 24,
+        "size_bytes": 971
+    },
+    {
+        "filename": "devilbanana.gif",
+        "width": 40,
+        "height": 35,
+        "size_bytes": 2829
+    },
+    {
+        "filename": "dissapointedB.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 1171
+    },
+    {
+        "filename": "distressed.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 374
+    },
+    {
+        "filename": "DJ.gif",
+        "width": 41,
+        "height": 36,
+        "size_bytes": 3879
+    },
+    {
+        "filename": "doublefinger.gif",
+        "width": 48,
+        "height": 20,
+        "size_bytes": 629
+    },
+    {
+        "filename": "drums.gif",
+        "width": 38,
+        "height": 25,
+        "size_bytes": 3635
+    },
+    {
+        "filename": "durr.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 338
+    },
+    {
+        "filename": "eyeroll.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 485
+    },
+    {
+        "filename": "eyeshuge.gif",
+        "width": 29,
+        "height": 28,
+        "size_bytes": 1648
+    },
+    {
+        "filename": "F5.gif",
+        "width": 28,
+        "height": 17,
+        "size_bytes": 705
+    },
+    {
+        "filename": "facepalm.gif",
+        "width": 21,
+        "height": 22,
+        "size_bytes": 424
+    },
+    {
+        "filename": "facepalmpink.gif",
+        "width": 26,
+        "height": 18,
+        "size_bytes": 2096
+    },
+    {
+        "filename": "finger.gif",
+        "width": 22,
+        "height": 19,
+        "size_bytes": 1946
+    },
+    {
+        "filename": "flamethrower.gif",
+        "width": 60,
+        "height": 25,
+        "size_bytes": 6269
+    },
+    {
+        "filename": "flush.gif",
+        "width": 24,
+        "height": 26,
+        "size_bytes": 3654
+    },
+    {
+        "filename": "flush2.gif",
+        "width": 30,
+        "height": 40,
+        "size_bytes": 1348
+    },
+    {
+        "filename": "greenfinger.gif",
+        "width": 37,
+        "height": 21,
+        "size_bytes": 1294
+    },
+    {
+        "filename": "grinbig.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 349
+    },
+    {
+        "filename": "handjerk.gif",
+        "width": 12,
+        "height": 15,
+        "size_bytes": 134
+    },
+    {
+        "filename": "happy.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 372
+    },
+    {
+        "filename": "happybounce.gif",
+        "width": 15,
+        "height": 18,
+        "size_bytes": 697
+    },
+    {
+        "filename": "happyclap.gif",
+        "width": 24,
+        "height": 22,
+        "size_bytes": 632
+    },
+    {
+        "filename": "happydance.gif",
+        "width": 24,
+        "height": 18,
+        "size_bytes": 1655
+    },
+    {
+        "filename": "happyns.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 273
+    },
+    {
+        "filename": "happyyes.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 359
+    },
+    {
+        "filename": "headbutt.gif",
+        "width": 25,
+        "height": 20,
+        "size_bytes": 886
+    },
+    {
+        "filename": "headscratch.gif",
+        "width": 20,
+        "height": 20,
+        "size_bytes": 596
+    },
+    {
+        "filename": "headslap.gif",
+        "width": 46,
+        "height": 23,
+        "size_bytes": 713
+    },
+    {
+        "filename": "herp.gif",
+        "width": 46,
+        "height": 15,
+        "size_bytes": 1428
+    },
+    {
+        "filename": "Hippie.gif",
+        "width": 43,
+        "height": 28,
+        "size_bytes": 1290
+    },
+    {
+        "filename": "idea.gif",
+        "width": 15,
+        "height": 32,
+        "size_bytes": 918
+    },
+    {
+        "filename": "jerkoff.gif",
+        "width": 23,
+        "height": 25,
+        "size_bytes": 1947
+    },
+    {
+        "filename": "jerkoff2.gif",
+        "width": 25,
+        "height": 19,
+        "size_bytes": 1688
+    },
+    {
+        "filename": "knifehead.gif",
+        "width": 34,
+        "height": 15,
+        "size_bytes": 1001
+    },
+    {
+        "filename": "laughcry.gif",
+        "width": 29,
+        "height": 27,
+        "size_bytes": 4603
+    },
+    {
+        "filename": "LOL.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 19179
+    },
+    {
+        "filename": "LSD.gif",
+        "width": 30,
+        "height": 25,
+        "size_bytes": 7497
+    },
+    {
+        "filename": "machinegun.gif",
+        "width": 50,
+        "height": 16,
+        "size_bytes": 1052
+    },
+    {
+        "filename": "makeitrain.gif",
+        "width": 42,
+        "height": 25,
+        "size_bytes": 10030
+    },
+    {
+        "filename": "nono.gif",
+        "width": 22,
+        "height": 19,
+        "size_bytes": 234
+    },
+    {
+        "filename": "pervdance.gif",
+        "width": 24,
+        "height": 17,
+        "size_bytes": 902
+    },
+    {
+        "filename": "pinksad.gif",
+        "width": 15,
+        "height": 24,
+        "size_bytes": 477
+    },
+    {
+        "filename": "pistol.gif",
+        "width": 75,
+        "height": 26,
+        "size_bytes": 1298
+    },
+    {
+        "filename": "quagmire.gif",
+        "width": 22,
+        "height": 24,
+        "size_bytes": 1115
+    },
+    {
+        "filename": "quizzical.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 509
+    },
+    {
+        "filename": "quotes.gif",
+        "width": 35,
+        "height": 17,
+        "size_bytes": 755
+    },
+    {
+        "filename": "reddance.gif",
+        "width": 31,
+        "height": 25,
+        "size_bytes": 4275
+    },
+    {
+        "filename": "RIP.gif",
+        "width": 25,
+        "height": 18,
+        "size_bytes": 202
+    },
+    {
+        "filename": "rockets.gif",
+        "width": 100,
+        "height": 33,
+        "size_bytes": 3903
+    },
+    {
+        "filename": "rockon.gif",
+        "width": 47,
+        "height": 16,
+        "size_bytes": 544
+    },
+    {
+        "filename": "rockon2.gif",
+        "width": 26,
+        "height": 28,
+        "size_bytes": 1026
+    },
+    {
+        "filename": "roll.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 762
+    },
+    {
+        "filename": "rollin.gif",
+        "width": 50,
+        "height": 15,
+        "size_bytes": 1815
+    },
+    {
+        "filename": "sabers.gif",
+        "width": 100,
+        "height": 40,
+        "size_bytes": 20047
+    },
+    {
+        "filename": "sad.gif",
+        "width": 15,
+        "height": 22,
+        "size_bytes": 392
+    },
+    {
+        "filename": "sadB.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 1591
+    },
+    {
+        "filename": "sadg.gif",
+        "width": 15,
+        "height": 22,
+        "size_bytes": 1232
+    },
+    {
+        "filename": "sadheadshake.gif",
+        "width": 37,
+        "height": 15,
+        "size_bytes": 274
+    },
+    {
+        "filename": "sadpink.gif",
+        "width": 15,
+        "height": 24,
+        "size_bytes": 477
+    },
+    {
+        "filename": "sadshake.gif",
+        "width": 37,
+        "height": 15,
+        "size_bytes": 274
+    },
+    {
+        "filename": "sadwave.gif",
+        "width": 28,
+        "height": 15,
+        "size_bytes": 776
+    },
+    {
+        "filename": "saluteflag.gif",
+        "width": 32,
+        "height": 28,
+        "size_bytes": 238
+    },
+    {
+        "filename": "SantaHat.gif",
+        "width": 21,
+        "height": 24,
+        "size_bytes": 223
+    },
+    {
+        "filename": "sex.gif",
+        "width": 85,
+        "height": 33,
+        "size_bytes": 7509
+    },
+    {
+        "filename": "shifty.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 838
+    },
+    {
+        "filename": "shocked.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 368
+    },
+    {
+        "filename": "shockedbug.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 1264
+    },
+    {
+        "filename": "slowroll.gif",
+        "width": 39,
+        "height": 15,
+        "size_bytes": 4529
+    },
+    {
+        "filename": "smokin.gif",
+        "width": 19,
+        "height": 15,
+        "size_bytes": 493
+    },
+    {
+        "filename": "spliff.gif",
+        "width": 39,
+        "height": 18,
+        "size_bytes": 999
+    },
+    {
+        "filename": "Sunglasses.gif",
+        "width": 33,
+        "height": 28,
+        "size_bytes": 158
+    },
+    {
+        "filename": "sunglasses2.gif",
+        "width": 16,
+        "height": 16,
+        "size_bytes": 514
+    },
+    {
+        "filename": "thumbsup.gif",
+        "width": 33,
+        "height": 15,
+        "size_bytes": 150
+    },
+    {
+        "filename": "thumbsup2.gif",
+        "width": 25,
+        "height": 18,
+        "size_bytes": 2372
+    },
+    {
+        "filename": "toast.gif",
+        "width": 29,
+        "height": 15,
+        "size_bytes": 644
+    },
+    {
+        "filename": "turd.gif",
+        "width": 16,
+        "height": 16,
+        "size_bytes": 610
+    },
+    {
+        "filename": "wave.gif",
+        "width": 25,
+        "height": 29,
+        "size_bytes": 3249
+    },
+    {
+        "filename": "wave2.gif",
+        "width": 25,
+        "height": 15,
+        "size_bytes": 821
+    },
+    {
+        "filename": "WHA.gif",
+        "width": 15,
+        "height": 100,
+        "size_bytes": 1721
+    },
+    {
+        "filename": "winkA.gif",
+        "width": 15,
+        "height": 17,
+        "size_bytes": 267
+    },
+    {
+        "filename": "winkS.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 373
+    },
+    {
+        "filename": "wow.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 7990
+    },
+    {
+        "filename": "XD.gif",
+        "width": 15,
+        "height": 15,
+        "size_bytes": 171
+    },
+    {
+        "filename": "zzz.gif",
+        "width": 27,
+        "height": 25,
+        "size_bytes": 1926
+    }
+]

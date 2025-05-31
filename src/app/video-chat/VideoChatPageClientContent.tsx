@@ -11,7 +11,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-import { listEmojis } from '@/ai/flows/list-emojis-flow';
+// import { listEmojis } from '@/ai/flows/list-emojis-flow'; // No longer fetching from GCS
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -20,7 +20,10 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
-const EMOJI_BASE_URL_PICKER = "https://storage.googleapis.com/chat_emoticons/emotes_98/";
+const EMOJI_BASE_URL_PICKER = "/emotes/"; // Changed to local path
+
+// IMPORTANT: Update this array with the filenames of your emojis in public/emotes/
+const localEmoteFilenames = ['smile.png', 'wink.gif', 'cool.png', 'sad.png', 'cry.png', 'laugh.gif'];
 
 const INPUT_AREA_HEIGHT = 60;
 const logPrefix = "VideoChatPage";
@@ -172,7 +175,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [pickerEmojiFilenames, setPickerEmojiFilenames] = useState<string[]>([]);
-  const [emojisLoading, setEmojisLoading] = useState(true);
+  const [emojisLoading, setEmojisLoading] = useState(true); // Will be set to false after initial setup
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
@@ -719,30 +722,14 @@ const VideoChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
-        const fetchPickerEmojis = async () => {
-          try {
-            setEmojisLoading(true);
-            const emojiList = await listEmojis();
-            setPickerEmojiFilenames(Array.isArray(emojiList) ? emojiList : []);
-          } catch (error: any) {
-            const specificErrorMessage = error.message || String(error);
-            console.error(`${logPrefix}: Error in listEmojis flow (client-side):`, specificErrorMessage, error);
-            toast({
-              title: "Emoji Error",
-              description: `Could not load emojis for the picker. ${specificErrorMessage}`,
-              variant: "destructive",
-            });
-            setPickerEmojiFilenames([]);
-          } finally {
-            setEmojisLoading(false);
-          }
-        };
-        fetchPickerEmojis();
+        // Use the hardcoded list of emoji filenames
+        setPickerEmojiFilenames(localEmoteFilenames);
+        setEmojisLoading(false); // No longer loading asynchronously
       } else {
         setEmojisLoading(false);
         setPickerEmojiFilenames([]);
       }
-  },[effectivePageTheme, toast]);
+  },[effectivePageTheme]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1050,7 +1037,7 @@ const VideoChatPageClientContent: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                         <p className="text-center w-full text-xs">No emojis available.</p>
+                         <p className="text-center w-full text-xs">No emojis available. Add filenames to localEmoteFilenames array.</p>
                       )}
                     </div>
                   )}
