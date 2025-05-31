@@ -5,11 +5,12 @@ import { z } from 'zod';
 
 // Define allowed origins
 const allowedOrigins = [
-  "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app", // Production frontend
-  "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev", // Development
-  "http://localhost:9002", // Local Next.js dev server
-  "https://tinchat.online", // Added custom domain
-  "https://delightful-pond-0cb3e0010.6.azurestaticapps.net"
+  "https://studio--chitchatconnect-aqa0w.us-central1.hosted.app",
+  "https://delightful-pond-0cb3e0010.6.azurestaticapps.net",
+  "https://tinchat.online",
+  "https://www.tinchat.online",
+  "https://6000-idx-studio-1746229586647.cluster-73qgvk7hjjadkrjeyexca5ivva.cloudworkstations.dev",
+  "http://localhost:9002"
 ];
 
 const server = http.createServer((req, res) => {
