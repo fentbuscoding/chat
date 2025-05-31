@@ -1,86 +1,65 @@
-
-/* Dark Theme CSS */
-html.theme-98.subtheme-dark-theme {
-  --dark-bg-primary: #212121; /* Very dark gray, almost black for main background */
-  --dark-bg-window: #2C2C2C; /* Dark gray for window backgrounds */
-  --dark-bg-element: #3A3A3A; /* Slightly lighter for elements like buttons, inputs */
-  --dark-bg-sunken: #1A1A1A; /* Darker for sunken panels */
-  
-  --dark-text-primary: #E0E0E0; /* Light gray for primary text */
-  --dark-text-secondary: #B0B0B0; /* Medium gray for secondary text */
-  --dark-text-highlight: #FFFFFF; /* White for highlighted text */
-
-  --dark-border-light: #4A4A4A; /* Lighter border shade */
-  --dark-border-dark: #181818; /* Darker border shade */
-  
-  --dark-accent-primary: #0D47A1; /* Dark blue for title bars (active) */
-  --dark-accent-secondary: #1565C0; /* Slightly lighter blue for title bars (inactive) */
-  --dark-accent-highlight: #1E88E5; /* Bright blue for highlights */
-
-  --dark-button-shadow: #000000; /* Black for button shadows */
-}
+/* Dark Theme using #0a0a0a as the primary color */
 
 html.theme-98.subtheme-dark-theme body {
-  background-color: var(--dark-bg-primary) !important;
-  color: var(--dark-text-primary) !important;
-  /* Consider a subtle dark pattern or plain dark color for body */
-  /* background-image: url('/wallpapers/dark_pattern.png') !important; */
-  /* background-repeat: repeat !important; */
+  background-color: #000000 !important;
+  background-image: none !important;
+  color: #f0f0f0 !important;
 }
 
 /* Window */
 html.theme-98.subtheme-dark-theme .window {
-  background-color: var(--dark-bg-window) !important;
-  color: var(--dark-text-primary) !important;
-  border-top: 1px solid var(--dark-border-light) !important;
-  border-left: 1px solid var(--dark-border-light) !important;
-  border-right: 1px solid var(--dark-border-dark) !important;
-  border-bottom: 1px solid var(--dark-border-dark) !important;
-  box-shadow: inset 1px 1px 0px var(--dark-bg-element), inset -1px -1px 0px var(--dark-border-dark) !important;
+  background-color: #0a0a0a !important;
+  border-top: 1px solid #2e2e2e !important;
+  border-left: 1px solid #2e2e2e !important;
+  border-right: 1px solid #000000 !important;
+  border-bottom: 1px solid #000000 !important;
+  box-shadow: inset 1px 1px 0px #1e1e1e, inset -1px -1px 0px #000000 !important;
 }
 
 /* Window Body */
 html.theme-98.subtheme-dark-theme .window-body {
-  background-color: var(--dark-bg-element) !important;
-  color: var(--dark-text-primary) !important;
-  border-top: 1px solid var(--dark-border-dark) !important;
-  border-left: 1px solid var(--dark-border-dark) !important;
-  border-right: 1px solid var(--dark-border-light) !important;
-  border-bottom: 1px solid var(--dark-border-light) !important;
-  box-shadow: inset 1px 1px 0px #000000, inset -1px -1px 0px var(--dark-border-light) !important;
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+  border-top: 1px solid #000000 !important;
+  border-left: 1px solid #000000 !important;
+  border-right: 1px solid #2e2e2e !important;
+  border-bottom: 1px solid #2e2e2e !important;
+  box-shadow: inset 1px 1px 0px #1e1e1e, inset -1px -1px 0px #2e2e2e !important;
 }
 
 /* Title Bar */
 html.theme-98.subtheme-dark-theme .title-bar {
-  background: linear-gradient(to right, var(--dark-accent-secondary), var(--dark-accent-primary)) !important;
-  color: var(--dark-text-highlight) !important;
-  padding: 2px 3px !important;
+  background: linear-gradient(to right, #1a1a1a, #0a0a0a) !important;
+  color: #ffffff !important;
   text-shadow: 1px 1px #000000 !important;
 }
-html.theme-98.subtheme-dark-theme .title-bar-text {
-  color: var(--dark-text-highlight) !important;
+
+/* Active Title Bar */
+html.theme-98.subtheme-dark-theme .window.active > .title-bar {
+  background: linear-gradient(to right, #2a2a2a, #0a0a0a) !important;
+  color: #ffffff !important;
+  text-shadow: 1px 1px #000000 !important;
 }
 
-html.theme-98.subtheme-dark-theme .window.active > .title-bar {
-  background: linear-gradient(to right, var(--dark-accent-primary), var(--dark-accent-secondary)) !important;
-  color: var(--dark-text-highlight) !important;
+html.theme-98.subtheme-dark-theme .title-bar-text {
+  color: #ffffff !important;
 }
 
 /* Buttons */
 html.theme-98.subtheme-dark-theme button,
 html.theme-98.subtheme-dark-theme .button {
-  background-color: var(--dark-bg-element) !important;
-  color: var(--dark-text-primary) !important;
-  border-top: 1px solid var(--dark-border-light) !important;
-  border-left: 1px solid var(--dark-border-light) !important;
-  border-right: 1px solid var(--dark-border-dark) !important;
-  border-bottom: 1px solid var(--dark-border-dark) !important;
-  box-shadow: inset 1px 1px 0px var(--dark-bg-window), 1px 1px 0px var(--dark-button-shadow) !important;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  border-top: 1px solid #2e2e2e !important;
+  border-left: 1px solid #2e2e2e !important;
+  border-right: 1px solid #000000 !important;
+  border-bottom: 1px solid #000000 !important;
+  box-shadow: inset 1px 1px 0px #2e2e2e, 1px 1px 0px #000000 !important;
 }
 
 html.theme-98.subtheme-dark-theme button:focus,
 html.theme-98.subtheme-dark-theme .button:focus {
-  outline: 1px dotted var(--dark-text-primary) !important;
+  outline: 1px dotted #888888 !important;
   outline-offset: -3px !important;
 }
 
@@ -88,13 +67,13 @@ html.theme-98.subtheme-dark-theme button:active,
 html.theme-98.subtheme-dark-theme .button:active,
 html.theme-98.subtheme-dark-theme button.active,
 html.theme-98.subtheme-dark-theme .button.active {
-  background-color: var(--dark-accent-primary) !important;
-  color: var(--dark-text-highlight) !important;
-  border-top: 1px solid var(--dark-border-dark) !important;
-  border-left: 1px solid var(--dark-border-dark) !important;
-  border-right: 1px solid var(--dark-border-light) !important;
-  border-bottom: 1px solid var(--dark-border-light) !important;
-  box-shadow: inset 1px 1px 0px #000000 !important;
+  background-color: #0a0a0a !important;
+  color: #ffffff !important;
+  border-top: 1px solid #000000 !important;
+  border-left: 1px solid #000000 !important;
+  border-right: 1px solid #2e2e2e !important;
+  border-bottom: 1px solid #2e2e2e !important;
+  box-shadow: inset 1px 1px 0px #1e1e1e !important;
 }
 
 /* Inputs */
@@ -102,157 +81,114 @@ html.theme-98.subtheme-dark-theme input[type="text"],
 html.theme-98.subtheme-dark-theme input[type="password"],
 html.theme-98.subtheme-dark-theme textarea,
 html.theme-98.subtheme-dark-theme .themed-input {
-  background-color: var(--dark-bg-sunken) !important;
-  color: var(--dark-text-primary) !important;
-  border: 1px solid var(--dark-accent-primary) !important;
-  box-shadow: inset 1px 1px 1px #000000, inset -1px -1px 1px var(--dark-border-light) !important;
+  background-color: #121212 !important;
+  color: #f0f0f0 !important;
+  border: 1px solid #2e2e2e !important;
+  box-shadow: inset 1px 1px 1px #1e1e1e, inset -1px -1px 1px #000000 !important;
   padding: 2px 3px !important;
 }
 
 html.theme-98.subtheme-dark-theme .themed-input-inner {
   background-color: transparent !important;
-  color: var(--dark-text-primary) !important;
+  color: #f0f0f0 !important;
 }
 
 /* Sunken Panels */
 html.theme-98.subtheme-dark-theme .sunken-panel,
 html.theme-98.subtheme-dark-theme .tree-view {
-  background-color: var(--dark-bg-sunken) !important;
-  color: var(--dark-text-primary) !important;
-  border-top: 1px solid var(--dark-border-dark) !important;
-  border-left: 1px solid var(--dark-border-dark) !important;
-  border-right: 1px solid var(--dark-border-light) !important;
-  border-bottom: 1px solid var(--dark-border-light) !important;
-  box-shadow: none !important;
+  background-color: #121212 !important;
+  border-top: 1px solid #000000 !important;
+  border-left: 1px solid #000000 !important;
+  border-right: 1px solid #2e2e2e !important;
+  border-bottom: 1px solid #2e2e2e !important;
   padding: 2px !important;
 }
 
-/* Dropdown / Select */
+/* Dropdown */
 html.theme-98.subtheme-dark-theme select,
 html.theme-98.subtheme-dark-theme .themed-select-trigger {
-  background-color: var(--dark-bg-element) !important;
-  color: var(--dark-text-primary) !important;
-  border-top: 1px solid var(--dark-border-light) !important;
-  border-left: 1px solid var(--dark-border-light) !important;
-  border-right: 1px solid var(--dark-border-dark) !important;
-  border-bottom: 1px solid var(--dark-border-dark) !important;
+  background-color: #121212 !important;
+  color: #f0f0f0 !important;
+  border-top: 1px solid #2e2e2e !important;
+  border-left: 1px solid #2e2e2e !important;
+  border-right: 1px solid #000000 !important;
+  border-bottom: 1px solid #000000 !important;
+}
+
+html.theme-98.subtheme-dark-theme .themed-select-trigger.button {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  box-shadow: inset 1px 1px 0px #2e2e2e, 1px 1px 0px #000000 !important;
 }
 
 html.theme-98.subtheme-dark-theme .select-content.themed-select-content,
 html.theme-98.subtheme-dark-theme .menu {
-  background-color: var(--dark-bg-element) !important;
-  border-color: var(--dark-border-light) !important;
-  color: var(--dark-text-primary) !important;
+  background-color: #1a1a1a !important;
+  border-color: #2e2e2e !important;
 }
 
 html.theme-98.subtheme-dark-theme .select-item.themed-select-item:hover,
 html.theme-98.subtheme-dark-theme .select-item.themed-select-item[data-highlighted] {
-  background-color: var(--dark-accent-highlight) !important;
-  color: var(--dark-text-highlight) !important;
+  background-color: #2e2e2e !important;
+  color: #ffffff !important;
 }
 
 /* Scrollbars */
 html.theme-98.subtheme-dark-theme .themed-scrollbar-98 {
-  background-color: var(--dark-bg-element) !important;
+  background-color: #1a1a1a !important;
 }
 
 html.theme-98.subtheme-dark-theme .themed-scrollbar-98 > [data-radix-scroll-area-thumb] {
-  background-color: var(--dark-accent-secondary) !important;
-  border-top: 1px solid var(--dark-border-light) !important;
-  border-left: 1px solid var(--dark-border-light) !important;
-  border-right: 1px solid var(--dark-border-dark) !important;
-  border-bottom: 1px solid var(--dark-border-dark) !important;
-  box-shadow: inset 1px 1px var(--dark-border-light), inset -1px -1px #000000 !important;
+  background-color: #2e2e2e !important;
+  border-top: 1px solid #000000 !important;
+  border-left: 1px solid #000000 !important;
+  border-right: 1px solid #2e2e2e !important;
+  border-bottom: 1px solid #2e2e2e !important;
 }
 
 /* Tabs */
 html.theme-98.subtheme-dark-theme [role="tab"] {
-  background-color: var(--dark-bg-element) !important;
-  color: var(--dark-text-primary) !important;
-  border-color: var(--dark-border-light) var(--dark-border-light) var(--dark-border-dark) var(--dark-border-light) !important;
+  background-color: #1a1a1a !important;
+  border-color: #2e2e2e #2e2e2e #000000 #2e2e2e !important;
 }
 
 html.theme-98.subtheme-dark-theme [role="tab"][aria-selected="true"] {
-  background-color: var(--dark-bg-window) !important;
-  border-bottom-color: var(--dark-bg-window) !important;
+  background-color: #121212 !important;
+  border-bottom-color: #121212 !important;
 }
 
 /* Labels */
 html.theme-98.subtheme-dark-theme label,
 html.theme-98.subtheme-dark-theme .label,
 html.theme-98.subtheme-dark-theme .themed-label {
-  color: var(--dark-text-primary) !important;
+  color: #e0e0e0 !important;
 }
 
 /* Links */
 html.theme-98.subtheme-dark-theme a {
-  color: var(--dark-accent-highlight) !important;
+  color: #8888ff !important;
 }
 html.theme-98.subtheme-dark-theme a:hover {
-  color: var(--dark-text-highlight) !important;
+  color: #ffffff !important;
 }
 
 /* Card components */
-html.theme-98.subtheme-dark-theme .card .title-bar {
-  /* Already themed by general .title-bar */
-}
-html.theme-98.subtheme-dark-theme .card .title-bar-text {
-   /* Already themed */
-}
 html.theme-98.subtheme-dark-theme .card-title {
-  color: var(--dark-text-highlight) !important; /* Usually in CardHeader which is not a title-bar */
-}
-html.theme-98.subtheme-dark-theme .card-header {
-   background-color: var(--dark-bg-window) !important; /* Match window if not using title-bar directly */
+  color: #ffffff !important; /* Adjusted for title bars in cards */
 }
 html.theme-98.subtheme-dark-theme .card-description {
-  color: var(--dark-text-secondary) !important;
+  color: #cccccc !important;
+}
+html.theme-98.subtheme-dark-theme .card-header {
+    color: #ffffff !important; /* Ensures text in card headers is visible */
 }
 
 /* Status bar */
 html.theme-98.subtheme-dark-theme .status-bar,
 html.theme-98.subtheme-dark-theme .input-area.status-bar {
-  color: var(--dark-text-secondary) !important;
-  background-color: var(--dark-bg-element) !important;
-  border-top: 1px solid var(--dark-border-light) !important;
+  color: #aaaaaa !important;
+  border-top: 1px solid #2e2e2e !important;
 }
 html.theme-98.subtheme-dark-theme .status-bar-field {
-  border-right: 1px solid var(--dark-border-dark) !important;
+  border-right: 1px solid #2e2e2e !important;
 }
-
-/* Toasts - specific overrides if needed */
-html.theme-98.subtheme-dark-theme .themed-toast-root {
-  background-color: var(--dark-bg-element) !important;
-  color: var(--dark-text-primary) !important;
-  border: 1px solid var(--dark-border-light) !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-title {
-  color: var(--dark-text-highlight) !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-description {
-  color: var(--dark-text-secondary) !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-action {
-  color: var(--dark-text-primary) !important;
-  border-color: var(--dark-border-light) !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-close {
-  color: var(--dark-text-secondary) !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-close:hover {
-  color: var(--dark-text-primary) !important;
-}
-
-/* Destructive toast */
-html.theme-98.subtheme-dark-theme .themed-toast-root.destructive {
-  background-color: #422121 !important; /* Dark red */
-  color: #ffbaba !important; /* Light pink text */
-  border-color: #8c1111 !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-root.destructive .themed-toast-title {
-  color: #ffffff !important;
-}
-html.theme-98.subtheme-dark-theme .themed-toast-root.destructive .themed-toast-description {
-  color: #ffdddd !important;
-}
-
