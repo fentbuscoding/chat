@@ -4,7 +4,7 @@ html.theme-98.subtheme-starpattern-theme body {
   background-image: url('/wallpapers/starpattern.gif') !important;
   background-repeat: repeat !important;
   background-attachment: fixed !important;
-  background-size: auto !important;
+  background-size: 200px !important; /* Changed from auto to 200px for more visible repetition */
 }
 
 /* Window */
@@ -181,19 +181,14 @@ html.theme-98.subtheme-starpattern-theme a:hover {
 }
 
 /* Card components */
-html.theme-98.subtheme-starpattern-theme .card-title {
-  color: #ffffff !important; /* Assuming card title is often on a darker background like a title bar */
-}
-html.theme-98.subtheme-starpattern-theme .card-header .card-title { /* More specific for card titles in headers */
+html.theme-98.subtheme-starpattern-theme .card .title-bar .title-bar-text { /* More specific for card titles */
   color: #ffffff !important;
 }
-
-html.theme-98.subtheme-starpattern-theme .window .card-header .card-title {
-  color: #ffffff !important; /* Ensure card title within a window title bar context is white */
+html.theme-98.subtheme-starpattern-theme .card-title { /* General card title if not in title-bar */
+  color: #800080 !important; 
 }
-
 html.theme-98.subtheme-starpattern-theme .card-description {
-  color: #4B0082 !important; /* Dark purple for readability on light backgrounds */
+  color: #4B0082 !important;
 }
 
 /* Status bar */
