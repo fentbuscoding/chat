@@ -31,20 +31,9 @@ export function TopBar() {
   const themeIconRef = useRef<HTMLImageElement>(null);
   const customizerWindowRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    // On initial mount, if theme is 98, apply stored subtheme
-    if (selectedTheme === 'theme-98') {
-        const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
-        if (storedSubTheme) {
-            applyWin98SubTheme(storedSubTheme);
-        }
-    }
-  }, [selectedTheme]); // Re-run if selectedTheme changes, though applyWin98SubTheme is memoized
-
   const applyWin98SubTheme = useCallback((cssFile: string | null) => {
     if (typeof window === 'undefined') return;
-    console.log("ThemeProvider: Applying Win98 sub-theme:", cssFile);
+    console.log("TopBar: Applying Win98 sub-theme:", cssFile); 
 
     const htmlElement = document.documentElement;
     const subThemeClassName = cssFile ? `subtheme-${cssFile.replace('.css', '')}` : null;
@@ -55,7 +44,7 @@ export function TopBar() {
         const existingSubThemeClass = `subtheme-${stamp.cssFile.replace('.css', '')}`;
         if (htmlElement.classList.contains(existingSubThemeClass)) {
           htmlElement.classList.remove(existingSubThemeClass);
-          console.log("ThemeProvider: Removed existing sub-theme class:", existingSubThemeClass);
+          console.log("TopBar: Removed existing sub-theme class:", existingSubThemeClass);
         }
       }
     });
@@ -63,11 +52,11 @@ export function TopBar() {
     // Add new subtheme class if applicable
     if (subThemeClassName) {
       htmlElement.classList.add(subThemeClassName);
-      console.log("ThemeProvider: Added new sub-theme class:", subThemeClassName);
+      console.log("TopBar: Added new sub-theme class:", subThemeClassName);
     }
     
     htmlElement.classList.add('theme-transitioning');
-    console.log("ThemeProvider: Added theme-transitioning class.");
+    console.log("TopBar: Added theme-transitioning class for sub-theme.");
 
 
     let link = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
@@ -77,9 +66,9 @@ export function TopBar() {
       if (link) {
         if (link.getAttribute('href') !== newHref) {
             link.href = newHref;
-            console.log("ThemeProvider: Updated existing sub-theme CSS link to:", newHref);
+            console.log("TopBar: Updated existing sub-theme CSS link to:", newHref);
         } else {
-            console.log("ThemeProvider: Sub-theme CSS link already set to:", newHref);
+            console.log("TopBar: Sub-theme CSS link already set to:", newHref);
         }
       } else {
         link = document.createElement('link');
@@ -87,42 +76,49 @@ export function TopBar() {
         link.rel = 'stylesheet';
         link.href = newHref;
         document.head.appendChild(link);
-        console.log("ThemeProvider: Created new sub-theme CSS link:", newHref);
+        console.log("TopBar: Created new sub-theme CSS link:", newHref);
       }
       localStorage.setItem('selectedWin98SubTheme', cssFile);
-      console.log("ThemeProvider: Stored sub-theme in localStorage:", cssFile);
+      console.log("TopBar: Stored sub-theme in localStorage:", cssFile);
     } else {
       if (link) {
         link.remove();
-        console.log("ThemeProvider: Removed sub-theme CSS link.");
+        console.log("TopBar: Removed sub-theme CSS link.");
       }
       localStorage.removeItem('selectedWin98SubTheme');
-      console.log("ThemeProvider: Cleared sub-theme from localStorage.");
+      console.log("TopBar: Cleared sub-theme from localStorage.");
     }
     
-    // Force a reflow to ensure transition class is applied before style changes take effect
-    // void htmlElement.offsetWidth; // This might not be necessary with setTimeout
-
     setTimeout(() => {
       htmlElement.classList.remove('theme-transitioning');
-      console.log("ThemeProvider: Removed theme-transitioning class.");
-    }, 50); // Shortened delay as styles should apply quickly
+      console.log("TopBar: Removed theme-transitioning class for sub-theme.");
+    }, 150); // Increased timeout from 50ms to 150ms
 
   }, []);
+
+  useEffect(() => {
+    setMounted(true);
+    // On initial mount, if theme is 98, apply stored subtheme
+    if (selectedTheme === 'theme-98') {
+        const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
+        if (storedSubTheme) {
+            applyWin98SubTheme(storedSubTheme);
+        }
+    }
+  }, [selectedTheme, applyWin98SubTheme]); // Added applyWin98SubTheme to dependency array
 
 
   const handleThemeChange = (newThemeString: string) => {
     if (newThemeString === 'theme-98' || newThemeString === 'theme-7') {
       const newTheme = newThemeString as Theme;
       console.log("TopBar: User selected theme:", newTheme);
-      setTheme(newTheme); // This will trigger effects in ThemeProvider
+      setTheme(newTheme); 
       
       if (newTheme === 'theme-7') {
-        applyWin98SubTheme(null); // Remove Win98 subtheme if switching to Win7
+        applyWin98SubTheme(null); 
       } else if (newTheme === 'theme-98') {
-        // Reapply stored subtheme if any, or default if none
         const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
-        applyWin98SubTheme(storedSubTheme); // applyWin98SubTheme handles null for default
+        applyWin98SubTheme(storedSubTheme); 
       }
     }
     setIsCustomizerOpen(false);
@@ -184,7 +180,7 @@ export function TopBar() {
           id="theme-select-dropdown"
           value={defaultInitialTheme} 
           disabled
-          readOnly
+          readOnly // Use readOnly for select in non-interactive state
           className="w-[120px] field-row"
           style={{ height: '21px' }}
           onChange={() => {}} 
@@ -286,3 +282,4 @@ export function TopBar() {
     </div>
   );
 }
+
