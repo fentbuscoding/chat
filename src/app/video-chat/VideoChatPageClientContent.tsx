@@ -870,216 +870,219 @@ const VideoChatPageClientContent: React.FC = () => {
     );
   }
 
-  return ( 
-    <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
-      <div className="flex justify-center gap-4 mb-4 mx-auto">
-        <div
-          className={cn(
-            'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : ''
-          )}
-          style={{width: '325px', height: '198px'}}
-        >
-          <div className={cn(
-              "title-bar text-sm video-feed-title-bar", 
-              effectivePageTheme === 'theme-98' ? '' : 'theme-7'
-            )}>
-            <div className="title-bar-text">
-            </div>
-          </div>
+  return (
+    <>
+      <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
+        <a className="fixed top-4 left-4 z-50 cursor-pointer p-1 bg-white/50 backdrop-blur-sm rounded-full shadow-md hover:bg-white/75 transition-colors" title="Go to Home and reset theme">
+          <Image src="/favicon.ico" alt="Home" width={24} height={24} />
+        </a>
+      </Link>
+      <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
+        <div className="flex justify-center gap-4 mb-4 mx-auto">
           <div
             className={cn(
-              'window-body flex-grow overflow-hidden relative p-0',
-               effectivePageTheme === 'theme-7' && 'bg-white/30'
+              'window flex flex-col m-2',
+              effectivePageTheme === 'theme-7' ? 'glass' : ''
             )}
+            style={{width: '325px', height: '198px'}}
           >
-            <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
-            { hasCameraPermission === false && (
-              <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
-                <AlertTitle className="text-xs">Camera Denied</AlertTitle>
-              </Alert>
-            )}
-             { hasCameraPermission === undefined && isMounted && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                  <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
-                </div>
-              )}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            'window flex flex-col m-2',
-            effectivePageTheme === 'theme-7' ? 'glass' : ''
-          )}
-          style={{width: '325px', height: '198px'}}
-        >
-          <div className={cn(
-               "title-bar text-sm video-feed-title-bar",
-               effectivePageTheme === 'theme-98' ? '' : 'theme-7'
-            )}>
-            <div className="title-bar-text">
-            </div>
-          </div>
-          <div
-            className={cn(
-              'window-body flex-grow overflow-hidden relative p-0',
-              effectivePageTheme === 'theme-7' && 'bg-white/30'
-              )}
-          >
-            <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
-            {isFindingPartner && !isPartnerConnected && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <p className="text-white text-center p-2 text-sm">Searching for partner...</p>
+            <div className={cn(
+                "title-bar text-sm video-feed-title-bar", 
+                effectivePageTheme === 'theme-98' ? '' : 'theme-7'
+              )}>
+              <div className="title-bar-text">
               </div>
-            )}
-            {!isFindingPartner && !isPartnerConnected && !socketError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
-              </div>
-            )}
-            {socketError && (
-                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
-                    <p className="text-white text-center p-2 text-sm">Connection error. Try again.</p>
-                </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          'window flex flex-col flex-1 relative m-2',
-          effectivePageTheme === 'theme-7' ? 'glass' : ''
-        )}
-        style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
-      >
-        <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="flex items-center flex-grow">
-            <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
-              <a className="cursor-pointer mr-1 p-0.5 flex items-center" title="Go to Home and reset theme">
-                <Image src="/favicon.ico" alt="Home" width={16} height={16} />
-              </a>
-            </Link>
-            <div className="title-bar-text">
-               {pathname.includes('/video-chat') ? 'Video Chat' : 'Text Chat'}
             </div>
-          </div>
-           {/* Standard window controls for 98 theme (if any were added as buttons) */}
-        </div>
-        <div
-          className={cn(
-            'window-body window-body-content flex-grow',
-            effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
-          )}
-        >
-          <div
-            className={cn(
-              "flex-grow overflow-y-auto",
-              effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
-            )}
-            style={{ height: messagesContainerHeight }}
-          >
-             <div> 
-                {messages.map((msg, index) => (
-                  <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} />
-                ))}
-                {isPartnerTyping && (
-                  <div className={cn(
-                    "text-xs italic text-left pl-1 py-0.5",
-                    effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
-                  )}>
-                    Stranger is typing{typingDots}
+            <div
+              className={cn(
+                'window-body flex-grow overflow-hidden relative p-0',
+                effectivePageTheme === 'theme-7' && 'bg-white/30'
+              )}
+            >
+              <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover bg-black" data-ai-hint="local camera" />
+              { hasCameraPermission === false && (
+                <Alert variant="destructive" className="m-1 absolute bottom-0 left-0 right-0 text-xs p-1">
+                  <AlertTitle className="text-xs">Camera Denied</AlertTitle>
+                </Alert>
+              )}
+              { hasCameraPermission === undefined && isMounted && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                    <p className="text-white text-center p-2 text-sm">Requesting camera...</p>
                   </div>
                 )}
-                <div ref={messagesEndRef} />
-              </div>
+            </div>
           </div>
-           <div
+
+          <div
             className={cn(
-              "p-2 flex-shrink-0",
-              effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+              'window flex flex-col m-2',
+              effectivePageTheme === 'theme-7' ? 'glass' : ''
             )}
-            style={{ height: `${INPUT_AREA_HEIGHT}px` }}
+            style={{width: '325px', height: '198px'}}
           >
-            <div className="flex items-center w-full">
-               <Button
-                onClick={handleFindOrDisconnectPartner}
-                disabled={mainButtonDisabled}
-                className={cn(
-                  'mr-1',
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
+            <div className={cn(
+                "title-bar text-sm video-feed-title-bar",
+                effectivePageTheme === 'theme-98' ? '' : 'theme-7'
+              )}>
+              <div className="title-bar-text">
+              </div>
+            </div>
+            <div
+              className={cn(
+                'window-body flex-grow overflow-hidden relative p-0',
+                effectivePageTheme === 'theme-7' && 'bg-white/30'
                 )}
-              >
-                {findOrDisconnectText}
-              </Button>
-              <Input
-                type="text"
-                value={newMessage}
-                onChange={handleInputChange}
-                onKeyPress={(e) => e.key === 'Enter' && !inputAndSendDisabled && handleSendMessage()}
-                placeholder="Type a message..."
-                className="flex-1 w-full px-1 py-1"
-                disabled={inputAndSendDisabled}
-              />
-              {effectivePageTheme === 'theme-98' && (
-                <div className="relative ml-1 flex-shrink-0">
-                  <img
-                    id="emoji-icon-trigger-video"
-                    src={currentEmojiIconUrl}
-                    alt="Emoji"
-                    className="w-4 h-4 cursor-pointer inline-block"
-                    onMouseEnter={handleEmojiIconHover}
-                    onMouseLeave={stopEmojiCycle}
-                    onClick={toggleEmojiPicker}
-                    data-ai-hint="emoji icon"
-                  />
-                  {isEmojiPickerOpen && (
-                    <div
-                      ref={emojiPickerRef}
-                      className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
-                      style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
-                    >
-                       {emojisLoading ? (
-                         <p className="text-center w-full text-xs">Loading emojis...</p>
-                       ): pickerEmojiFilenames.length > 0 ? (
-                        <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
-                          {pickerEmojiFilenames.map((filename) => (
-                            <img
-                              key={filename}
-                              src={`${EMOJI_BASE_URL_PICKER}${filename}`}
-                              alt={filename.split('.')[0]}
-                              className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
-                              onClick={() => {
-                                setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
-                                setIsEmojiPickerOpen(false);
-                              }}
-                              data-ai-hint="emoji symbol"
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                         <p className="text-center w-full text-xs">No emojis found or failed to load. Check emote_index.json.</p>
-                      )}
-                    </div>
-                  )}
+            >
+              <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover bg-black" data-ai-hint="remote camera" />
+              {isFindingPartner && !isPartnerConnected && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                  <p className="text-white text-center p-2 text-sm">Searching for partner...</p>
                 </div>
               )}
-              <Button
-                onClick={handleSendMessage}
-                disabled={inputAndSendDisabled || !newMessage.trim()}
-                className={cn(
-                  'ml-1',
-                  effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
+              {!isFindingPartner && !isPartnerConnected && !socketError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                  <p className="text-white text-center p-2 text-sm">Partner video unavailable</p>
+                </div>
+              )}
+              {socketError && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+                      <p className="text-white text-center p-2 text-sm">Connection error. Try again.</p>
+                  </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            'window flex flex-col flex-1 relative m-2',
+            effectivePageTheme === 'theme-7' ? 'glass' : ''
+          )}
+          style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
+        >
+          <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
+            <div className="flex items-center flex-grow">
+              {/* Icon removed from here */}
+              <div className="title-bar-text">
+                Video Chat
+              </div>
+            </div>
+            {/* Standard window controls for 98 theme (if any were added as buttons) */}
+          </div>
+          <div
+            className={cn(
+              'window-body window-body-content flex-grow',
+              effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5'
+            )}
+          >
+            <div
+              className={cn(
+                "flex-grow overflow-y-auto",
+                effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1'
+              )}
+              style={{ height: messagesContainerHeight }}
+            >
+              <div> 
+                  {messages.map((msg, index) => (
+                    <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} />
+                  ))}
+                  {isPartnerTyping && (
+                    <div className={cn(
+                      "text-xs italic text-left pl-1 py-0.5",
+                      effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
+                    )}>
+                      Stranger is typing{typingDots}
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+            </div>
+            <div
+              className={cn(
+                "p-2 flex-shrink-0",
+                effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar'
+              )}
+              style={{ height: `${INPUT_AREA_HEIGHT}px` }}
+            >
+              <div className="flex items-center w-full">
+                <Button
+                  onClick={handleFindOrDisconnectPartner}
+                  disabled={mainButtonDisabled}
+                  className={cn(
+                    'mr-1',
+                    effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
+                  )}
+                >
+                  {findOrDisconnectText}
+                </Button>
+                <Input
+                  type="text"
+                  value={newMessage}
+                  onChange={handleInputChange}
+                  onKeyPress={(e) => e.key === 'Enter' && !inputAndSendDisabled && handleSendMessage()}
+                  placeholder="Type a message..."
+                  className="flex-1 w-full px-1 py-1"
+                  disabled={inputAndSendDisabled}
+                />
+                {effectivePageTheme === 'theme-98' && (
+                  <div className="relative ml-1 flex-shrink-0">
+                    <img
+                      id="emoji-icon-trigger-video"
+                      src={currentEmojiIconUrl}
+                      alt="Emoji"
+                      className="w-4 h-4 cursor-pointer inline-block"
+                      onMouseEnter={handleEmojiIconHover}
+                      onMouseLeave={stopEmojiCycle}
+                      onClick={toggleEmojiPicker}
+                      data-ai-hint="emoji icon"
+                    />
+                    {isEmojiPickerOpen && (
+                      <div
+                        ref={emojiPickerRef}
+                        className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
+                        style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
+                      >
+                        {emojisLoading ? (
+                          <p className="text-center w-full text-xs">Loading emojis...</p>
+                        ): pickerEmojiFilenames.length > 0 ? (
+                          <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
+                            {pickerEmojiFilenames.map((filename) => (
+                              <img
+                                key={filename}
+                                src={`${EMOJI_BASE_URL_PICKER}${filename}`}
+                                alt={filename.split('.')[0]}
+                                className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5"
+                                onClick={() => {
+                                  setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
+                                  setIsEmojiPickerOpen(false);
+                                }}
+                                data-ai-hint="emoji symbol"
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-center w-full text-xs">No emojis found. Check emote_index.json.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
-              >
-                Send
-              </Button>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={inputAndSendDisabled || !newMessage.trim()}
+                  className={cn(
+                    'ml-1',
+                    effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
+                  )}
+                >
+                  Send
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
