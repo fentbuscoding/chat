@@ -873,7 +873,7 @@ const VideoChatPageClientContent: React.FC = () => {
   return (
     <>
       <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
-        <a className="fixed top-4 left-4 z-50 cursor-pointer p-1 bg-white/50 backdrop-blur-sm rounded-full shadow-md hover:bg-white/75 transition-colors" title="Go to Home and reset theme">
+        <a className="fixed top-4 left-4 z-50 cursor-pointer" title="Go to Home and reset theme">
           <Image src="/favicon.ico" alt="Home" width={24} height={24} />
         </a>
       </Link>
@@ -962,7 +962,6 @@ const VideoChatPageClientContent: React.FC = () => {
         >
           <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
             <div className="flex items-center flex-grow">
-              {/* Icon removed from here */}
               <div className="title-bar-text">
                 Video Chat
               </div>
@@ -1087,3 +1086,4 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
