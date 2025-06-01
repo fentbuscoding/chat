@@ -2,6 +2,9 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -11,8 +14,6 @@ import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
-// EmoteGallery import is not needed here as we are replicating its fetch logic
-// import EmoteGallery from "@/components/EmoteGallery";
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -21,7 +22,7 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
-const EMOJI_BASE_URL_PICKER = "/emotes/"; // Local path for emojis in the picker
+const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60;
 const logPrefix = "ChatPage";
@@ -35,8 +36,8 @@ interface Message {
 
 interface EmoteData {
   filename: string;
-  width?: number; // Optional, as per original EmoteGallery
-  height?: number; // Optional
+  width?: number;
+  height?: number;
 }
 
 const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl: string): (string | JSX.Element)[] => {
@@ -147,7 +148,8 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme();
+  const { currentTheme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
@@ -293,7 +295,7 @@ const ChatPageClientContent: React.FC = () => {
       }
     } else { 
       changeFavicon('/Idle.ico');
-      if (prevIsFindingPartnerRef.current === true && !isPartnerConnected && !roomId) {
+      if (prevIsFindingPartnerRef.current === true && !isPartnerConnected && !roomIdRef.current) {
          const isSearchingMessagePresent = currentMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes('searching for a partner'));
          if (isSearchingMessagePresent) { 
              filterSystemMessages('searching for a partner');
@@ -311,7 +313,8 @@ const ChatPageClientContent: React.FC = () => {
     prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently; 
     prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
 
-  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages, roomId]);
+  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages, roomIdRef, roomId]);
+
 
   const handleFindOrDisconnectPartner = useCallback(() => {
     const currentSocket = socketRef.current;
@@ -351,7 +354,7 @@ const ChatPageClientContent: React.FC = () => {
       console.error(`${logPrefix}: Socket server URL is not defined.`);
       toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
       setSocketError(true);
-      return () => {}; // Return empty cleanup
+      return () => {}; 
     }
 
     console.log(`${logPrefix}: Attempting to connect to socket server: ${socketServerUrl}`);
@@ -481,7 +484,7 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json') 
+      fetch('/emote_index.json')
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
@@ -493,7 +496,7 @@ const ChatPageClientContent: React.FC = () => {
           setPickerEmojiFilenames(filenames);
         })
         .catch((err) => {
-          console.error(`${logPrefix}: Error in listEmojis flow (client-side):`, err.message, err);
+          console.error(`${logPrefix}: Error fetching emote_index.json:`, err.message, err);
           toast({
             title: "Emoji Error",
             description: `Could not load emojis for the picker. ${err.message}`,
@@ -618,6 +621,11 @@ const ChatPageClientContent: React.FC = () => {
     };
   }, [isPartnerTyping]);
 
+  const handleIconClick = () => {
+    setTheme('theme-98');
+    // Navigation will be handled by the Link component
+  };
+
   let findOrDisconnectText: string;
   if (isPartnerConnected) {
     findOrDisconnectText = 'Disconnect';
@@ -655,7 +663,17 @@ const ChatPageClientContent: React.FC = () => {
       >
         {effectivePageTheme === 'theme-7' && <ConditionalGoldfishImage /> }
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="title-bar-text">Text Chat</div>
+          <div className="flex items-center flex-grow">
+            <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
+              <a className="cursor-pointer mr-1 p-0.5 flex items-center" title="Go to Home and reset theme">
+                <Image src="/favicon.ico" alt="Home" width={16} height={16} />
+              </a>
+            </Link>
+            <div className="title-bar-text">
+              {pathname.includes('/video-chat') ? 'Video Chat' : 'Text Chat'}
+            </div>
+          </div>
+           {/* Standard window controls for 98 theme (if any were added as buttons) */}
         </div>
         <div
           className={cn(

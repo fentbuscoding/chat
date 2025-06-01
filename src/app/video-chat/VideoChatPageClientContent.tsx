@@ -2,6 +2,9 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -11,7 +14,6 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
-// import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage'; // Not used here but could be
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -20,7 +22,7 @@ const STATIC_DISPLAY_EMOJI_FILENAMES = [
   'scream.png', 'smile.png', 'think.png', 'tongue.png', 'wink.png', 'yell.png'
 ];
 const SMILE_EMOJI_FILENAME = 'smile.png';
-const EMOJI_BASE_URL_PICKER = "/emotes/"; // Local path
+const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60;
 const logPrefix = "VideoChatPage";
@@ -144,7 +146,8 @@ Row.displayName = 'Row';
 const VideoChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme();
+  const { currentTheme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
@@ -315,7 +318,7 @@ const VideoChatPageClientContent: React.FC = () => {
     prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently;
     prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
   
-  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages]);
+  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, addMessage, interests, partnerInterests, changeFavicon, messages, roomIdRef, roomId]);
 
 
   const getCameraStream = useCallback(async () => {
@@ -707,7 +710,7 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json') 
+      fetch('/emote_index.json')
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
@@ -840,6 +843,11 @@ const VideoChatPageClientContent: React.FC = () => {
     };
   }, [isPartnerTyping]);
 
+  const handleIconClick = () => {
+    setTheme('theme-98');
+    // Navigation will be handled by the Link component
+  };
+
   let findOrDisconnectText: string;
   if (isPartnerConnected) {
     findOrDisconnectText = 'Disconnect';
@@ -946,9 +954,18 @@ const VideoChatPageClientContent: React.FC = () => {
         )}
         style={{ minHeight: '300px', width: '100%', maxWidth: '500px', height: '500px', margin: '0 auto' }}
       >
-        {/* ConditionalGoldfishImage could be added here for theme-7 if desired */}
         <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-          <div className="title-bar-text">Chat</div>
+          <div className="flex items-center flex-grow">
+            <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
+              <a className="cursor-pointer mr-1 p-0.5 flex items-center" title="Go to Home and reset theme">
+                <Image src="/favicon.ico" alt="Home" width={16} height={16} />
+              </a>
+            </Link>
+            <div className="title-bar-text">
+               {pathname.includes('/video-chat') ? 'Video Chat' : 'Text Chat'}
+            </div>
+          </div>
+           {/* Standard window controls for 98 theme (if any were added as buttons) */}
         </div>
         <div
           className={cn(
