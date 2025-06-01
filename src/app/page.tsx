@@ -38,6 +38,12 @@ export default function SelectionLobby() {
     // Initial cursor setup is handled by RootLayout's useEffect
   }, []);
 
+  // Prefetch chat pages for faster navigation
+  useEffect(() => {
+    router.prefetch('/chat');
+    router.prefetch('/video-chat');
+  }, [router]);
+
 
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
@@ -412,3 +418,6 @@ export default function SelectionLobby() {
     </div>
   );
 }
+
+
+    

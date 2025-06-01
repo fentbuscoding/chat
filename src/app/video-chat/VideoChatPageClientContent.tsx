@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
+import { usePathname } from 'next/navigation'; // useRouter removed
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -148,7 +148,6 @@ const VideoChatPageClientContent: React.FC = () => {
   const { toast } = useToast();
   const { currentTheme, setTheme } = useTheme();
   const pathname = usePathname();
-  const router = useRouter(); // Initialize router
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
@@ -846,7 +845,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const handleIconClick = () => {
     setTheme('theme-98');
-    router.push('/'); // Explicit navigation
+    // Navigation is handled by Link's href
   };
 
   let findOrDisconnectText: string;
@@ -1090,5 +1089,7 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
+    
 
     
