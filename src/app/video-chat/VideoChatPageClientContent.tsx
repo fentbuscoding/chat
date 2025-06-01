@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -148,6 +148,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const { toast } = useToast();
   const { currentTheme, setTheme } = useTheme();
   const pathname = usePathname();
+  const router = useRouter(); // Initialize router
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
@@ -710,7 +711,7 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json') // Fetch from public root
+      fetch('/emote_index.json') 
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
@@ -845,7 +846,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const handleIconClick = () => {
     setTheme('theme-98');
-    // Navigation will be handled by the Link component
+    router.push('/'); // Explicit navigation
   };
 
   let findOrDisconnectText: string;
@@ -872,7 +873,12 @@ const VideoChatPageClientContent: React.FC = () => {
 
   return (
     <>
-      <Link href="/" onClick={handleIconClick} className="fixed top-4 left-4 z-50 cursor-pointer" title="Go to Home and reset theme">
+      <Link
+        href="/"
+        onClick={handleIconClick}
+        className="fixed top-4 left-4 z-50 cursor-pointer"
+        title="Go to Home and reset theme"
+      >
         <Image src="/favicon.ico" alt="Home" width={24} height={24} />
       </Link>
       <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
@@ -1084,3 +1090,5 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
+    
