@@ -12,41 +12,52 @@ import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvide
 // import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage'; // Removed
 import { ClientEffectManager } from '@/components/ClientEffectManager';
 
-const siteTitle = "TinChat";
-const siteDescription = "Connect with people through text or video chat.";
-const siteKeywords = ["OMEGLE", "CHATROULETTE", "UHMEGLE", "random chat", "video chat", "text chat", "anonymous chat"];
-const siteUrl = "https://tinchat.online"; // Replace with your actual production domain
-const openGraphImageUrl = "https://placehold.co/1200x630.png"; // Replace with your actual OG image URL
-
 export const metadata: Metadata = {
-  title: siteTitle,
-  description: siteDescription,
-  keywords: siteKeywords,
+  // Basic Meta Tags
+  title: "TinChat – Random Chat to Connect & Have Fun",
+  description: "TinChat is a free Omegle-style chat platform that connects you instantly with strangers. Enjoy anonymous, real-time text and video conversations – no login required.",
+  keywords: ["random chat", "chat with strangers", "anonymous chat", "online chat", "TinChat", "Omegle alternative", "video chat", "text chat", "free chat app", "instant chat"],
+  authors: [{ name: "TinChat Team", url: "https://tinchat.online" }],
+  robots: {
+    index: true,
+    follow: true,
+  },
+  viewport: "width=device-width, initial-scale=1",
+  metadataBase: new URL("https://tinchat.online"),
+
+  // Open Graph / Facebook
   openGraph: {
-    title: siteTitle,
-    description: siteDescription,
     type: "website",
-    url: siteUrl,
+    url: "/", // Relative to metadataBase
+    title: "TinChat – Random Chat to Connect & Have Fun",
+    description: "Instantly connect with strangers worldwide. TinChat offers a fun and safe space for text and video chat. No registration needed!",
     images: [
       {
-        url: openGraphImageUrl,
-        width: 1200,
-        height: 630,
-        alt: `${siteTitle} - Connect with new people`,
-        'data-ai-hint': 'social media banner'
-      },
+        url: "/favicon.ico", // Relative to metadataBase, though a larger image is recommended for OG
+        // width: 32, // Example, not strictly needed for favicon if using as OG image
+        // height: 32, // Example
+        alt: "TinChat Logo"
+      }
     ],
-    siteName: siteTitle,
+    siteName: "TinChat",
   },
+
+  // Twitter
   twitter: {
-    card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
-    images: [openGraphImageUrl],
+    card: "summary",
+    url: "/", // Relative to metadataBase
+    title: "TinChat – Random Chat to Connect & Have Fun",
+    description: "Chat randomly with strangers online – simple, fast, and anonymous.",
+    images: ["/favicon.ico"], // Relative to metadataBase, though a larger image is recommended
   },
+
+  // Favicon
   icons: {
-    icon: '/favicon.ico', // Default favicon for all pages
+    icon: "/favicon.ico", // Relative to metadataBase
   },
+
+  // Other meta tags like charSet are handled by Next.js automatically.
+  // The <html lang="en"> is set on the html tag below.
 };
 
 export default function RootLayout({
@@ -56,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
+      {/* The <head /> component is automatically managed by Next.js based on the metadata object and children like Script */}
       <body suppressHydrationWarning={true}>
         <ThemeProvider
           attribute="class"
