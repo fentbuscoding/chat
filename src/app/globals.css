@@ -20,15 +20,10 @@ html, body {
 }
 
 body {
-  font-family: sans-serif;
+  font-family: sans-serif; /* Default fallback font */
   /* Default background/foreground, will be overridden by themes */
   background-color: #fff;
   color: #000;
-  /* Added GIF background */
-  background-image: url('/wallpapers/stars.gif');
-  background-repeat: repeat; /* Ensure the GIF tiles/repeats */
-  background-attachment: fixed; /* Keep the background fixed during scroll */
-  background-size: 200px; /* Make the GIF smaller to repeat more */
 
   /* Make body a flex container to manage its direct children (like #__next) */
   display: flex;
@@ -57,6 +52,18 @@ button.accent:hover, a.accent:hover {
   filter: brightness(1.1); /* Slight interaction feedback */
 }
 
+/* Styles for 98.css theme background and font */
+html.theme-98 body {
+  font-family: "Pixelated MS Sans Serif", Tahoma, sans-serif; /* Ensure Win98 font */
+  background-image: url('/wallpapers/stars.gif');
+  background-repeat: repeat;
+  background-attachment: fixed;
+  background-size: 200px;
+  background-color: #008080; /* Teal fallback if image fails, also default 98 bg */
+  color: #000000;
+}
+
+
 /* Styles for 7.css theme background */
 html.theme-7 {
     /* Retain if other html.theme-7 specific (non-background) styles are needed */
@@ -69,6 +76,8 @@ html.theme-7 body {
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  font-family: "Segoe UI", Frutiger, "Frutiger Linotype", "Dejavu Sans", "Helvetica Neue", Arial, sans-serif; /* Typical Win7 font stack */
+  color: #000; /* Default text color for Win7 theme */
 }
 
 

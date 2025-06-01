@@ -246,7 +246,7 @@ export default function SelectionLobby() {
     <div className="flex flex-1 flex-col px-4 pt-4"> 
       <div className="flex-grow min-h-screen flex items-center justify-center"> 
         <div ref={cardWrapperRef} className="w-full max-w-md"> 
-          <Card className="w-full relative"> 
+          <Card className="relative"> {/* Removed w-full to let 98.css dictate more of the window style */}
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
@@ -418,6 +418,4 @@ export default function SelectionLobby() {
     </div>
   );
 }
-
-
     
