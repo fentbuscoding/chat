@@ -10,8 +10,8 @@ interface ThemeProviderProps {
   children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  attribute?: string;
-  enableSystem?: boolean;
+  attribute?: string; // This prop is not actively used by this custom provider but kept for compatibility with potential shadcn/ui expectations
+  enableSystem?: boolean; // Not used by this custom provider
 }
 
 interface ThemeProviderContextState {
@@ -21,6 +21,11 @@ interface ThemeProviderContextState {
 }
 
 const ThemeProviderContext = createContext<ThemeProviderContextState | undefined>(undefined);
+
+const STYLESHEET_98_ID = 'theme-98-css';
+const STYLESHEET_7_ID = 'theme-7-css';
+const URL_98 = 'https://unpkg.com/98.css';
+const URL_7 = 'https://unpkg.com/7.css';
 
 export function ThemeProvider({
   children,
@@ -43,53 +48,62 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
-  // If on the homepage, and the user's selected theme isn't 'theme-98', update their selection.
+  // Effect to force userSelectedTheme to 'theme-98' if on homepage
   useEffect(() => {
     if (pathname === '/' && userSelectedTheme !== 'theme-98') {
       setUserSelectedTheme('theme-98');
     }
-  }, [pathname, userSelectedTheme]); // Removed setUserSelectedTheme from deps as it's stable
+  }, [pathname, userSelectedTheme]);
 
-  // Determine the theme to actually apply to the DOM
-  // Home page always gets 'theme-98' due to the effect above and this line for current rendering
-  const currentAppliedTheme = pathname === '/' ? 'theme-98' : userSelectedTheme;
+  // Determine the theme to actually apply to the DOM and for components to consume
+  const currentAppliedTheme = useMemo(() => {
+    return pathname === '/' ? 'theme-98' : userSelectedTheme;
+  }, [pathname, userSelectedTheme]);
 
-  // Effect to load stylesheets ONCE and keep them
+  // Effect to manage HTML class, load/unload stylesheets, and persist user's selection
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const loadStylesheet = (id: string, href: string) => {
-        if (!document.getElementById(id)) {
-          const link = document.createElement('link');
-          link.id = id;
-          link.rel = 'stylesheet';
-          link.href = href;
-          document.head.appendChild(link);
-          // console.log(`ThemeProvider: Stylesheet ${id} loaded.`);
-        }
-      };
+    if (typeof window === 'undefined') return;
 
-      loadStylesheet('theme-98-css', 'https://unpkg.com/98.css');
-      loadStylesheet('theme-7-css', 'https://unpkg.com/7.css');
-    }
-  }, []); // Empty dependency array: runs once on mount
-
-  // Effect to apply theme class to <html> and manage localStorage for user's selection
-  useEffect(() => {
     const root = window.document.documentElement;
     
-    // Add a transition class to smooth theme changes
+    // Apply a transition class to smooth theme changes
     root.classList.add('theme-transitioning');
     
     // Remove previous theme classes
     root.classList.remove('theme-98', 'theme-7');
     
     // Add current theme class
-    if (currentAppliedTheme) {
-      root.classList.add(currentAppliedTheme);
-      // console.log(`ThemeProvider: Applied class ${currentAppliedTheme} to html root (pathname: ${pathname}, userSelected: ${userSelectedTheme}).`);
-    }
+    root.classList.add(currentAppliedTheme);
 
-    // Save user's actual selection to localStorage
+    // Manage stylesheets: load only the active one
+    const theme98Link = document.getElementById(STYLESHEET_98_ID) as HTMLLinkElement | null;
+    const theme7Link = document.getElementById(STYLESHEET_7_ID) as HTMLLinkElement | null;
+
+    if (currentAppliedTheme === 'theme-98') {
+        if (!theme98Link) {
+            const link = document.createElement('link');
+            link.id = STYLESHEET_98_ID;
+            link.rel = 'stylesheet';
+            link.href = URL_98;
+            document.head.appendChild(link);
+        }
+        if (theme7Link) {
+            theme7Link.remove();
+        }
+    } else if (currentAppliedTheme === 'theme-7') {
+        if (!theme7Link) {
+            const link = document.createElement('link');
+            link.id = STYLESHEET_7_ID;
+            link.rel = 'stylesheet';
+            link.href = URL_7;
+            document.head.appendChild(link);
+        }
+        if (theme98Link) {
+            theme98Link.remove();
+        }
+    }
+    
+    // Persist the user's explicit selection to localStorage
     try {
       localStorage.setItem(storageKey, userSelectedTheme);
     } catch (e) {
@@ -102,7 +116,8 @@ export function ThemeProvider({
     }, 150); // Duration of the transition helper class
 
     return () => clearTimeout(timer);
-  }, [currentAppliedTheme, userSelectedTheme, storageKey, pathname]);
+  }, [currentAppliedTheme, userSelectedTheme, storageKey]);
+
 
   const setThemeCallback = useCallback((newTheme: Theme) => {
     if (newTheme === 'theme-98' || newTheme === 'theme-7') {
