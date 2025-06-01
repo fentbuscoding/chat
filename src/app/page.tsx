@@ -400,7 +400,7 @@ export default function SelectionLobby() {
           <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
-          <span>tinchat.com</span>
+          <span>tinchat.online</span> {/* Changed from tinchat.com */}
           <span>•</span>
           <Link href="/rules" className="text-red-600 hover:underline">Rules</Link>
           <span>•</span>
