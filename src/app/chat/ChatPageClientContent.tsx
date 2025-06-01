@@ -484,7 +484,7 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
       setEmojisLoading(true);
-      fetch('/emote_index.json')
+      fetch('/emote_index.json') // Fetch from public root
         .then((res) => {
           if (!res.ok) {
             throw new Error(`Failed to fetch emote_index.json: ${res.status} ${res.statusText}`);
@@ -654,10 +654,8 @@ const ChatPageClientContent: React.FC = () => {
 
   return (
     <>
-      <Link href="/" onClick={handleIconClick} legacyBehavior passHref>
-        <a className="fixed top-4 left-4 z-50 cursor-pointer" title="Go to Home and reset theme">
-          <Image src="/favicon.ico" alt="Home" width={24} height={24} />
-        </a>
+      <Link href="/" onClick={handleIconClick} className="fixed top-4 left-4 z-50 cursor-pointer" title="Go to Home and reset theme">
+        <Image src="/favicon.ico" alt="Home" width={24} height={24} />
       </Link>
       <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
         <div
@@ -794,4 +792,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
