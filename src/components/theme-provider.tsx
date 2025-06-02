@@ -10,13 +10,13 @@ interface ThemeProviderProps {
   children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  attribute?: string; // This prop is not actively used by this custom provider but kept for compatibility with potential shadcn/ui expectations
-  enableSystem?: boolean; // Not used by this custom provider
+  attribute?: string; 
+  enableSystem?: boolean; 
 }
 
 interface ThemeProviderContextState {
-  currentTheme: Theme; // The theme currently applied to the DOM
-  selectedTheme: Theme; // The theme the user has explicitly selected
+  currentTheme: Theme; 
+  selectedTheme: Theme; 
   setTheme: (theme: Theme) => void;
 }
 
@@ -48,34 +48,28 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
-  // Effect to force userSelectedTheme to 'theme-98' if on homepage
-  useEffect(() => {
-    if (pathname === '/' && userSelectedTheme !== 'theme-98') {
-      setUserSelectedTheme('theme-98');
-    }
-  }, [pathname, userSelectedTheme]);
+  // REMOVED: useEffect that called setUserSelectedTheme('theme-98') when pathname === '/'
+  // useEffect(() => {
+  //   if (pathname === '/' && userSelectedTheme !== 'theme-98') {
+  //     setUserSelectedTheme('theme-98');
+  //   }
+  // }, [pathname, userSelectedTheme]);
 
-  // Determine the theme to actually apply to the DOM and for components to consume
   const currentAppliedTheme = useMemo(() => {
     return pathname === '/' ? 'theme-98' : userSelectedTheme;
   }, [pathname, userSelectedTheme]);
 
-  // Effect to manage HTML class, load/unload stylesheets, and persist user's selection
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const root = window.document.documentElement;
     
-    // Apply a transition class to smooth theme changes
     root.classList.add('theme-transitioning');
     
-    // Remove previous theme classes
     root.classList.remove('theme-98', 'theme-7');
     
-    // Add current theme class
     root.classList.add(currentAppliedTheme);
 
-    // Manage stylesheets: load only the active one
     const theme98Link = document.getElementById(STYLESHEET_98_ID) as HTMLLinkElement | null;
     const theme7Link = document.getElementById(STYLESHEET_7_ID) as HTMLLinkElement | null;
 
@@ -103,17 +97,15 @@ export function ThemeProvider({
         }
     }
     
-    // Persist the user's explicit selection to localStorage
     try {
       localStorage.setItem(storageKey, userSelectedTheme);
     } catch (e) {
       console.error("ThemeProvider: Error setting localStorage:", e);
     }
 
-    // Remove the transition class after a short delay
     const timer = setTimeout(() => {
       root.classList.remove('theme-transitioning');
-    }, 150); // Duration of the transition helper class
+    }, 150); 
 
     return () => clearTimeout(timer);
   }, [currentAppliedTheme, userSelectedTheme, storageKey]);
