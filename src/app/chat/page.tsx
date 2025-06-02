@@ -11,6 +11,7 @@ const ChatPageClientContent = dynamicNext(
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 export default function ChatPage() {
+  
   return (
     <Suspense fallback={
       <div className="flex flex-1 items-center justify-center p-4">
