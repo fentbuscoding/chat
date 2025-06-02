@@ -2,17 +2,17 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-// import Link from 'next/link'; // Link is no longer needed here
-import Image from 'next/image'; // Image is still used for emojis
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
-import { cn, playSound } from '@/lib/utils'; // Import playSound
+import { cn, playSound } from '@/lib/utils';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
-import HomeButton from '@/components/HomeButton'; // Import the new HomeButton
+import HomeButton from '@/components/HomeButton';
+import { io, type Socket } from 'socket.io-client'; // Ensure Socket type is imported
 
 // --- Constants ---
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
@@ -25,21 +25,21 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60; // px
-const LOG_PREFIX = "ChatPageClientContent"; // Consistent naming
+const LOG_PREFIX = "ChatPageClientContent";
 
 // Favicon Constants
 const FAVICON_IDLE = '/Idle.ico';
 const FAVICON_SEARCHING = '/Searching.ico';
 const FAVICON_SUCCESS = '/Success.ico';
 const FAVICON_SKIPPED = '/Skipped.ico';
-const FAVICON_DEFAULT = '/favicon.ico'; // For cleanup
+const FAVICON_DEFAULT = '/favicon.ico';
 
-// System Message Text Constants (for easier management and i18n if needed later)
+// System Message Text Constants
 const SYS_MSG_SEARCHING_PARTNER = 'Searching for a partner...';
 const SYS_MSG_STOPPED_SEARCHING = 'Stopped searching for a partner.';
 const SYS_MSG_CONNECTED_PARTNER = 'Connected with a partner. You can start chatting!';
-const SYS_MSG_YOU_DISCONNECTED = 'You have disconnected.'; // Added by handleFindOrDisconnectPartner
-const SYS_MSG_PARTNER_DISCONNECTED = 'Your partner has disconnected.'; // Added by socket event
+const SYS_MSG_YOU_DISCONNECTED = 'You have disconnected.';
+const SYS_MSG_PARTNER_DISCONNECTED = 'Your partner has disconnected.';
 const SYS_MSG_COMMON_INTERESTS_PREFIX = 'You both like ';
 
 // --- Types ---
@@ -64,7 +64,6 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
 
   const parts: (string | JSX.Element)[] = [];
   let lastIndex = 0;
-  // Regex for :shortcode: - improved to allow underscores and hyphens in shortcodes
   const regex = /:([a-zA-Z0-9_.-]+?):/g;
   let match;
 
@@ -81,15 +80,15 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
     if (matchedFilename) {
       parts.push(
         <img
-          key={`${match.index}-${shortcodeName}`} // Using match.index ensures unique key for emojis at different positions
+          key={`${match.index}-${shortcodeName}`}
           src={`${baseUrl}${matchedFilename}`}
           alt={shortcodeName}
-          className="inline max-h-5 w-auto mx-0.5 align-middle" // Standard Tailwind for inline images
+          className="inline max-h-5 w-auto mx-0.5 align-middle"
           data-ai-hint="chat emoji"
         />
       );
     } else {
-      parts.push(match[0]); // If shortcode not found, push the original text (e.g., ":unknown:")
+      parts.push(match[0]);
     }
     lastIndex = regex.lastIndex;
   }
@@ -98,7 +97,7 @@ const renderMessageWithEmojis = (text: string, emojiFilenames: string[], baseUrl
     parts.push(text.substring(lastIndex));
   }
 
-  return parts.length > 0 ? parts : [text]; // Ensure array is returned even for plain text
+  return parts.length > 0 ? parts : [text];
 };
 
 // --- Components ---
@@ -125,7 +124,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const showDivider =
     theme === 'theme-7' &&
-    previousMessageSender && // Ensure previousMessageSender is defined
+    previousMessageSender &&
     ['me', 'partner'].includes(previousMessageSender) &&
     ['me', 'partner'].includes(message.sender) &&
     message.sender !== previousMessageSender;
@@ -134,7 +133,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
     theme === 'theme-98'
     ? renderMessageWithEmojis(message.text, pickerEmojiFilenames, EMOJI_BASE_URL_PICKER)
     : [message.text]
-  ), [message.text, theme, pickerEmojiFilenames]); // Memoize the rendered content
+  ), [message.text, theme, pickerEmojiFilenames]);
 
 
   return (
@@ -182,6 +181,7 @@ const ChatPageClientContent: React.FC = () => {
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const localTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalTypingRef = useRef(false);
+  const isProcessingFindOrDisconnect = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -358,15 +358,23 @@ const ChatPageClientContent: React.FC = () => {
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
+    if (isProcessingFindOrDisconnect.current) {
+        console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
+        return;
+    }
+    isProcessingFindOrDisconnect.current = true;
+
     const currentSocket = socketRef.current;
     if (!currentSocket) {
         toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
+        isProcessingFindOrDisconnect.current = false;
         return;
     }
 
     if (isPartnerConnected && roomIdRef.current) {
+        const roomToLeave = roomIdRef.current;
         addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', 'self-disconnect');
-        currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
+        currentSocket.emit('leaveChat', { roomId: roomToLeave });
 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
@@ -379,17 +387,22 @@ const ChatPageClientContent: React.FC = () => {
 
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
+        // System message "Stopped searching..." is handled by the useEffect reacting to state change
     } else {
         if (!currentSocket.connected) {
           toast({ title: "Connecting...", description: "Attempting to connect to chat server. Please wait.", variant: "default" });
+          isProcessingFindOrDisconnect.current = false;
           return;
         }
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
+    // Ensure the flag is reset after the operations, potentially with a small delay if needed for state updates to propagate
+    // For now, immediate reset. If issues persist, consider setTimeout(..., 0)
+    isProcessingFindOrDisconnect.current = false;
   }, [
     isPartnerConnected, isFindingPartner, interests,
-    toast, addMessageToList
+    toast, addMessageToList // socketRef, roomIdRef are refs, don't need to be in deps
   ]);
 
   useEffect(() => {
@@ -421,7 +434,7 @@ const ChatPageClientContent: React.FC = () => {
 
     const onPartnerFound = ({ roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${LOG_PREFIX}: Partner found event received`, { roomId: rId, partnerInterests: pInterests });
-      playSound("Match.wav"); // Play sound on match
+      playSound("Match.wav");
       setMessages([]);
       setRoomId(rId);
       setPartnerInterests(pInterests || []);
