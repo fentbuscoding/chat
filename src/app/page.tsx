@@ -246,22 +246,8 @@ export default function SelectionLobby() {
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4 relative">
-      <div className="absolute top-3 right-3 flex flex-col items-end text-xs z-10">
-        <p className="text-gray-500 mb-0.5">v{version}</p>
-        <div className="flex items-center">
-          <img
-            src="/icons/greenlight.gif"
-            alt="Green light"
-            className="w-3 h-3 mr-1"
-            data-ai-hint="green light indicator"
-          />
-          {usersOnline !== null ? (
-            <span className="font-bold mr-1">{usersOnline}</span>
-          ) : (
-            <span className="font-bold mr-1">--</span>
-          )}
-          <span>Users Online!</span>
-        </div>
+      <div className="absolute top-3 right-3 text-xs z-10">
+        <p className="text-gray-500 text-right">v{version}</p>
       </div>
 
       <div className="flex-grow min-h-screen flex items-center justify-center">
@@ -272,6 +258,20 @@ export default function SelectionLobby() {
               <CardDescription>
                 Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
               </CardDescription>
+              <div className="flex items-center text-xs mt-2">
+                <img
+                  src="/icons/greenlight.gif"
+                  alt="Green light"
+                  className="w-3 h-3 mr-1"
+                  data-ai-hint="green light indicator"
+                />
+                {usersOnline !== null ? (
+                  <span className="font-bold mr-1">{usersOnline}</span>
+                ) : (
+                  <span className="font-bold mr-1">--</span>
+                )}
+                <span>Users Online!</span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
