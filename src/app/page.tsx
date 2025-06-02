@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
 import Link from 'next/link';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -15,13 +15,14 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
-import { version } from '../../package.json'; 
+import { version } from '../../package.json';
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [usersOnline, setUsersOnline] = useState<number | null>(null);
   const router = useRouter();
+  const pathname = usePathname(); // Get pathname
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentTheme } = useTheme();
@@ -34,13 +35,15 @@ export default function SelectionLobby() {
   const cardWrapperRef = useRef<HTMLDivElement>(null);
   const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
 
-  const [isNavigating, setIsNavigating] = useState(false); // New state for loading
+  const [isNavigating, setIsNavigating] = useState(false);
 
+  // Effect to reset isNavigating when the pathname changes
   useEffect(() => {
-    // Initial cursor setup is handled by RootLayout's ClientEffectManager
-  }, []);
+    if (isNavigating) {
+      setIsNavigating(false);
+    }
+  }, [pathname]); // Dependency on pathname
 
-  // Prefetch chat pages for faster navigation
   useEffect(() => {
     if (router) {
       router.prefetch('/chat');
@@ -77,12 +80,12 @@ export default function SelectionLobby() {
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
-        setUsersOnline(0);
+        setUsersOnline(0); // Set to 0 or some indicator of error
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0);
+        setUsersOnline(0); // Set to 0 or some indicator of error
     }
 
     return () => {
@@ -91,6 +94,7 @@ export default function SelectionLobby() {
         tempSocket?.disconnect();
       } else if (tempSocket) {
         console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
+        // Ensure all listeners are removed if the socket was created but never connected.
         tempSocket.removeAllListeners();
         tempSocket.disconnect();
       }
@@ -134,11 +138,11 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
-    setIsNavigating(true); // Set loading state
+    setIsNavigating(true);
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
-      setIsNavigating(false); // Reset loading state on error
+      setIsNavigating(false);
       return;
     }
     const interestsString = selectedInterests.join(',');
@@ -153,8 +157,7 @@ export default function SelectionLobby() {
     } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
-    router.push(path);
-    // setIsNavigating will reset when the component unmounts or if navigation fails and is handled.
+    router.push(path); // Changed from replace to push for standard navigation behavior
   }, [router, selectedInterests, toast]);
 
 
@@ -345,7 +348,7 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-20', // Increased z-index
+            'fixed p-2 shadow-lg z-20', 
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
               : 'bg-silver border border-gray-400 rounded'
