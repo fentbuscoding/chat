@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+// import Link from 'next/link'; // Link is no longer needed here
+import Image from 'next/image'; // Image is still used for emojis
 import { usePathname } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
+import HomeButton from '@/components/HomeButton'; // Import the new HomeButton
 
 // --- Constants ---
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
@@ -169,7 +170,7 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); 
+  const { currentTheme } = useTheme();
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -350,12 +351,12 @@ const ChatPageClientContent: React.FC = () => {
   }, [
     isPartnerConnected, isFindingPartner, socketError,
     isSelfDisconnectedRecently, isPartnerLeftRecently,
-    messages, 
-    roomId, 
+    messages,
+    roomId,
     partnerInterests,
     interests,
     changeFavicon,
-    addMessageToList 
+    addMessageToList
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -692,13 +693,7 @@ const ChatPageClientContent: React.FC = () => {
 
   return (
     <>
-      <Link
-        href="/"
-        className="fixed top-4 left-4 z-50 cursor-pointer"
-        title="Go to Home and reset theme"
-      >
-        <Image src={FAVICON_DEFAULT} alt="Home" width={24} height={24} />
-      </Link>
+      <HomeButton />
       <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
         <div
           className={cn(

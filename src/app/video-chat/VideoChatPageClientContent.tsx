@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+// import Link from 'next/link'; // Link is no longer needed here
+import Image from 'next/image'; // Image is still used for emojis
 import { usePathname } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
@@ -14,6 +14,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
+import HomeButton from '@/components/HomeButton'; // Import the new HomeButton
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -844,7 +845,7 @@ const VideoChatPageClientContent: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [isPartnerTyping]);
-  
+
   let findOrDisconnectText: string;
   if (isPartnerConnected) {
     findOrDisconnectText = 'Disconnect';
@@ -869,13 +870,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
   return (
     <>
-      <Link
-        href="/"
-        className="fixed top-4 left-4 z-50 cursor-pointer"
-        title="Go to Home and reset theme"
-      >
-        <Image src="/favicon.ico" alt="Home" width={24} height={24} />
-      </Link>
+      <HomeButton />
       <div className="flex flex-col items-center justify-center w-full p-2 md:p-4">
         <div className="flex justify-center gap-4 mb-4 mx-auto">
           <div
