@@ -169,7 +169,7 @@ Row.displayName = 'Row';
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Removed setTheme as it's not directly used by the icon click anymore
+  const { currentTheme } = useTheme(); 
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -202,7 +202,6 @@ const ChatPageClientContent: React.FC = () => {
 
   const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false);
   const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
-  // Removed shouldSetThemeOnNav and its useEffect
 
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -351,12 +350,12 @@ const ChatPageClientContent: React.FC = () => {
   }, [
     isPartnerConnected, isFindingPartner, socketError,
     isSelfDisconnectedRecently, isPartnerLeftRecently,
-    messages, // messages is a dependency now
-    roomId, // roomId is a dependency
+    messages, 
+    roomId, 
     partnerInterests,
     interests,
     changeFavicon,
-    // addMessageToList removed as it's memoized and won't change often
+    addMessageToList 
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -671,8 +670,6 @@ const ChatPageClientContent: React.FC = () => {
     };
   }, [isPartnerTyping]);
 
-  // Removed handleIconClick and its related useEffect for shouldSetThemeOnNav
-
   const findOrDisconnectText = useMemo(() => {
     if (isPartnerConnected) return 'Disconnect';
     if (isFindingPartner) return 'Stop Searching';
@@ -697,7 +694,6 @@ const ChatPageClientContent: React.FC = () => {
     <>
       <Link
         href="/"
-        // onClick removed
         className="fixed top-4 left-4 z-50 cursor-pointer"
         title="Go to Home and reset theme"
       >

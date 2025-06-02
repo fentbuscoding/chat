@@ -146,7 +146,7 @@ Row.displayName = 'Row';
 const VideoChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { currentTheme } = useTheme(); // Removed setTheme
+  const { currentTheme } = useTheme();
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -177,7 +177,6 @@ const VideoChatPageClientContent: React.FC = () => {
   const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
   const prevIsSelfDisconnectedRecentlyRef = useRef(isSelfDisconnectedRecently);
   const prevIsPartnerLeftRecentlyRef = useRef(isPartnerLeftRecently);
-  // Removed shouldSetThemeOnNav and its useEffect
 
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -845,8 +844,6 @@ const VideoChatPageClientContent: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [isPartnerTyping]);
-
-  // Removed handleIconClick and its related useEffect
   
   let findOrDisconnectText: string;
   if (isPartnerConnected) {
@@ -874,7 +871,6 @@ const VideoChatPageClientContent: React.FC = () => {
     <>
       <Link
         href="/"
-        // onClick removed
         className="fixed top-4 left-4 z-50 cursor-pointer"
         title="Go to Home and reset theme"
       >
