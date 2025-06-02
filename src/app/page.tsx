@@ -399,7 +399,7 @@ export default function SelectionLobby() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center">No cursors found.</p>
+                  <p className="text-center">No cursors found</p>
                 )}
               </div>
             </div>
