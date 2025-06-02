@@ -10,9 +10,7 @@ import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
-import { cn } from '@/lib/utils';
-import type { Socket } from 'socket.io-client';
-import { io } from 'socket.io-client';
+import { cn, playSound } from '@/lib/utils'; // Import playSound
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
 import HomeButton from '@/components/HomeButton'; // Import the new HomeButton
 
@@ -423,6 +421,7 @@ const ChatPageClientContent: React.FC = () => {
 
     const onPartnerFound = ({ roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${LOG_PREFIX}: Partner found event received`, { roomId: rId, partnerInterests: pInterests });
+      playSound("Match.wav"); // Play sound on match
       setMessages([]);
       setRoomId(rId);
       setPartnerInterests(pInterests || []);

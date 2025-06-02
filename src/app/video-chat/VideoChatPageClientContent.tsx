@@ -11,9 +11,7 @@ import { Input } from '@/components/ui/input-themed';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
-import { cn } from '@/lib/utils';
-import type { Socket } from 'socket.io-client';
-import { io } from 'socket.io-client';
+import { cn, playSound } from '@/lib/utils'; // Import playSound
 import HomeButton from '@/components/HomeButton'; // Import the new HomeButton
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
@@ -543,6 +541,7 @@ const VideoChatPageClientContent: React.FC = () => {
 
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
       console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
+      playSound("Match.wav"); // Play sound on match
       setMessages([]);
       setRoomId(rId);
       roomIdRef.current = rId;
