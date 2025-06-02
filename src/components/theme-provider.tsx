@@ -48,12 +48,8 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
-  // REMOVED: useEffect that called setUserSelectedTheme('theme-98') when pathname === '/'
-  // useEffect(() => {
-  //   if (pathname === '/' && userSelectedTheme !== 'theme-98') {
-  //     setUserSelectedTheme('theme-98');
-  //   }
-  // }, [pathname, userSelectedTheme]);
+  // The useEffect that was here, which forced userSelectedTheme to 'theme-98' on the homepage, has been removed.
+  // This was the change made in the previous step to simplify theme state management for the homepage.
 
   const currentAppliedTheme = useMemo(() => {
     return pathname === '/' ? 'theme-98' : userSelectedTheme;
