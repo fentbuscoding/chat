@@ -253,12 +253,12 @@ export default function SelectionLobby() {
       <div className="flex-grow min-h-screen flex items-center justify-center">
         <div ref={cardWrapperRef} className="max-w-md">
           <Card className="relative">
-            <CardHeader>
+            <CardHeader className="relative">
               <CardTitle>Welcome to TinChat!</CardTitle>
               <CardDescription>
                 Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
               </CardDescription>
-              <div className="flex items-center text-xs mt-2">
+              <div className="absolute top-3 right-3 flex items-center text-xs">
                 <img
                   src="/icons/greenlight.gif"
                   alt="Green light"
@@ -424,5 +424,3 @@ export default function SelectionLobby() {
     </div>
   );
 }
-    
-    
