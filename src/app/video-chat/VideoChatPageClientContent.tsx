@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation'; // useRouter removed
+import { usePathname } from 'next/navigation'; 
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -176,6 +177,8 @@ const VideoChatPageClientContent: React.FC = () => {
   const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
   const prevIsSelfDisconnectedRecentlyRef = useRef(isSelfDisconnectedRecently);
   const prevIsPartnerLeftRecentlyRef = useRef(isPartnerLeftRecently);
+  const [shouldSetThemeOnNav, setShouldSetThemeOnNav] = useState(false);
+
   
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -499,9 +502,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
   }, [
       isPartnerConnected, isFindingPartner, interests, addMessage,
-      cleanupConnections, getCameraStream, toast, hasCameraPermission,
-      setIsFindingPartner, setIsPartnerConnected, setRoomId, setPartnerInterests,
-      setIsPartnerTyping, setIsSelfDisconnectedRecently
+      cleanupConnections, getCameraStream, toast, hasCameraPermission
     ]);
 
 
@@ -759,21 +760,25 @@ const VideoChatPageClientContent: React.FC = () => {
     const currentActiveRoomId = roomIdRef.current; 
 
     if (currentActiveSocket?.connected && currentActiveRoomId && isPartnerConnected) {
-      if (!isLocalTypingRef.current) {
+      if (!isLocalTypingRef.current && e.target.value.trim() !== '') {
         currentActiveSocket.emit('typing_start', { roomId: currentActiveRoomId });
         isLocalTypingRef.current = true;
       }
       if (localTypingTimeoutRef.current) {
         clearTimeout(localTypingTimeoutRef.current);
       }
-      localTypingTimeoutRef.current = setTimeout(() => {
-         if (socketRef.current?.connected && roomIdRef.current) { 
-            socketRef.current.emit('typing_stop', { roomId: roomIdRef.current });
-            isLocalTypingRef.current = false;
-         }
-      }, 2000);
+      if (e.target.value.trim() !== '') {
+        localTypingTimeoutRef.current = setTimeout(() => {
+           if (socketRef.current?.connected && roomIdRef.current) { 
+              socketRef.current.emit('typing_stop', { roomId: roomIdRef.current });
+              isLocalTypingRef.current = false;
+           }
+        }, 2000);
+      } else if (isLocalTypingRef.current) {
+        stopLocalTyping();
+      }
     }
-  }, [isPartnerConnected, setNewMessage]);
+  }, [isPartnerConnected, stopLocalTyping]);
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socketRef.current?.connected || !roomIdRef.current || !isPartnerConnected) return; 
@@ -781,7 +786,7 @@ const VideoChatPageClientContent: React.FC = () => {
     addMessage(newMessage, 'me');
     setNewMessage('');
     stopLocalTyping();
-  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, setNewMessage]); 
+  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping]); 
 
   const handleEmojiIconHover = useCallback(() => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
@@ -842,10 +847,17 @@ const VideoChatPageClientContent: React.FC = () => {
     };
   }, [isPartnerTyping]);
 
-  const handleIconClick = () => {
-    setTheme('theme-98');
-    // Navigation is handled by Link's href
-  };
+  const handleIconClick = useCallback(() => {
+    setShouldSetThemeOnNav(true);
+  }, []);
+
+  useEffect(() => {
+    if (shouldSetThemeOnNav) {
+      setTheme('theme-98');
+      setShouldSetThemeOnNav(false); 
+    }
+  }, [shouldSetThemeOnNav, setTheme]);
+
 
   let findOrDisconnectText: string;
   if (isPartnerConnected) {
@@ -968,7 +980,6 @@ const VideoChatPageClientContent: React.FC = () => {
                 Video Chat
               </div>
             </div>
-            {/* Standard window controls for 98 theme (if any were added as buttons) */}
           </div>
           <div
             className={cn(

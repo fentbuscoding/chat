@@ -40,8 +40,10 @@ export default function SelectionLobby() {
 
   // Prefetch chat pages for faster navigation
   useEffect(() => {
-    router.prefetch('/chat');
-    router.prefetch('/video-chat');
+    if (router) {
+      router.prefetch('/chat');
+      router.prefetch('/video-chat');
+    }
   }, [router]);
 
 
@@ -159,7 +161,7 @@ export default function SelectionLobby() {
     inputRef.current?.focus();
   };
 
-  const handleToggleSettings = async () => {
+  const handleToggleSettings = useCallback(async () => {
     const opening = !isSettingsOpen;
     setIsSettingsOpen(opening);
 
@@ -185,7 +187,7 @@ export default function SelectionLobby() {
         }
       }
     }
-  };
+  }, [isSettingsOpen, cardWrapperRef, cursorImages.length, cursorsLoading]);
 
   useEffect(() => {
     const updatePosition = () => {
@@ -206,7 +208,7 @@ export default function SelectionLobby() {
   }, [isSettingsOpen]);
 
 
-  const handleCursorSelect = (cursorUrl: string) => {
+  const handleCursorSelect = useCallback((cursorUrl: string) => {
     if (typeof window === 'undefined') return;
 
     window.stopOriginalOneko?.();
@@ -229,9 +231,9 @@ export default function SelectionLobby() {
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
     }
-  };
+  }, []);
 
-  const handleDefaultCursor = () => {
+  const handleDefaultCursor = useCallback(() => {
     if (typeof window === 'undefined') return;
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
@@ -239,14 +241,14 @@ export default function SelectionLobby() {
     localStorage.removeItem('animatedCursorUrl');
     localStorage.removeItem('selectedCursorUrl');
     document.body.style.cursor = 'auto';
-  };
+  }, []);
 
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4"> 
       <div className="flex-grow min-h-screen flex items-center justify-center"> 
-        <div ref={cardWrapperRef} className="w-full max-w-md"> 
-          <Card className="relative"> {/* Removed w-full to let 98.css dictate more of the window style */}
+        <div ref={cardWrapperRef} className="max-w-md"> 
+          <Card className="relative">
             <CardHeader>
               <div className="absolute top-2 right-2 flex items-center text-xs">
                 <img
