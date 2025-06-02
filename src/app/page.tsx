@@ -15,7 +15,7 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
-import { version } from '../../package.json'; // Import version
+import { version } from '../../package.json'; 
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -34,8 +34,10 @@ export default function SelectionLobby() {
   const cardWrapperRef = useRef<HTMLDivElement>(null);
   const [panelPosition, setPanelPosition] = useState({ top: 0, left: 0 });
 
+  const [isNavigating, setIsNavigating] = useState(false); // New state for loading
+
   useEffect(() => {
-    // Initial cursor setup is handled by RootLayout's useEffect
+    // Initial cursor setup is handled by RootLayout's ClientEffectManager
   }, []);
 
   // Prefetch chat pages for faster navigation
@@ -76,8 +78,6 @@ export default function SelectionLobby() {
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
         setUsersOnline(0);
-        // The socket is not connected if connect_error was emitted.
-        // The main cleanup function will handle disconnecting if the socket instance exists.
       });
 
     } catch (error) {
@@ -90,11 +90,9 @@ export default function SelectionLobby() {
         console.log("SelectionLobby: Disconnecting socket for user count on unmount.");
         tempSocket?.disconnect();
       } else if (tempSocket) {
-        // If the socket exists but is not connected (e.g., due to connect_error),
-        // ensure it's still cleaned up to prevent lingering event listeners.
         console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
-        tempSocket.removeAllListeners(); // Remove listeners to be safe
-        tempSocket.disconnect(); // Attempt disconnect
+        tempSocket.removeAllListeners();
+        tempSocket.disconnect();
       }
     };
   }, []);
@@ -136,9 +134,11 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
+    setIsNavigating(true); // Set loading state
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
+      setIsNavigating(false); // Reset loading state on error
       return;
     }
     const interestsString = selectedInterests.join(',');
@@ -154,6 +154,7 @@ export default function SelectionLobby() {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
+    // setIsNavigating will reset when the component unmounts or if navigation fails and is handled.
   }, [router, selectedInterests, toast]);
 
 
@@ -281,6 +282,7 @@ export default function SelectionLobby() {
                     className="p-0 w-[20px] h-[20px] min-w-0 flex items-center justify-center"
                     aria-label="Settings"
                     onClick={handleToggleSettings}
+                    disabled={isNavigating}
                   >
                     <img
                       src="/icons/gears-0.png"
@@ -320,7 +322,7 @@ export default function SelectionLobby() {
                     placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                     className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
                     style={{ minWidth: '80px' }}
-                    disabled={selectedInterests.length >= 5 && !currentInterest}
+                    disabled={selectedInterests.length >= 5 && !currentInterest || isNavigating}
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -329,11 +331,11 @@ export default function SelectionLobby() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between space-x-4">
-              <Button className="flex-1 accent" onClick={() => handleStartChat('text')}>
-                <span className="animate-rainbow-text">Start Text Chat</span>
+              <Button className="flex-1 accent" onClick={() => handleStartChat('text')} disabled={isNavigating}>
+                {isNavigating ? 'Starting...' : <span className="animate-rainbow-text">Start Text Chat</span>}
               </Button>
-              <Button className="flex-1 accent" onClick={() => handleStartChat('video')}>
-                <span className="animate-rainbow-text-alt">Start Video Chat</span>
+              <Button className="flex-1 accent" onClick={() => handleStartChat('video')} disabled={isNavigating}>
+                {isNavigating ? 'Starting...' : <span className="animate-rainbow-text-alt">Start Video Chat</span>}
               </Button>
             </CardFooter>
           </Card>
@@ -343,7 +345,7 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-20',
+            'fixed p-2 shadow-lg z-20', // Increased z-index
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
               : 'bg-silver border border-gray-400 rounded'
@@ -377,7 +379,7 @@ export default function SelectionLobby() {
               style={{ marginTop: currentTheme === 'theme-98' ? '1px' : '' }}
             >
               <div className={cn(currentTheme === 'theme-7' ? 'p-2' : 'p-1')}>
-                <Button onClick={handleDefaultCursor} className="w-full mb-2 text-xs">
+                <Button onClick={handleDefaultCursor} className="w-full mb-2 text-xs" disabled={isNavigating}>
                   Default Cursor
                 </Button>
                 {cursorsLoading ? (
@@ -423,5 +425,4 @@ export default function SelectionLobby() {
       </footer>
     </div>
   );
-  
 }
