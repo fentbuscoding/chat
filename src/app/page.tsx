@@ -15,7 +15,7 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
-
+import { version } from '../../package.json'; // Import version
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -51,7 +51,7 @@ export default function SelectionLobby() {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error("SelectionLobby: Socket server URL is not defined.");
-      setUsersOnline(0); 
+      setUsersOnline(0);
       return;
     }
 
@@ -60,29 +60,29 @@ export default function SelectionLobby() {
     try {
       tempSocket = io(socketServerUrl, {
         withCredentials: true,
-        transports: ['websocket', 'polling'] 
+        transports: ['websocket', 'polling']
       });
 
       tempSocket.on('connect', () => {
         console.log("SelectionLobby: Connected to socket server for user count.");
         tempSocket?.emit('getOnlineUserCount');
       });
-      
+
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
-        tempSocket?.disconnect(); 
+        tempSocket?.disconnect();
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
-        setUsersOnline(0); 
+        setUsersOnline(0);
         // The socket is not connected if connect_error was emitted.
         // The main cleanup function will handle disconnecting if the socket instance exists.
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); 
+        setUsersOnline(0);
     }
 
     return () => {
@@ -99,9 +99,9 @@ export default function SelectionLobby() {
     };
   }, []);
 
-  const handleInterestInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInterestInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentInterest(e.target.value);
-  };
+  }, []);
 
   const addInterest = useCallback((interestToAdd: string) => {
     const newInterest = interestToAdd.trim().toLowerCase();
@@ -117,7 +117,7 @@ export default function SelectionLobby() {
     }
   }, [selectedInterests, toast]);
 
-  const handleInterestInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleInterestInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     const key = e.key;
     const value = currentInterest.trim();
 
@@ -128,10 +128,10 @@ export default function SelectionLobby() {
       e.preventDefault();
       setSelectedInterests(prev => prev.slice(0, -1));
     }
-  };
+  }, [currentInterest, selectedInterests.length, addInterest]);
 
   const handleRemoveInterest = useCallback((interestToRemove: string, event?: React.MouseEvent) => {
-    event?.stopPropagation(); 
+    event?.stopPropagation();
     setSelectedInterests(prev => prev.filter(interest => interest !== interestToRemove));
   }, []);
 
@@ -143,23 +143,23 @@ export default function SelectionLobby() {
     }
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
-    if (interestsString) { 
+    if (interestsString) {
         params.append('interests', interestsString);
     }
     let path: string;
-    const queryString = params.toString(); 
+    const queryString = params.toString();
     if (type === 'video') {
         path = `/video-chat${queryString ? `?${queryString}` : ''}`;
-    } else { 
+    } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     router.push(path);
   }, [router, selectedInterests, toast]);
 
 
-  const focusInput = () => {
+  const focusInput = useCallback(() => {
     inputRef.current?.focus();
-  };
+  }, []);
 
   const handleToggleSettings = useCallback(async () => {
     const opening = !isSettingsOpen;
@@ -169,7 +169,7 @@ export default function SelectionLobby() {
       const cardRect = cardWrapperRef.current.getBoundingClientRect();
       setPanelPosition({
         top: cardRect.top + window.scrollY,
-        left: cardRect.right + window.scrollX + 16 
+        left: cardRect.right + window.scrollX + 16
       });
 
       if (cursorImages.length === 0 && !cursorsLoading) {
@@ -202,7 +202,7 @@ export default function SelectionLobby() {
 
     if (isSettingsOpen) {
       window.addEventListener('resize', updatePosition);
-      updatePosition(); 
+      updatePosition();
     }
     return () => window.removeEventListener('resize', updatePosition);
   }, [isSettingsOpen]);
@@ -213,7 +213,7 @@ export default function SelectionLobby() {
 
     window.stopOriginalOneko?.();
     window.stopAnimatedGifCursor?.();
-    document.body.style.cursor = 'auto'; 
+    document.body.style.cursor = 'auto';
 
     localStorage.removeItem('nekoActive');
     localStorage.removeItem('animatedCursorUrl');
@@ -221,13 +221,13 @@ export default function SelectionLobby() {
 
     if (cursorUrl.toLowerCase().includes('neko.gif')) {
       window.startOriginalOneko?.();
-      document.body.style.cursor = 'auto'; 
+      document.body.style.cursor = 'auto';
       localStorage.setItem('nekoActive', 'true');
     } else if (cursorUrl.toLowerCase().endsWith('.gif')) {
       window.startAnimatedGifCursor?.(cursorUrl);
-      document.body.style.cursor = 'none'; 
+      document.body.style.cursor = 'none';
       localStorage.setItem('animatedCursorUrl', cursorUrl);
-    } else { 
+    } else {
       document.body.style.cursor = `url(${cursorUrl}), auto`;
       localStorage.setItem('selectedCursorUrl', cursorUrl);
     }
@@ -245,25 +245,29 @@ export default function SelectionLobby() {
 
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-4"> 
-      <div className="flex-grow min-h-screen flex items-center justify-center"> 
-        <div ref={cardWrapperRef} className="max-w-md"> 
+    <div className="flex flex-1 flex-col px-4 pt-4 relative">
+      <div className="absolute top-3 right-3 flex flex-col items-end text-xs z-10">
+        <p className="text-gray-500 mb-0.5">v{version}</p>
+        <div className="flex items-center">
+          <img
+            src="/icons/greenlight.gif"
+            alt="Green light"
+            className="w-3 h-3 mr-1"
+            data-ai-hint="green light indicator"
+          />
+          {usersOnline !== null ? (
+            <span className="font-bold mr-1">{usersOnline}</span>
+          ) : (
+            <span className="font-bold mr-1">--</span>
+          )}
+          <span>Users Online!</span>
+        </div>
+      </div>
+
+      <div className="flex-grow min-h-screen flex items-center justify-center">
+        <div ref={cardWrapperRef} className="max-w-md">
           <Card className="relative">
             <CardHeader>
-              <div className="absolute top-2 right-2 flex items-center text-xs">
-                <img
-                  src="/icons/greenlight.gif"
-                  alt="Green light"
-                  className="w-3 h-3 mr-1"
-                  data-ai-hint="green light indicator"
-                />
-                {usersOnline !== null ? (
-                  <span className="font-bold mr-1">{usersOnline}</span>
-                ) : (
-                  <span className="font-bold mr-1">--</span>
-                )}
-                <span>Users Online!</span>
-              </div>
               <CardTitle>Welcome to TinChat!</CardTitle>
               <CardDescription>
                 Connect with someone new. Add interests by typing them and pressing Comma, Space, or Enter. Max 5 interests.
@@ -339,16 +343,16 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-10', 
+            'fixed p-2 shadow-lg z-20',
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
-              : 'bg-silver border border-gray-400 rounded' 
+              : 'bg-silver border border-gray-400 rounded'
           )}
           style={{
-            width: '250px', 
+            width: '250px',
             top: `${panelPosition.top}px`,
             left: `${panelPosition.left}px`,
-            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`, 
+            maxHeight: `calc(100vh - ${panelPosition.top}px - 16px)`,
             overflowY: 'auto'
           }}
         >
@@ -408,7 +412,7 @@ export default function SelectionLobby() {
           <div className="border-t-2 border-gray-300 dark:border-gray-600 my-4 w-full"></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 space-x-2">
-          <span>tinchat.online</span> {/* Changed from tinchat.com */}
+          <span>tinchat.online</span>
           <span>•</span>
           <Link href="/rules" className="text-red-600 hover:underline">Rules</Link>
           <span>•</span>
@@ -420,4 +424,5 @@ export default function SelectionLobby() {
     </div>
   );
 }
+    
     
