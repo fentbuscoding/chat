@@ -17,7 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 console.log('OnboardingPage component is being loaded/rendered by Next.js');
 
 interface UserProfile {
-  id: string; // Ensure id is part of the profile for upsert
+  id: string; 
   username: string;
   display_name: string;
   avatar_url: string | null;
@@ -47,6 +47,7 @@ export default function OnboardingPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
+        console.log(`Onboarding: User ID: ${session.user.id}`);
         const { data: profile, error } = await supabase
           .from('users')
           .select('username, display_name, avatar_url, profile_complete')
@@ -54,10 +55,11 @@ export default function OnboardingPage() {
           .single();
 
         if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching profile:', error);
+          console.error('Onboarding: Error fetching profile:', error);
           toast({ title: 'Error fetching profile', description: error.message, variant: 'destructive' });
         } else if (profile) {
-          if (profile.profile_complete && router.asPath.includes('/onboarding')) { // Only redirect if they are ON the onboarding page AND profile is complete
+          console.log('Onboarding: Profile found:', profile);
+          if (profile.profile_complete && router.asPath.includes('/onboarding')) {
             router.replace('/');
             return;
           }
@@ -68,8 +70,7 @@ export default function OnboardingPage() {
             setAvatarPreview(profile.avatar_url);
           }
         } else {
-          // No profile exists yet, or error PGRST116. This is fine, onboarding will create it.
-          console.log('No existing profile found for user or error PGRST116, proceeding to onboarding form.');
+          console.log('Onboarding: No existing profile found for user or error PGRST116, proceeding to onboarding form. This is expected if the Supabase trigger `handle_new_user` will create the row or if client-side upsert will handle it.');
         }
       } else {
         router.replace('/signin');
@@ -91,18 +92,18 @@ export default function OnboardingPage() {
         .from('users')
         .select('username')
         .eq('username', debouncedUsername)
-        .neq('id', user?.id || '')
+        .neq('id', user?.id || '') // Exclude current user's own username if editing
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found (username is available)
         console.error('Error checking username:', error);
-        setUsernameAvailable(null);
+        setUsernameAvailable(null); // Error, so unknown
       } else {
-        setUsernameAvailable(!data);
+        setUsernameAvailable(!data); // If data (a user with that username) exists, it's not available
       }
     };
 
-    if (user) {
+    if (user) { // Only check if user is loaded
         checkUsername();
     }
   }, [debouncedUsername, user]);
@@ -111,7 +112,7 @@ export default function OnboardingPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 2 * 1024 * 1024) { // Max 2MB
         toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
         return;
       }
@@ -126,7 +127,10 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      toast({ title: 'Authentication Error', description: 'User not found. Please sign in again.', variant: 'destructive'});
+      return;
+    }
     if (!username || username.length < 3) {
       toast({ title: 'Invalid Username', description: 'Username must be at least 3 characters.', variant: 'destructive'});
       return;
@@ -135,27 +139,27 @@ export default function OnboardingPage() {
         toast({ title: 'Display Name Required', description: 'Please enter a display name.', variant: 'destructive'});
         return;
     }
-    if (usernameAvailable === false) {
+    if (usernameAvailable === false) { // Explicitly check for false
         toast({ title: 'Username Taken', description: 'Please choose a different username.', variant: 'destructive'});
         return;
     }
-    if (usernameAvailable === 'checking') {
+     if (usernameAvailable === 'checking') {
         toast({ title: 'Username Check Pending', description: 'Please wait for username availability check.', variant: 'default'});
         return;
     }
 
-
     setSaving(true);
-    let newAvatarUrl = avatarUrl;
+    let newAvatarStoragePath: string | null = null;
+    let finalAvatarUrl = avatarUrl; // Keep existing avatar by default
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`; // Store under user's ID folder
+      newAvatarStoragePath = `${user.id}/${fileName}`; // Store under user's ID folder for organization
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, avatarFile, { upsert: true });
+        .upload(newAvatarStoragePath, avatarFile, { upsert: true }); // upsert:true is good here
 
       if (uploadError) {
         toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
@@ -163,24 +167,25 @@ export default function OnboardingPage() {
         return;
       }
       
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newAvatarStoragePath);
       if (!urlData || !urlData.publicUrl) {
         toast({ title: 'Avatar URL Failed', description: 'Could not get public URL for avatar.', variant: 'destructive' });
         setSaving(false);
         return;
       }
-      newAvatarUrl = urlData.publicUrl;
+      finalAvatarUrl = urlData.publicUrl;
     }
 
     const profileDataToUpsert: UserProfile = {
-      id: user.id, // Crucial for upsert to identify the row
+      id: user.id, // This is crucial: uses the authenticated user's ID.
       username,
       display_name: displayName,
-      avatar_url: newAvatarUrl,
+      avatar_url: finalAvatarUrl,
       profile_complete: true,
     };
 
-    // Use upsert to create the profile if it doesn't exist, or update it if it does.
+    console.log("Onboarding: Attempting to upsert profile data:", profileDataToUpsert);
+
     const { error: upsertError } = await supabase
       .from('users')
       .upsert(profileDataToUpsert, {
@@ -191,11 +196,11 @@ export default function OnboardingPage() {
 
     if (upsertError) {
       toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
-      console.error("Upsert Error:", upsertError);
+      console.error("Onboarding: Upsert Error:", upsertError);
     } else {
       toast({ title: 'Profile Updated!', description: 'Your profile has been set up.' });
       router.push('/');
-      router.refresh(); // Refresh to ensure layout components pick up new auth state/profile
+      router.refresh(); 
     }
     setSaving(false);
   };
@@ -217,7 +222,7 @@ export default function OnboardingPage() {
         <div className="window-body p-4 md:p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="avatar">Profile Picture</Label>
+              <Label htmlFor="avatar-upload-input">Profile Picture</Label>
               <div className="mt-1 flex items-center space-x-4">
                 <span className="inline-block h-20 w-20 rounded-full overflow-hidden bg-gray-100">
                   {avatarPreview ? (
@@ -238,6 +243,7 @@ export default function OnboardingPage() {
                   accept="image/png, image/jpeg, image/gif"
                   className="hidden"
                   id="avatar-upload-input"
+                  aria-labelledby="avatar-upload-input"
                 />
               </div>
             </div>
@@ -254,8 +260,8 @@ export default function OnboardingPage() {
                   minLength={3}
                   maxLength={20}
                   className={cn(
-                    usernameAvailable === true && 'border-green-500 focus:border-green-500',
-                    usernameAvailable === false && 'border-red-500 focus:border-red-500'
+                    usernameAvailable === true && username.length >=3 && 'border-green-500 focus:border-green-500',
+                    usernameAvailable === false && username.length >=3 && 'border-red-500 focus:border-red-500'
                   )}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm pointer-events-none">
@@ -280,7 +286,7 @@ export default function OnboardingPage() {
                <p className="text-xs text-gray-500 mt-1">1-30 characters. This will be shown in chats if not anonymous.</p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={saving || usernameAvailable === 'checking' || usernameAvailable === false}>
+            <Button type="submit" className="w-full" disabled={saving || usernameAvailable === 'checking' || usernameAvailable === false && username.length >=3}>
               {saving ? 'Saving...' : 'Save Profile & Continue'}
             </Button>
           </form>
