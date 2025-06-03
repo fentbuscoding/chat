@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Label } from '@/components/ui/label-themed';
-import Link from 'next/link'; // Added Link import
+import Link from 'next/link';
 import { useTheme } from '@/components/theme-provider';
 import HomeButton from '@/components/HomeButton';
 
@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { currentTheme } = useTheme(); // Get current theme
+  const { currentTheme } = useTheme();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,30 +28,44 @@ export default function SignUpPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        // If you want new email/password signups to also go to onboarding:
+        // emailRedirectTo: `${window.location.origin}/onboarding`, 
+      }
     });
 
     if (signUpError) {
       setError(signUpError.message);
     } else if (data.user && data.user.identities?.length === 0) {
-      // This condition might indicate the user exists but is unconfirmed by Supabase
-      // or other edge cases like email rate limits if the user is already confirmed.
       setError("User might already exist or is unconfirmed. If you signed up, check your email to confirm. Otherwise, try signing in or use a different email.");
     } else if (data.user) {
-      // If Supabase email confirmation is enabled (default), data.session will be null.
-      // If auto-confirm is on (dev settings) or email pre-verified (OAuth), session might be active.
       if (data.session) {
-        // User is signed up and logged in (e.g. auto-confirm is on)
-        // For now, redirect to home. Later, this could be profile setup.
-        router.push('/');
+        router.push('/'); // Or /onboarding if you want to force it here too
         router.refresh();
       } else {
-        // User needs to confirm their email
         setMessage('Sign up successful! Please check your email for a confirmation link to complete your registration.');
       }
     } else {
         setError("An unknown error occurred during sign up. Please try again.");
     }
     setLoading(false);
+  };
+
+  const handleOAuthSignIn = async (provider: 'google' | 'discord' | 'spotify') => {
+    setError(null);
+    setMessage(null); // Clear previous messages
+    setLoading(true); // Optionally set loading state for OAuth buttons too
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/onboarding`
+      },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message);
+    }
+    // setLoading(false); // No need to set loading to false here as page will redirect
   };
 
   return (
@@ -81,6 +95,22 @@ export default function SignUpPage() {
                 {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
             </form>
+            <div className="flex items-center my-4">
+              <hr className="flex-grow border-t border-gray-300 dark:border-gray-600" />
+              <span className="mx-2 text-xs text-gray-500 dark:text-gray-400">OR</span>
+              <hr className="flex-grow border-t border-gray-300 dark:border-gray-600" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" onClick={() => handleOAuthSignIn('google')} disabled={loading}>
+                Continue with Google
+              </Button>
+              <Button variant="outline" onClick={() => handleOAuthSignIn('discord')} disabled={loading}>
+                Continue with Discord
+              </Button>
+              <Button variant="outline" onClick={() => handleOAuthSignIn('spotify')} disabled={loading}>
+                Continue with Spotify
+              </Button>
+            </div>
             <p className="text-xs text-center mt-4">
               Already have an account? <Link href="/signin" className="text-blue-600 hover:underline">Sign In</Link>
             </p>
