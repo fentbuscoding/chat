@@ -240,7 +240,7 @@ io.on('connection', (socket: Socket) => {
   socket.on('sendMessage', (payload: unknown) => {
     try {
       const { roomId, message, username } = SendMessagePayloadSchema.parse(payload);
-      console.log(`[MESSAGE_RECEIVED_SERVER] sendMessage event from user ${socket.id}. Room: ${roomId}, Username: ${username || 'N/A'}, Message: "${message}"`);
+      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (username: ${username || 'N/A'}) sending message to room ${roomId}: "${message}"`);
 
       const roomDetails = rooms[roomId];
       if (!roomDetails) {
@@ -257,16 +257,20 @@ io.on('connection', (socket: Socket) => {
           senderUsername: senderUsernameOrDefault,
         };
 
-        const socketsInRoom = io.sockets.adapter.rooms.get(roomId);
-        console.log(`[MESSAGE_DEBUG_SOCKETS_IN_ROOM] Sockets currently in room ${roomId} (adapter's view): ${socketsInRoom ? Array.from(socketsInRoom).join(', ') : 'None'}`);
-        
-        console.log(`[MESSAGE_RELAY_ATTEMPT] Attempting to relay message from ${socket.id} to room ${roomId}. Sender username: ${senderUsernameOrDefault}. Payload: ${JSON.stringify(messagePayload)}`);
-        
-        // Emit to all other sockets in the room
-        socket.to(roomId).emit('receiveMessage', messagePayload);
-        
-        console.log(`[MESSAGE_RELAY_SENT] 'receiveMessage' emitted to room ${roomId} (excluding sender ${socket.id}).`);
+        const partnerId = roomDetails.users.find(id => id !== socket.id);
 
+        if (partnerId) {
+          const partnerSocket = io.sockets.sockets.get(partnerId);
+          if (partnerSocket) {
+            console.log(`[MESSAGE_RELAY_DIRECT] Relaying message from ${socket.id} directly to partner ${partnerId} in room ${roomId}. Sender username: ${senderUsernameOrDefault}.`);
+            partnerSocket.emit('receiveMessage', messagePayload);
+            console.log(`[MESSAGE_RELAY_DIRECT_SENT] 'receiveMessage' emitted directly to partner ${partnerId}.`);
+          } else {
+            console.warn(`[MESSAGE_WARN_RELAY_FAIL] Partner socket ${partnerId} not found for direct emit in room ${roomId}. Message from ${socket.id} not relayed.`);
+          }
+        } else {
+          console.warn(`[MESSAGE_WARN_RELAY_FAIL] No partner found in room ${roomId} for user ${socket.id} to relay message. Room users: ${JSON.stringify(roomDetails.users)}`);
+        }
       } else {
         console.warn(`[MESSAGE_WARN_SEND_FAIL] User ${socket.id} (username: ${username || 'N/A'}) tried to send to room ${roomId} but is NOT LISTED in room.users. Room users: ${JSON.stringify(roomDetails.users)}`);
       }
@@ -282,7 +286,19 @@ io.on('connection', (socket: Socket) => {
       const { roomId, signalData } = WebRTCSignalPayloadSchema.parse(payload);
       if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
           console.log(`[WEBRTC_SIGNAL] User ${socket.id} sending signal to room ${roomId}`);
-          socket.to(roomId).emit('webrtcSignal', signalData);
+          // Find partner and emit directly
+          const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+          if (partnerId) {
+            const partnerSocket = io.sockets.sockets.get(partnerId);
+            if (partnerSocket) {
+              partnerSocket.emit('webrtcSignal', signalData);
+              console.log(`[WEBRTC_SIGNAL_SENT] Signal from ${socket.id} sent directly to ${partnerId} in room ${roomId}.`);
+            } else {
+              console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] Partner socket ${partnerId} not found for direct signal emit in room ${roomId}.`);
+            }
+          } else {
+            console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] No partner found in room ${roomId} for user ${socket.id} to send signal.`);
+          }
       } else {
           console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent. Room details: ${JSON.stringify(rooms[roomId])}`);
       }
@@ -296,11 +312,16 @@ io.on('connection', (socket: Socket) => {
     try {
       const { roomId } = RoomIdPayloadSchema.parse(payload);
       if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        console.log(`[TYPING_START] User ${socket.id} started typing in room ${roomId}`);
-        socket.to(roomId).emit('partner_typing_start');
+        const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+        if (partnerId) {
+            const partnerSocket = io.sockets.sockets.get(partnerId);
+            if (partnerSocket) {
+                console.log(`[TYPING_START] User ${socket.id} started typing in room ${roomId}. Relaying to ${partnerId}.`);
+                partnerSocket.emit('partner_typing_start');
+            }
+        }
       }
-    } catch (error: any)
-      {
+    } catch (error: any) {
       console.warn(`[VALIDATION_FAIL_TYPING_START] Invalid typing_start payload from ${socket.id}: ${error.errors ? JSON.stringify(error.errors) : error.message}`);
     }
   });
@@ -309,8 +330,14 @@ io.on('connection', (socket: Socket) => {
     try {
       const { roomId } = RoomIdPayloadSchema.parse(payload);
       if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        console.log(`[TYPING_STOP] User ${socket.id} stopped typing in room ${roomId}`);
-        socket.to(roomId).emit('partner_typing_stop');
+        const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+        if (partnerId) {
+            const partnerSocket = io.sockets.sockets.get(partnerId);
+            if (partnerSocket) {
+                console.log(`[TYPING_STOP] User ${socket.id} stopped typing in room ${roomId}. Relaying to ${partnerId}.`);
+                partnerSocket.emit('partner_typing_stop');
+            }
+        }
       }
     } catch (error: any) {
       console.warn(`[VALIDATION_FAIL_TYPING_STOP] Invalid typing_stop payload from ${socket.id}: ${error.errors ? JSON.stringify(error.errors) : error.message}`);
@@ -396,3 +423,5 @@ server.listen(PORT, () => {
 });
 
 export {};
+
+    
