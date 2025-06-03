@@ -77,7 +77,7 @@ export default function AuthButtons() {
   }, [router, pathname]);
 
   if (loading) {
-    return <div className="text-xs animate-pulse">Loading...</div>;
+    return <div className="text-xs animate-pulse text-gray-500">Loading...</div>;
   }
 
   if (user) {
