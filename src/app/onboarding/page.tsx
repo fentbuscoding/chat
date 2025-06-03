@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Label } from '@/components/ui/label-themed';
 import { useToast } from '@/hooks/use-toast';
-import { useDebounce } from '@/hooks/use-debounce';
+import { useDebounce } from '@/hooks/use-debounce'; // Ensured this import path is correct
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -279,5 +279,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    
