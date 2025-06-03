@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
@@ -16,13 +16,14 @@ import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
 import { version } from '../../package.json';
+import AuthButtons from '@/components/AuthButtons'; // Import AuthButtons
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [usersOnline, setUsersOnline] = useState<number | null>(null);
   const router = useRouter();
-  const pathname = usePathname(); // Get pathname
+  const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentTheme } = useTheme();
@@ -37,12 +38,11 @@ export default function SelectionLobby() {
 
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Effect to reset isNavigating when the pathname changes
   useEffect(() => {
     if (isNavigating) {
       setIsNavigating(false);
     }
-  }, [pathname]); // Dependency on pathname
+  }, [pathname]);
 
   useEffect(() => {
     if (router) {
@@ -80,12 +80,12 @@ export default function SelectionLobby() {
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
-        setUsersOnline(0); // Set to 0 or some indicator of error
+        setUsersOnline(0);
       });
 
     } catch (error) {
         console.error("SelectionLobby: Failed to initialize socket for user count:", error);
-        setUsersOnline(0); // Set to 0 or some indicator of error
+        setUsersOnline(0);
     }
 
     return () => {
@@ -94,7 +94,6 @@ export default function SelectionLobby() {
         tempSocket?.disconnect();
       } else if (tempSocket) {
         console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
-        // Ensure all listeners are removed if the socket was created but never connected.
         tempSocket.removeAllListeners();
         tempSocket.disconnect();
       }
@@ -157,7 +156,7 @@ export default function SelectionLobby() {
     } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
-    router.push(path); // Changed from replace to push for standard navigation behavior
+    router.push(path);
   }, [router, selectedInterests, toast]);
 
 
@@ -250,8 +249,9 @@ export default function SelectionLobby() {
 
   return (
     <div className="flex flex-1 flex-col px-4 pt-4 relative">
-      <div className="absolute top-3 right-3 text-xs z-10">
-        <p className="text-gray-500 text-right">v{version}</p>
+      <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
+        <p className="text-gray-500 text-xs">v{version}</p>
+        <AuthButtons /> {/* Added AuthButtons here */}
       </div>
 
       <div className="flex-grow min-h-screen flex items-center justify-center">
@@ -348,7 +348,7 @@ export default function SelectionLobby() {
       {isSettingsOpen && (
         <div
           className={cn(
-            'fixed p-2 shadow-lg z-20', 
+            'fixed p-2 shadow-lg z-20',
             currentTheme === 'theme-7'
               ? 'bg-neutral-100 bg-opacity-70 backdrop-filter backdrop-blur-md border border-neutral-300 rounded-lg'
               : 'bg-silver border border-gray-400 rounded'
