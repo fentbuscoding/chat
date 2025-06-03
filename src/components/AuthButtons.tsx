@@ -42,7 +42,8 @@ export default function AuthButtons() {
 
 
     return () => {
-      authListener?.unsubscribe();
+      // Correctly unsubscribe from the subscription object within the data object
+      authListener.subscription?.unsubscribe();
     };
   }, [router, pathname]);
 
@@ -61,7 +62,7 @@ export default function AuthButtons() {
   if (user) {
     return (
       <div className="flex items-center space-x-2">
-        <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={user.email}>
+        <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={user.email ?? undefined}>
             {user.email}
         </span>
         <Button onClick={handleSignOut} className="text-xs p-1" variant="outline">Sign Out</Button>
