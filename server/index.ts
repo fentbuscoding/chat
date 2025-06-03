@@ -104,6 +104,7 @@ const RoomIdPayloadSchema = z.object({
 
 const SendMessagePayloadSchema = RoomIdPayloadSchema.extend({
   message: z.string().min(1).max(2000), // Message length validation
+  username: z.string().max(30).optional(), // Username length validation, optional
 });
 
 const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
@@ -226,10 +227,14 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('sendMessage', (payload: unknown) => {
     try {
-      const { roomId, message } = SendMessagePayloadSchema.parse(payload);
+      const { roomId, message, username } = SendMessagePayloadSchema.parse(payload);
       if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        socket.to(roomId).emit('receiveMessage', { senderId: socket.id, message });
-        console.log(`[MESSAGE] User ${socket.id} sent message in room ${roomId}`);
+        socket.to(roomId).emit('receiveMessage', { 
+          senderId: socket.id, 
+          message,
+          senderUsername: username || 'Stranger' // Pass username or default to 'Stranger'
+        });
+        console.log(`[MESSAGE] User ${socket.id} (username: ${username || 'N/A'}) sent message in room ${roomId}`);
       } else {
         console.warn(`[MESSAGE_WARN] User ${socket.id} tried to send message to room ${roomId} but not in room or room non-existent.`);
       }
@@ -336,3 +341,5 @@ server.listen(PORT, () => {
 });
 
 export {};
+
+    

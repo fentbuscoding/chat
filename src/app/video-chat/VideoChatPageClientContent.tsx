@@ -32,6 +32,7 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
+  senderUsername?: string; // Optional: for displaying partner's username
 }
 
 interface EmoteData {
@@ -88,8 +89,7 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
-  ownUsername: string | null; // New prop
-  // partnerUsername: string | null; // For later
+  ownUsername: string | null;
 }
 
 const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
@@ -121,7 +121,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
     if (sender === 'me') {
       return ownUsername || "Stranger";
     }
-    return "Stranger"; // Partner's username will be handled later
+    return message.senderUsername || "Stranger";
   };
 
   return (
@@ -206,7 +206,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const localTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalTypingRef = useRef(false);
 
-  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // State for user's own username
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
 
   const effectivePageTheme = isMounted ? currentTheme : 'theme-98';
 
@@ -227,13 +227,14 @@ const VideoChatPageClientContent: React.FC = () => {
     link.href = newFaviconHref;
   }, []);
 
-  const addMessage = useCallback((text: string, sender: Message['sender']) => {
+  const addMessage = useCallback((text: string, sender: Message['sender'], senderUsername?: string) => {
     setMessages((prevMessages) => {
-      const newMessageItem = {
+      const newMessageItem: Message = {
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         text,
         sender,
-        timestamp: new Date()
+        timestamp: new Date(),
+        senderUsername: sender === 'partner' ? senderUsername : undefined,
       };
       return [...prevMessages, newMessageItem];
     });
@@ -243,7 +244,6 @@ const VideoChatPageClientContent: React.FC = () => {
     roomIdRef.current = roomId;
   }, [roomId]);
 
-  // Fetch own profile username on mount if authenticated
   useEffect(() => {
     if (!isMounted) return;
 
@@ -610,8 +610,8 @@ const VideoChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
     };
 
-    const onReceiveMessage = ({ senderId, message: receivedMessage }: { senderId: string, message: string }) => {
-      addMessage(receivedMessage, 'partner');
+    const onReceiveMessage = ({ senderId, message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
+      addMessage(receivedMessage, 'partner', senderUsername);
       setIsPartnerTyping(false);
     };
 
@@ -827,11 +827,15 @@ const VideoChatPageClientContent: React.FC = () => {
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !socketRef.current?.connected || !roomIdRef.current || !isPartnerConnected) return;
-    socketRef.current.emit('sendMessage', { roomId: roomIdRef.current, message: newMessage });
-    addMessage(newMessage, 'me');
+    socketRef.current.emit('sendMessage', { 
+      roomId: roomIdRef.current, 
+      message: newMessage,
+      username: ownProfileUsername // Send own username
+    });
+    addMessage(newMessage, 'me'); // senderUsername is not needed for 'me'
     setNewMessage('');
     stopLocalTyping();
-  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping]);
+  }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, ownProfileUsername]);
 
   const handleEmojiIconHover = useCallback(() => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
@@ -1036,7 +1040,7 @@ const VideoChatPageClientContent: React.FC = () => {
                       "text-xs italic text-left pl-1 py-0.5",
                       effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
                     )}>
-                      Stranger is typing{typingDots}
+                      {messages.find(m => m.sender === 'partner')?.senderUsername || 'Stranger'} is typing{typingDots}
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -1132,3 +1136,5 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
+
+    

@@ -49,6 +49,7 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
+  senderUsername?: string; // Optional: for displaying partner's username
 }
 
 interface EmoteData {
@@ -107,8 +108,7 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
-  ownUsername: string | null; // New prop
-  // partnerUsername: string | null; // For later
+  ownUsername: string | null;
 }
 
 const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
@@ -142,8 +142,8 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
     if (sender === 'me') {
       return ownUsername || "Stranger";
     }
-    // For now, partner is always "Stranger". This will be updated later.
-    return "Stranger";
+    // For partner, use senderUsername if available, otherwise "Stranger"
+    return message.senderUsername || "Stranger";
   };
 
   return (
@@ -220,7 +220,7 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('.');
 
-  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // State for user's own username
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
 
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
@@ -253,13 +253,14 @@ const ChatPageClientContent: React.FC = () => {
     existingLink.href = newFaviconHref;
   }, []);
 
-  const addMessageToList = useCallback((text: string, sender: Message['sender'], idSuffix?: string) => {
+  const addMessageToList = useCallback((text: string, sender: Message['sender'], senderUsername?: string, idSuffix?: string) => {
     setMessages((prevMessages) => {
       const newMessageItem: Message = {
         id: `${Date.now()}-${idSuffix || Math.random().toString(36).substring(2, 7)}`,
         text,
         sender,
-        timestamp: new Date()
+        timestamp: new Date(),
+        senderUsername: sender === 'partner' ? senderUsername : undefined,
       };
       return [...prevMessages, newMessageItem];
     });
@@ -269,7 +270,6 @@ const ChatPageClientContent: React.FC = () => {
     roomIdRef.current = roomId;
   }, [roomId]);
 
-  // Fetch own profile username on mount if authenticated
   useEffect(() => {
     if (!isMounted) return;
 
@@ -388,8 +388,8 @@ const ChatPageClientContent: React.FC = () => {
     roomId,
     partnerInterests,
     interests,
-    changeFavicon,
-    addMessageToList
+    changeFavicon
+    // addMessageToList is not needed here as this effect manages system messages directly
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -408,7 +408,7 @@ const ChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected && roomIdRef.current) {
         const roomToLeave = roomIdRef.current;
-        addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', 'self-disconnect');
+        addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect');
         currentSocket.emit('leaveChat', { roomId: roomToLeave });
 
         setIsPartnerConnected(false);
@@ -422,7 +422,6 @@ const ChatPageClientContent: React.FC = () => {
 
     } else if (isFindingPartner) {
         setIsFindingPartner(false);
-        // System message "Stopped searching..." is handled by the useEffect reacting to state change
     } else {
         if (!currentSocket.connected) {
           toast({ title: "Connecting...", description: "Attempting to connect to chat server. Please wait.", variant: "default" });
@@ -432,11 +431,10 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-    // Ensure the flag is reset after the operations
     setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 100);
   }, [
     isPartnerConnected, isFindingPartner, interests,
-    toast, addMessageToList // socketRef, roomIdRef are refs, don't need to be in deps
+    toast, addMessageToList
   ]);
 
   useEffect(() => {
@@ -487,13 +485,13 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
     };
 
-    const onReceiveMessage = ({ message: receivedMessage }: { senderId: string, message: string }) => {
-      addMessageToList(receivedMessage, 'partner');
+    const onReceiveMessage = ({ message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
+      addMessageToList(receivedMessage, 'partner', senderUsername);
       setIsPartnerTyping(false);
     };
 
     const onPartnerLeft = () => {
-      addMessageToList(SYS_MSG_PARTNER_DISCONNECTED, 'system', 'partner-left');
+      addMessageToList(SYS_MSG_PARTNER_DISCONNECTED, 'system', undefined, 'partner-left');
       setIsPartnerLeftRecently(true);
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
@@ -656,11 +654,15 @@ const ChatPageClientContent: React.FC = () => {
     const trimmedMessage = newMessage.trim();
     if (!trimmedMessage || !socketRef.current?.connected || !roomIdRef.current || !isPartnerConnected) return;
 
-    socketRef.current.emit('sendMessage', { roomId: roomIdRef.current, message: trimmedMessage });
-    addMessageToList(trimmedMessage, 'me');
+    socketRef.current.emit('sendMessage', { 
+      roomId: roomIdRef.current, 
+      message: trimmedMessage,
+      username: ownProfileUsername // Send own username
+    });
+    addMessageToList(trimmedMessage, 'me'); // senderUsername is not needed for 'me'
     setNewMessage('');
     stopLocalTyping();
-  }, [newMessage, isPartnerConnected, addMessageToList, stopLocalTyping]);
+  }, [newMessage, isPartnerConnected, addMessageToList, stopLocalTyping, ownProfileUsername]);
 
 
   const handleEmojiIconHover = useCallback(() => {
@@ -785,7 +787,7 @@ const ChatPageClientContent: React.FC = () => {
                     "text-xs italic text-left pl-1 py-0.5",
                     effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
                   )}>
-                    Stranger is typing{typingDots}
+                    {messages.find(m => m.sender === 'partner')?.senderUsername || 'Stranger'} is typing{typingDots}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -900,3 +902,5 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
+
+    
