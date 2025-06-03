@@ -29,23 +29,31 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        // If you want new email/password signups to also go to onboarding:
-        // emailRedirectTo: `${window.location.origin}/onboarding`, 
+        // For email/password signups, if you have email confirmation enabled,
+        // the user will get an email. The redirect in the email link is configured in Supabase dashboard.
+        // If you want to specify a redirect after confirmation for THIS flow, it's done here.
+        // For OAuth, it's in signInWithOAuth.
+        emailRedirectTo: `${window.location.origin}/onboarding`, 
       }
     });
 
     if (signUpError) {
       setError(signUpError.message);
     } else if (data.user && data.user.identities?.length === 0) {
+      // This condition might indicate the user already exists but is unconfirmed.
+      // Supabase returns a user object but no session in this case.
       setError("User might already exist or is unconfirmed. If you signed up, check your email to confirm. Otherwise, try signing in or use a different email.");
     } else if (data.user) {
+      // If user is created and there's a session (e.g. auto-confirm is on, or email confirmed via magic link)
       if (data.session) {
-        router.push('/'); // Or /onboarding if you want to force it here too
+        router.push('/onboarding'); // Directly to onboarding if session exists
         router.refresh();
       } else {
-        setMessage('Sign up successful! Please check your email for a confirmation link to complete your registration.');
+        // If no session, means email confirmation is likely pending
+        setMessage('Sign up successful! Please check your email for a confirmation link to complete your registration. Once confirmed, you will be guided through profile setup.');
       }
     } else {
+        // Fallback for other unexpected scenarios
         setError("An unknown error occurred during sign up. Please try again.");
     }
     setLoading(false);
@@ -53,8 +61,8 @@ export default function SignUpPage() {
 
   const handleOAuthSignIn = async (provider: 'google' | 'discord' | 'spotify') => {
     setError(null);
-    setMessage(null); // Clear previous messages
-    setLoading(true); // Optionally set loading state for OAuth buttons too
+    setMessage(null);
+    setLoading(true);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -64,8 +72,9 @@ export default function SignUpPage() {
 
     if (oauthError) {
       setError(oauthError.message);
+      setLoading(false); // Reset loading on error
     }
-    // setLoading(false); // No need to set loading to false here as page will redirect
+    // On success, Supabase handles redirection
   };
 
   return (

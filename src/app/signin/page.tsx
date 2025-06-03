@@ -34,7 +34,7 @@ export default function SignInPage() {
 
   const handleOAuthSignIn = async (provider: 'google' | 'discord' | 'spotify') => {
     setError(null);
-    setLoading(true); // Optionally set loading state for OAuth buttons too
+    setLoading(true);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -44,8 +44,9 @@ export default function SignInPage() {
 
     if (oauthError) {
       setError(oauthError.message);
+      setLoading(false); // Reset loading on error
     }
-    // setLoading(false); // No need to set loading to false here as page will redirect
+    // On success, Supabase handles redirection, so no need to setLoading(false) here
   };
 
   return (
