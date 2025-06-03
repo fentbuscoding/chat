@@ -207,12 +207,12 @@ io.on('connection', (socket: Socket) => {
 
 
           socket.emit('partnerFound', {
-            partnerId: matchedPartner.id, // Send partner's actual socket ID
+            partnerId: matchedPartner.id,
             roomId,
             interests: matchedPartner.interests,
           });
           partnerSocket.emit('partnerFound', {
-            partnerId: currentUser.id, // Send current user's actual socket ID
+            partnerId: currentUser.id,
             roomId,
             interests: currentUser.interests,
           });
@@ -250,6 +250,9 @@ io.on('connection', (socket: Socket) => {
         return;
       }
       console.log(`[MESSAGE_DEBUG_ROOM_DETAILS] Room ${roomId} details: ${JSON.stringify(roomDetails)}`);
+      const socketsInRoom = io.sockets.adapter.rooms.get(roomId);
+      console.log(`[MESSAGE_DEBUG_SOCKETS_IN_ROOM] Sockets currently in Socket.IO room ${roomId}: ${socketsInRoom ? Array.from(socketsInRoom).join(', ') : 'NONE'}`);
+
 
       if (roomDetails.users.includes(socket.id)) {
         const senderUsernameOrDefault = username || 'Stranger';
@@ -263,14 +266,9 @@ io.on('connection', (socket: Socket) => {
         console.log(`[MESSAGE_DEBUG_PARTNER_ID] Determined partnerId for message relay: ${partnerId} in room ${roomId}.`);
 
         if (partnerId) {
-          const partnerSocket = io.sockets.sockets.get(partnerId);
-          if (partnerSocket) {
-            console.log(`[MESSAGE_RELAY_DIRECT] Relaying message from ${socket.id} directly to partner ${partnerId} in room ${roomId}. Sender username: ${senderUsernameOrDefault}.`);
-            partnerSocket.emit('receiveMessage', messagePayload);
-            console.log(`[MESSAGE_RELAY_DIRECT_SENT] 'receiveMessage' emitted directly to partner ${partnerId}.`);
-          } else {
-            console.warn(`[MESSAGE_WARN_RELAY_FAIL] Partner socket ${partnerId} not found for direct emit in room ${roomId}. Message from ${socket.id} not relayed.`);
-          }
+          console.log(`[MESSAGE_RELAY_DIRECT_IO_TO] Relaying message from ${socket.id} directly to partner ${partnerId} (via io.to) in room ${roomId}. Sender username: ${senderUsernameOrDefault}.`);
+          io.to(partnerId).emit('receiveMessage', messagePayload);
+          console.log(`[MESSAGE_RELAY_DIRECT_IO_TO_SENT] 'receiveMessage' emitted via io.to(${partnerId}).`);
         } else {
           console.warn(`[MESSAGE_WARN_RELAY_FAIL] No partner found in room ${roomId} for user ${socket.id} to relay message. Room users: ${JSON.stringify(roomDetails.users)}`);
         }
@@ -292,13 +290,8 @@ io.on('connection', (socket: Socket) => {
           console.log(`[WEBRTC_SIGNAL] User ${socket.id} sending signal to room ${roomId}`);
           const partnerId = roomDetails.users.find(id => id !== socket.id);
           if (partnerId) {
-            const partnerSocket = io.sockets.sockets.get(partnerId);
-            if (partnerSocket) {
-              partnerSocket.emit('webrtcSignal', signalData);
-              console.log(`[WEBRTC_SIGNAL_SENT] Signal from ${socket.id} sent directly to ${partnerId} in room ${roomId}.`);
-            } else {
-              console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] Partner socket ${partnerId} not found for direct signal emit in room ${roomId}.`);
-            }
+            io.to(partnerId).emit('webrtcSignal', signalData);
+            console.log(`[WEBRTC_SIGNAL_SENT_IO_TO] Signal from ${socket.id} sent via io.to(${partnerId}) in room ${roomId}.`);
           } else {
             console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] No partner found in room ${roomId} for user ${socket.id} to send signal.`);
           }
@@ -318,11 +311,8 @@ io.on('connection', (socket: Socket) => {
       if (roomDetails && roomDetails.users.includes(socket.id)) {
         const partnerId = roomDetails.users.find(id => id !== socket.id);
         if (partnerId) {
-            const partnerSocket = io.sockets.sockets.get(partnerId);
-            if (partnerSocket) {
-                console.log(`[TYPING_START] User ${socket.id} started typing in room ${roomId}. Relaying to ${partnerId}.`);
-                partnerSocket.emit('partner_typing_start');
-            }
+            console.log(`[TYPING_START] User ${socket.id} started typing in room ${roomId}. Relaying to ${partnerId} via io.to.`);
+            io.to(partnerId).emit('partner_typing_start');
         }
       }
     } catch (error: any) {
@@ -337,11 +327,8 @@ io.on('connection', (socket: Socket) => {
       if (roomDetails && roomDetails.users.includes(socket.id)) {
         const partnerId = roomDetails.users.find(id => id !== socket.id);
         if (partnerId) {
-            const partnerSocket = io.sockets.sockets.get(partnerId);
-            if (partnerSocket) {
-                console.log(`[TYPING_STOP] User ${socket.id} stopped typing in room ${roomId}. Relaying to ${partnerId}.`);
-                partnerSocket.emit('partner_typing_stop');
-            }
+            console.log(`[TYPING_STOP] User ${socket.id} stopped typing in room ${roomId}. Relaying to ${partnerId} via io.to.`);
+            io.to(partnerId).emit('partner_typing_stop');
         }
       }
     } catch (error: any) {
@@ -364,14 +351,11 @@ io.on('connection', (socket: Socket) => {
                 console.log(`[CLEANUP_USER_IN_ROOM] User ${socket.id} was in room ${room.id}. Notifying partner and deleting room.`);
                 const partnerId = room.users.find(id => id !== socket.id);
                 if (partnerId) {
+                    console.log(`[CLEANUP_USER_EMIT_PARTNER_LEFT_IO_TO] Emitting 'partnerLeft' via io.to(${partnerId}) for room ${room.id}.`);
+                    io.to(partnerId).emit('partnerLeft');
+                    // Also ensure partner's socket instance leaves the room if possible
                     const partnerSocket = io.sockets.sockets.get(partnerId);
-                    if (partnerSocket && partnerSocket.connected) {
-                      console.log(`[CLEANUP_USER_EMIT_PARTNER_LEFT] Emitting 'partnerLeft' to ${partnerId} in room ${room.id}.`);
-                      partnerSocket.emit('partnerLeft');
-                      partnerSocket.leave(room.id);
-                    } else {
-                      console.log(`[CLEANUP_USER_WARN_PARTNER_SOCKET] Partner ${partnerId} socket not found or disconnected for room ${room.id}.`);
-                    }
+                    if (partnerSocket) partnerSocket.leave(room.id); else console.warn(`[CLEANUP_USER_WARN] Partner socket ${partnerId} not found to explicitly leave room ${room.id}.`);
                 }
                 delete rooms[room.id];
                 console.log(`[CLEANUP_USER_ROOM_DELETED] Room ${room.id} deleted.`);
@@ -394,14 +378,14 @@ io.on('connection', (socket: Socket) => {
           console.log(`[LEAVE_CHAT_SELF_LEFT_ROOM] User ${socket.id} left Socket.IO room ${roomId}`);
 
           if (partnerId) {
+              console.log(`[LEAVE_CHAT_NOTIFY_PARTNER_IO_TO] Emitting 'partnerLeft' via io.to(${partnerId}) for room ${roomId}`);
+              io.to(partnerId).emit('partnerLeft');
               const partnerSocket = io.sockets.sockets.get(partnerId);
-              if (partnerSocket && partnerSocket.connected) {
-                  console.log(`[LEAVE_CHAT_NOTIFY_PARTNER] Emitting 'partnerLeft' to ${partnerId} for room ${roomId}`);
-                  partnerSocket.emit('partnerLeft');
-                  partnerSocket.leave(roomId);
-                  console.log(`[LEAVE_CHAT_PARTNER_LEFT_ROOM] Partner ${partnerId} made to leave Socket.IO room ${roomId}`);
+              if (partnerSocket) {
+                 partnerSocket.leave(roomId);
+                 console.log(`[LEAVE_CHAT_PARTNER_LEFT_ROOM] Partner ${partnerId} made to leave Socket.IO room ${roomId}`);
               } else {
-                 console.log(`[LEAVE_CHAT_WARN_PARTNER_SOCKET] Partner ${partnerId} socket not found or disconnected when ${socket.id} left room ${roomId}`);
+                 console.log(`[LEAVE_CHAT_WARN_PARTNER_SOCKET] Partner ${partnerId} socket not found to explicitly leave room ${roomId} when ${socket.id} left.`);
               }
           }
           delete rooms[roomId];
