@@ -9,63 +9,85 @@ import { usePathname, useRouter } from 'next/navigation';
 
 export default function AuthButtons() {
   const [user, setUser] = useState<User | null>(null);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // Check initial session
-    async function getInitialSession() {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
-        } catch (error) {
-            console.error("Error fetching initial session:", error);
-        } finally {
-            setLoading(false);
-        }
-    }
-    getInitialSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    setLoading(true);
+    const fetchUserAndProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found
+          console.error("Error fetching profile username for AuthButtons:", profileError);
+        } else if (profileData) {
+          setProfileUsername(profileData.username);
+        } else {
+          setProfileUsername(null); // No profile or username found
+        }
+      } else {
+        setProfileUsername(null);
+      }
       setLoading(false);
-      // If user signs out from a non-auth page, redirect to home
-      if (event === 'SIGNED_OUT' && pathname !== '/' && !pathname.startsWith('/signin') && !pathname.startsWith('/signup')) {
+    };
+
+    fetchUserAndProfile();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error("Error fetching profile username on auth change:", profileError);
+        } else if (profileData) {
+          setProfileUsername(profileData.username);
+        } else {
+          setProfileUsername(null);
+        }
+      } else {
+        setProfileUsername(null);
+      }
+      setLoading(false);
+
+      if (_event === 'SIGNED_OUT' && pathname !== '/' && !pathname.startsWith('/signin') && !pathname.startsWith('/signup')) {
         router.push('/');
       }
-      // If user signs in from an auth page, redirect to home
-      if (event === 'SIGNED_IN' && (pathname.startsWith('/signin') || pathname.startsWith('/signup'))) {
+      if (_event === 'SIGNED_IN' && (pathname.startsWith('/signin') || pathname.startsWith('/signup'))) {
         router.push('/');
       }
     });
 
-
     return () => {
-      // Correctly unsubscribe from the subscription object within the data object
       authListener.subscription?.unsubscribe();
     };
   }, [router, pathname]);
-
-  const handleSignOut = async () => {
-    setLoading(true);
-    await supabase.auth.signOut();
-    // setUser(null); // onAuthStateChange will handle this
-    // No need to manually push, onAuthStateChange handles it if not on specific pages
-    setLoading(false);
-  };
 
   if (loading) {
     return <div className="text-xs animate-pulse">Loading...</div>;
   }
 
   if (user) {
+    const displayName = profileUsername || user.email;
     return (
       <div className="flex items-center space-x-2">
-        <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={user.email ?? undefined}>
-            {user.email}
+        <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={displayName ?? undefined}>
+            {displayName}
         </span>
-        <Button onClick={handleSignOut} className="text-xs p-1" variant="outline">Sign Out</Button>
+        <Button onClick={async () => { setLoading(true); await supabase.auth.signOut(); setLoading(false);}} className="text-xs p-1" variant="outline">Sign Out</Button>
       </div>
     );
   }

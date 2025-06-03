@@ -12,7 +12,8 @@ import { useTheme } from '@/components/theme-provider';
 import { cn, playSound } from '@/lib/utils';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
 import HomeButton from '@/components/HomeButton';
-import { io, type Socket } from 'socket.io-client'; // Ensure Socket type is imported
+import { io, type Socket } from 'socket.io-client';
+import { supabase } from '@/lib/supabase'; // Import Supabase client
 
 // --- Constants ---
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
@@ -106,9 +107,11 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
+  ownUsername: string | null; // New prop
+  // partnerUsername: string | null; // For later
 }
 
-const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames }: RowProps) => {
+const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
   if (message.sender === 'system') {
     return (
       <div className="mb-2">
@@ -135,6 +138,13 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
     : [message.text]
   ), [message.text, theme, pickerEmojiFilenames]);
 
+  const getDisplayName = (sender: 'me' | 'partner') => {
+    if (sender === 'me') {
+      return ownUsername || "Stranger";
+    }
+    // For now, partner is always "Stranger". This will be updated later.
+    return "Stranger";
+  };
 
   return (
     <>
@@ -147,13 +157,13 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
       <div className="mb-1 break-words">
         {message.sender === 'me' && (
           <>
-            <span className="text-blue-600 font-bold mr-1">You:</span>
+            <span className="text-blue-600 font-bold mr-1">{getDisplayName('me')}:</span>
             <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
         {message.sender === 'partner' && (
           <>
-            <span className="text-red-600 font-bold mr-1">Stranger:</span>
+            <span className="text-red-600 font-bold mr-1">{getDisplayName('partner')}:</span>
             <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
@@ -210,6 +220,8 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('.');
 
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // State for user's own username
+
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
@@ -256,6 +268,29 @@ const ChatPageClientContent: React.FC = () => {
   useEffect(() => {
     roomIdRef.current = roomId;
   }, [roomId]);
+
+  // Fetch own profile username on mount if authenticated
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const fetchOwnProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
+        } else if (profile) {
+          setOwnProfileUsername(profile.username);
+        }
+      }
+    };
+    fetchOwnProfile();
+  }, [isMounted]);
+
 
   useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
@@ -397,9 +432,8 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-    // Ensure the flag is reset after the operations, potentially with a small delay if needed for state updates to propagate
-    // For now, immediate reset. If issues persist, consider setTimeout(..., 0)
-    isProcessingFindOrDisconnect.current = false;
+    // Ensure the flag is reset after the operations
+    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 100);
   }, [
     isPartnerConnected, isFindingPartner, interests,
     toast, addMessageToList // socketRef, roomIdRef are refs, don't need to be in deps
@@ -743,6 +777,7 @@ const ChatPageClientContent: React.FC = () => {
                     theme={effectivePageTheme}
                     previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined}
                     pickerEmojiFilenames={pickerEmojiFilenames}
+                    ownUsername={ownProfileUsername}
                   />
                 ))}
                 {isPartnerTyping && (
