@@ -327,6 +327,7 @@ const ChatPageClientContent: React.FC = () => {
       if (justStartedFinding || justFinishedRecentDisconnectAndIsSearching) {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
+        // Do not filter SYS_MSG_YOU_DISCONNECTED here, as it might have been added by handleFindOrDisconnectPartner
         updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search');
       }
     } else if (isPartnerConnected) {
@@ -345,6 +346,7 @@ const ChatPageClientContent: React.FC = () => {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_SEARCHING_PARTNER.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
+        updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED.toLowerCase());
         updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_CONNECTED_PARTNER, 'connect');
 
         if (interests.length > 0 && partnerInterests.length > 0) {
@@ -358,9 +360,8 @@ const ChatPageClientContent: React.FC = () => {
             changeFavicon(FAVICON_SUCCESS);
          }
       }
-    } else { // Not finding, not connected (idle)
+    } else { 
       changeFavicon(FAVICON_IDLE);
-      // If we were finding and now we are not (and not because we connected or due to error)
       if (prevIsFindingPartnerRef.current && !isPartnerConnected && !roomIdRef.current && !socketError) {
          const isSearchingMsgPresent = updatedMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes(SYS_MSG_SEARCHING_PARTNER.toLowerCase()));
          if (isSearchingMsgPresent) {
@@ -368,8 +369,6 @@ const ChatPageClientContent: React.FC = () => {
              updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_STOPPED_SEARCHING, 'stopsearch');
          }
       }
-      // If we were connected and now we are not (and it wasn't a partnerLeft or selfDisconnect event, but a generic stop)
-      // This scenario is largely covered by isSelfDisconnectedRecently and isPartnerLeftRecently
     }
 
     const messagesHaveChanged = updatedMessages.length !== messages.length ||
@@ -386,12 +385,10 @@ const ChatPageClientContent: React.FC = () => {
   }, [
     isPartnerConnected, isFindingPartner, socketError,
     isSelfDisconnectedRecently, isPartnerLeftRecently,
-    messages, // This dependency ensures re-evaluation if messages are added by other means
-    partnerInterests, // This dependency is fine
-    interests, // This dependency is fine
-    changeFavicon // This dependency is fine
-    // addMessageToList should not be a dependency of this effect as it would cause loops.
-    // This effect's purpose is to manage system messages and favicons based on state changes.
+    messages, 
+    partnerInterests, 
+    interests, 
+    changeFavicon 
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -409,22 +406,33 @@ const ChatPageClientContent: React.FC = () => {
     }
 
     if (isPartnerConnected && roomIdRef.current) {
-        // User wants to DISCONNECT from current partner
+        // User wants to DISCONNECT from current partner (SKIP behavior)
         const roomToLeave = roomIdRef.current;
-        addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect');
-        currentSocket.emit('leaveChat', { roomId: roomToLeave });
+        addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
+        
+        if (currentSocket.connected) {
+          currentSocket.emit('leaveChat', { roomId: roomToLeave });
+        }
 
         setIsPartnerConnected(false);
-        setIsFindingPartner(false); // Explicitly stop finding after disconnect
         setIsPartnerTyping(false);
         setRoomId(null);
         setPartnerInterests([]);
-        setIsSelfDisconnectedRecently(true);
+        setIsSelfDisconnectedRecently(true); // For favicon and message effect
+
+        // Immediately start finding a new partner
+        setIsFindingPartner(true);
+        if (currentSocket.connected) {
+          currentSocket.emit('findPartner', { chatType: 'text', interests });
+        } else {
+          toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
+          setSocketError(true);
+          setIsFindingPartner(false); // Stop searching if not connected
+        }
 
     } else if (isFindingPartner) {
         // User wants to STOP SEARCHING
         setIsFindingPartner(false);
-        // No need to emit to server, client just stops "expecting" a match for now
         // System message for "stopped searching" will be handled by the useEffect
     } else {
         // User wants to FIND PARTNER
@@ -437,11 +445,10 @@ const ChatPageClientContent: React.FC = () => {
         // System message for "searching" will be handled by the useEffect
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-    // Release the processing flag after a short delay to prevent rapid clicks
-    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 200); // Slightly increased delay
+    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 300); 
   }, [
     isPartnerConnected, isFindingPartner, interests,
-    toast, addMessageToList // addMessageToList is a dependency for adding system messages
+    toast, addMessageToList
   ]);
 
   useEffect(() => {
@@ -466,7 +473,6 @@ const ChatPageClientContent: React.FC = () => {
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
             console.log(`${LOG_PREFIX}: Automatically starting partner search on initial connect.`);
             setIsFindingPartner(true);
-            // Message for "searching" handled by useEffect
             newSocket.emit('findPartner', { chatType: 'text', interests });
             autoSearchDoneRef.current = true;
         }
@@ -475,28 +481,22 @@ const ChatPageClientContent: React.FC = () => {
     const onPartnerFound = ({ roomId: rId, interests: pInterests, partnerUsername }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string }) => {
       console.log(`${LOG_PREFIX}: Partner found event received`, { roomId: rId, partnerInterests: pInterests, partnerUsername });
       playSound("Match.wav");
-      setMessages([]); // Clear previous messages
+      setMessages([]); 
       setRoomId(rId);
       setPartnerInterests(pInterests || []);
-      // Note: We don't set partner's username here directly from this event.
-      // It will come with messages. If we wanted to display it elsewhere, we could store it.
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      // System messages for connection handled by useEffect
     };
 
     const onWaitingForPartner = () => {
       console.log(`${LOG_PREFIX}: Server acknowledged 'waitingForPartner' for ${newSocket.id}`);
-      // isFindingPartner should already be true if this is received.
-      // useEffect handles the "Searching..." message.
     };
 
     const onFindPartnerCooldown = () => {
       toast({ title: "Slow down!", description: "Please wait a moment before finding a new partner.", variant: "default" });
-      setIsFindingPartner(false); // Stop "Searching..." visual state
-      // "Stopped searching" message handled by useEffect
+      setIsFindingPartner(false); 
     };
 
     const onReceiveMessage = ({ message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
@@ -505,8 +505,7 @@ const ChatPageClientContent: React.FC = () => {
     };
 
     const onPartnerLeft = () => {
-      // System message for partner disconnect handled by useEffect
-      setIsPartnerLeftRecently(true); // This triggers the useEffect logic
+      setIsPartnerLeftRecently(true); 
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
@@ -520,7 +519,6 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // Favicon/message handled by useEffect based on socketError
     };
 
     const onConnectError = (err: Error) => {
@@ -533,7 +531,6 @@ const ChatPageClientContent: React.FC = () => {
         });
         setIsFindingPartner(false);
         setIsPartnerTyping(false);
-        // Favicon/message handled by useEffect based on socketError
     };
 
     const onPartnerTypingStart = () => setIsPartnerTyping(true);
@@ -918,3 +915,5 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
+
+    
