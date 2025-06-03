@@ -140,7 +140,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const getDisplayName = (sender: 'me' | 'partner') => {
     if (sender === 'me') {
-      return ownUsername || "Stranger";
+      return ownUsername || "You"; // Changed from "Stranger" to "You"
     }
     // For partner, use senderUsername if available, otherwise "Stranger"
     return message.senderUsername || "Stranger";
@@ -902,5 +902,3 @@ const ChatPageClientContent: React.FC = () => {
 };
 
 export default ChatPageClientContent;
-
-    

@@ -119,7 +119,7 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
   
   const getDisplayName = (sender: 'me' | 'partner') => {
     if (sender === 'me') {
-      return ownUsername || "Stranger";
+      return ownUsername || "You"; // Changed from "Stranger" to "You"
     }
     return message.senderUsername || "Stranger";
   };
@@ -1136,5 +1136,3 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 
 export default VideoChatPageClientContent;
-
-    
