@@ -233,7 +233,7 @@ io.on('connection', (socket: Socket) => {
         socket.emit('waitingForPartner');
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid findPartner payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid findPartner payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
       socket.emit('error', { message: 'Invalid payload for findPartner.' });
     }
   });
@@ -253,10 +253,10 @@ io.on('connection', (socket: Socket) => {
       } else {
         const roomExists = !!rooms[roomId];
         const userInRoom = roomExists && rooms[roomId].users.includes(socket.id);
-        console.warn(`[MESSAGE_WARN] User ${socket.id} (username: ${username || 'N/A'}) tried to send message to room ${roomId}. Room exists: ${roomExists}, User in room: ${userInRoom}. Room users: ${rooms[roomId]?.users}`);
+        console.warn(`[MESSAGE_WARN] User ${socket.id} (username: ${username || 'N/A'}) tried to send message to room ${roomId}. Room exists: ${roomExists}, User in room: ${userInRoom}. Room users: ${JSON.stringify(rooms[roomId]?.users)}`);
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid sendMessage payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid sendMessage payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
       socket.emit('error', { message: 'Invalid payload for sendMessage.' });
     }
   });
@@ -271,7 +271,7 @@ io.on('connection', (socket: Socket) => {
           console.warn(`[WEBRTC_SIGNAL_WARN] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent.`);
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid webrtcSignal payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid webrtcSignal payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
       socket.emit('error', { message: 'Invalid payload for webrtcSignal.' });
     }
   });
@@ -283,7 +283,7 @@ io.on('connection', (socket: Socket) => {
         socket.to(roomId).emit('partner_typing_start');
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid typing_start payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid typing_start payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
     }
   });
 
@@ -294,7 +294,7 @@ io.on('connection', (socket: Socket) => {
         socket.to(roomId).emit('partner_typing_stop');
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid typing_stop payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid typing_stop payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
     }
   });
 
@@ -357,10 +357,10 @@ io.on('connection', (socket: Socket) => {
       } else {
           const roomExists = !!rooms[roomId];
           const userInRoom = roomExists && rooms[roomId].users.includes(socket.id);
-          console.warn(`[LEAVE_CHAT_WARN] User ${socket.id} tried to leave room ${roomId}, but room was not found (${roomExists}) or user not in it (${userInRoom}). Room users: ${rooms[roomId]?.users}`);
+          console.warn(`[LEAVE_CHAT_WARN] User ${socket.id} tried to leave room ${roomId}, but room was not found (${roomExists}) or user not in it (${userInRoom}). Room users: ${JSON.stringify(rooms[roomId]?.users)}`);
       }
     } catch (error: any) {
-      console.warn(`[VALIDATION_FAIL] Invalid leaveChat payload from ${socket.id}:`, error.errors || error.message);
+      console.warn(`[VALIDATION_FAIL] Invalid leaveChat payload from ${socket.id}: ${(error.errors ? JSON.stringify(error.errors) : error.message)}`);
       socket.emit('error', { message: 'Invalid payload for leaveChat.' });
     }
   });
@@ -376,4 +376,6 @@ server.listen(PORT, () => {
 });
 
 export {};
+    
+
     
