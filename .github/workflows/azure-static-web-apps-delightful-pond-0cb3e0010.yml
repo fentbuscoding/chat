@@ -47,10 +47,11 @@ jobs:
           output_location: "" # Leave blank for Next.js – it auto-detects
           github_id_token: ${{ steps.idtoken.outputs.result }}
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SOCKET_SERVER_URL: ${{ secrets.SOCKET_SERVER_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SOCKET_SERVER_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_SERVER_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
 
   # Optional: Closes preview environments for closed PRs
   close_pull_request_job:
