@@ -13,7 +13,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn, playSound } from '@/lib/utils';
 import HomeButton from '@/components/HomeButton';
 import { io, type Socket } from 'socket.io-client';
-import { supabase } from '@/lib/supabase'; // Import Supabase client
+import { supabase } from '@/lib/supabase'; 
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -25,9 +25,9 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60;
-const logPrefix = "VideoChatPage";
+const LOG_PREFIX = "VideoChatPageClientContent"; // Corrected logPrefix
 
-// Favicon Constants (ensure these are defined if used by changeFavicon)
+// Favicon Constants
 const FAVICON_IDLE = '/Idle.ico';
 const FAVICON_SEARCHING = '/Searching.ico';
 const FAVICON_SUCCESS = '/Success.ico';
@@ -272,7 +272,7 @@ const VideoChatPageClientContent: React.FC = () => {
           .eq('id', user.id)
           .single();
         if (error && error.code !== 'PGRST116') {
-          console.error(`${logPrefix}: Error fetching own profile:`, error);
+          console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
         } else if (profile) {
           setOwnProfileUsername(profile.username);
         }
@@ -303,15 +303,13 @@ const VideoChatPageClientContent: React.FC = () => {
 
     if (socketError) {
       changeFavicon(FAVICON_SKIPPED);
-    } else if (isSelfDisconnectedRecently) { // User A (skipper) just disconnected
+    } else if (isSelfDisconnectedRecently) {
       changeFavicon(FAVICON_SKIPPED);
-      // "You have disconnected." is added directly in handleFindOrDisconnectPartner.
-      // Favicon will change to searching when isFindingPartner becomes true.
       skippedFaviconTimeoutRef.current = setTimeout(() => {
           setIsSelfDisconnectedRecently(false);
           if (isFindingPartner) changeFavicon(FAVICON_SEARCHING);
       }, 500);
-    } else if (isPartnerLeftRecently) { // User B (was skipped)
+    } else if (isPartnerLeftRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => {
           setIsPartnerLeftRecently(false);
@@ -322,9 +320,10 @@ const VideoChatPageClientContent: React.FC = () => {
       updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED, 'partner-left');
     } else if (isFindingPartner) {
       changeFavicon(FAVICON_SEARCHING);
-      const justStartedFinding = !prevIsFindingPartnerRef.current && !isPartnerConnected;
-      // Only add "Searching..." if not coming from a self-disconnect (where "You have disconnected" was just added)
-      if (justStartedFinding && !prevIsSelfDisconnectedRecentlyRef.current) {
+      const justStartedFindingAfterSkip = prevIsSelfDisconnectedRecentlyRef.current && !prevIsFindingPartnerRef.current;
+      const initialSearch = !prevIsFindingPartnerRef.current && !isPartnerConnected && !prevIsSelfDisconnectedRecentlyRef.current;
+
+      if (initialSearch || justStartedFindingAfterSkip) {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
         updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search');
@@ -381,7 +380,7 @@ const VideoChatPageClientContent: React.FC = () => {
     prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently;
     prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
 
-  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, messages, partnerInterests, interests, changeFavicon, roomIdRef]);
+  }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, messages, partnerInterests, interests, changeFavicon]);
 
 
   const getCameraStream = useCallback(async () => {
@@ -407,7 +406,7 @@ const VideoChatPageClientContent: React.FC = () => {
       }
       return stream;
     } catch (error) {
-      console.error(`${logPrefix}: Error accessing camera:`, error);
+      console.error(`${LOG_PREFIX}: Error accessing camera:`, error);
       setHasCameraPermission(false);
        toast({
           variant: 'destructive',
@@ -419,7 +418,7 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [toast]);
 
   const cleanupConnections = useCallback((stopLocalStream = true) => {
-    console.log(`${logPrefix}: cleanupConnections called. Stop local stream:`, stopLocalStream);
+    console.log(`${LOG_PREFIX}: cleanupConnections called. Stop local stream:`, stopLocalStream);
     if (peerConnectionRef.current) {
         peerConnectionRef.current.ontrack = null;
         peerConnectionRef.current.onicecandidate = null;
@@ -431,18 +430,18 @@ const VideoChatPageClientContent: React.FC = () => {
             try {
                 peerConnectionRef.current?.removeTrack(sender);
             } catch (e) {
-                console.warn(`${logPrefix}: Error removing track from peer connection:`, e);
+                console.warn(`${LOG_PREFIX}: Error removing track from peer connection:`, e);
             }
         });
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
-        console.log(`${logPrefix}: PeerConnection closed.`);
+        console.log(`${LOG_PREFIX}: PeerConnection closed.`);
     }
     if (stopLocalStream && localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
-        console.log(`${logPrefix}: Local stream stopped and video ref cleared.`);
+        console.log(`${LOG_PREFIX}: Local stream stopped and video ref cleared.`);
     } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject && stopLocalStream === false) {
         localVideoRef.current.srcObject = localStreamRef.current;
     }
@@ -456,10 +455,10 @@ const VideoChatPageClientContent: React.FC = () => {
     const currentRId = roomIdRef.current;
 
     if (!currentActiveSocket || !currentRId) {
-        console.error(`${logPrefix}: setupWebRTC called with invalid socket or roomId. Socket: ${currentActiveSocket}, RoomID: ${currentRId}`);
+        console.error(`${LOG_PREFIX}: setupWebRTC called with invalid socket or roomId. Socket: ${currentActiveSocket}, RoomID: ${currentRId}`);
         return;
     }
-    console.log(`${logPrefix}: Setting up WebRTC. Initiator:`, initiator, "Room ID:", currentRId);
+    console.log(`${LOG_PREFIX}: Setting up WebRTC. Initiator:`, initiator, "Room ID:", currentRId);
 
     const stream = await getCameraStream();
     if (!stream) {
@@ -468,7 +467,7 @@ const VideoChatPageClientContent: React.FC = () => {
     }
 
     if (peerConnectionRef.current) {
-        console.warn(`${logPrefix}: PeerConnection already exists during setupWebRTC. Closing existing before creating new.`);
+        console.warn(`${LOG_PREFIX}: PeerConnection already exists during setupWebRTC. Closing existing before creating new.`);
         cleanupConnections(false);
     }
 
@@ -481,29 +480,29 @@ const VideoChatPageClientContent: React.FC = () => {
 
     pc.onicecandidate = (event) => {
         if (event.candidate && socketRef.current?.connected && roomIdRef.current) {
-            console.log(`${logPrefix}: Sending ICE candidate`);
+            console.log(`${LOG_PREFIX}: Sending ICE candidate for room ${roomIdRef.current}`);
             socketRef.current.emit('webrtcSignal', { roomId: roomIdRef.current, signalData: { candidate: event.candidate } });
         }
     };
 
     pc.ontrack = (event) => {
-        console.log(`${logPrefix}: Received remote track`);
+        console.log(`${LOG_PREFIX}: Received remote track for room ${roomIdRef.current}`);
         if (remoteVideoRef.current && event.streams && event.streams[0]) {
             if(remoteVideoRef.current.srcObject !== event.streams[0]) {
                 remoteVideoRef.current.srcObject = event.streams[0];
             }
         } else {
-            console.warn(`${logPrefix}: Remote video ref not available or no streams on track event.`)
+            console.warn(`${LOG_PREFIX}: Remote video ref not available or no streams on track event.`)
         }
     };
 
     pc.oniceconnectionstatechange = () => {
       if(peerConnectionRef.current){
-        console.log(`${logPrefix}: ICE connection state change:`, peerConnectionRef.current.iceConnectionState);
+        console.log(`${LOG_PREFIX}: ICE connection state change for room ${roomIdRef.current}: ${peerConnectionRef.current.iceConnectionState}`);
         if (peerConnectionRef.current.iceConnectionState === 'failed' ||
             peerConnectionRef.current.iceConnectionState === 'disconnected' ||
             peerConnectionRef.current.iceConnectionState === 'closed') {
-             console.warn(`${logPrefix}: WebRTC connection failed or disconnected. Consider cleanup.`);
+             console.warn(`${LOG_PREFIX}: WebRTC connection failed or disconnected for room ${roomIdRef.current}. Consider cleanup.`);
         }
       }
     };
@@ -513,18 +512,18 @@ const VideoChatPageClientContent: React.FC = () => {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             if (socketRef.current?.connected && roomIdRef.current) {
-                console.log(`${logPrefix}: Sending offer`);
+                console.log(`${LOG_PREFIX}: Sending offer for room ${roomIdRef.current}`);
                 socketRef.current.emit('webrtcSignal', { roomId: roomIdRef.current, signalData: offer });
             }
         } catch (error) {
-            console.error(`${logPrefix}: Error creating offer:`, error);
+            console.error(`${LOG_PREFIX}: Error creating offer for room ${roomIdRef.current}:`, error);
         }
     }
   }, [getCameraStream, toast, cleanupConnections]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
     if (isProcessingFindOrDisconnect.current) {
-        console.log(`${logPrefix}: Find/disconnect action already in progress.`);
+        console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
         return;
     }
     isProcessingFindOrDisconnect.current = true;
@@ -537,22 +536,24 @@ const VideoChatPageClientContent: React.FC = () => {
     }
 
     if (isPartnerConnected && roomIdRef.current) {
-        // User wants to DISCONNECT from current partner (SKIP behavior)
+        console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${roomIdRef.current} (video).`);
         addMessage(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
-
+        
         if (currentSocket.connected) {
+            console.log(`${LOG_PREFIX}: Emitting leaveChat for room: ${roomIdRef.current} (video)`);
             currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
+        } else {
+            console.warn(`${LOG_PREFIX}: Cannot emit leaveChat, socket not connected (video).`);
         }
-        cleanupConnections(false); // Keep local stream for next potential connection
+        cleanupConnections(false); 
 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
-        setRoomId(null); // Clear current room
-        roomIdRef.current = null; // Also clear ref
+        setRoomId(null); 
         setPartnerInterests([]);
         setIsSelfDisconnectedRecently(true);
 
-        // Immediately start finding new partner
+        console.log(`${LOG_PREFIX}: User ${currentSocket.id} now finding new partner after skip (video).`);
         setIsFindingPartner(true);
         if (currentSocket.connected) {
             currentSocket.emit('findPartner', { chatType: 'video', interests });
@@ -562,11 +563,9 @@ const VideoChatPageClientContent: React.FC = () => {
             setIsFindingPartner(false);
         }
     } else if (isFindingPartner) {
-        // User wants to STOP SEARCHING
+        console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping partner search (video).`);
         setIsFindingPartner(false);
-        // The useEffect for system messages will handle adding "Stopped searching..."
     } else {
-        // User wants to FIND PARTNER
         if (hasCameraPermission === false) {
             toast({ title: "Camera Required", description: "Please enable camera access to start a video chat.", variant: "destructive" });
             isProcessingFindOrDisconnect.current = false;
@@ -585,11 +584,11 @@ const VideoChatPageClientContent: React.FC = () => {
              setSocketError(true);
              return;
         }
+        console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search (video).`);
         setIsFindingPartner(true);
-        // The useEffect for system messages will handle adding "Searching..."
         currentSocket.emit('findPartner', { chatType: 'video', interests });
     }
-    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 300);
+    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500);
   }, [
       isPartnerConnected, isFindingPartner, interests, addMessage,
       cleanupConnections, getCameraStream, toast, hasCameraPermission
@@ -599,13 +598,13 @@ const VideoChatPageClientContent: React.FC = () => {
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
-      console.error(`${logPrefix}: Socket server URL is not defined.`);
+      console.error(`${LOG_PREFIX}: Socket server URL is not defined.`);
       toast({ title: "Configuration Error", description: "Socket server URL is missing.", variant: "destructive" });
       setSocketError(true);
       return () => {};
     }
 
-    console.log(`${logPrefix}: Attempting to connect to socket server: ${socketServerUrl}`);
+    console.log(`${LOG_PREFIX}: Attempting to connect to socket server: ${socketServerUrl}`);
     const newSocket = io(socketServerUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling']
@@ -613,123 +612,123 @@ const VideoChatPageClientContent: React.FC = () => {
     socketRef.current = newSocket;
 
     const onConnect = async () => {
-        console.log(`${logPrefix}: Socket connected (ID: ${newSocket.id}). Auto-search status: ${autoSearchDoneRef.current}`);
+        console.log(`${LOG_PREFIX}: Socket connected (ID: ${newSocket.id}). Auto-search status: ${autoSearchDoneRef.current}`);
         setSocketError(false);
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${logPrefix}: Automatically starting partner search on initial connect (video).`);
-             if (hasCameraPermission === undefined) { // If permission state unknown, try to get stream
+            console.log(`${LOG_PREFIX}: Automatically starting partner search on initial connect (video).`);
+             if (hasCameraPermission === undefined) { 
                 await getCameraStream();
             }
-            // Check camera permission again after attempting to get stream
             if (hasCameraPermission === true || (localStreamRef.current && localStreamRef.current.active)) {
                 setIsFindingPartner(true);
                 newSocket.emit('findPartner', { chatType: 'video', interests });
                 autoSearchDoneRef.current = true;
             } else {
-                console.log(`${logPrefix}: Camera permission not granted or stream failed, not auto-searching.`);
+                console.log(`${LOG_PREFIX}: Camera permission not granted or stream failed, not auto-searching.`);
                 addMessage("Camera access is required for video chat. Please enable it and try finding a partner.", "system", undefined, "cam-required");
                 setIsFindingPartner(false);
             }
         }
     };
 
-    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests }: { partnerId: string, roomId: string, interests: string[] }) => {
-      console.log(`${logPrefix}: Partner found event received`, { pId, rId, pInterests });
+    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string }) => {
+      console.log(`${LOG_PREFIX}: Partner found event received for socket ${newSocket.id}`, { pId, rId, pInterests, partnerUsername });
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId);
-      roomIdRef.current = rId;
+      // roomIdRef.current updated by effect
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      if (isMounted) {
-          setupWebRTC(true);
+      if (isMounted) { // Ensure component is mounted before setting up WebRTC
+          setupWebRTC(true); // Initiator
       }
     };
 
     const onWaitingForPartner = () => {
-        console.log(`${logPrefix}: Server acknowledged 'waitingForPartner' for ${newSocket.id}`);
+        console.log(`${LOG_PREFIX}: Server acknowledged 'waitingForPartner' for ${newSocket.id}`);
      };
 
     const onFindPartnerCooldown = () => {
+      console.log(`${LOG_PREFIX}: Received findPartnerCooldown for ${newSocket.id}`);
       toast({ title: "Slow down!", description: "Please wait a moment before finding a new partner.", variant: "default" });
       setIsFindingPartner(false);
     };
 
     const onReceiveMessage = ({ senderId, message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
+      console.log(`${LOG_PREFIX}: Socket ${newSocket.id} received message: "${receivedMessage}" from partner (username: ${senderUsername}) in room ${roomIdRef.current}`);
       addMessage(receivedMessage, 'partner', senderUsername);
       setIsPartnerTyping(false);
     };
 
     const onWebRTCSignal = async (signalData: any) => {
+      console.log(`${LOG_PREFIX}: Socket ${newSocket.id} received WebRTC signal for room ${roomIdRef.current}:`, signalData.type || 'candidate');
       let pc = peerConnectionRef.current;
 
       if (!newSocket || !roomIdRef.current) {
-        console.error(`${logPrefix}: Socket or RoomID missing for WebRTC signal.`);
+        console.error(`${LOG_PREFIX}: Socket or RoomID missing for WebRTC signal.`);
         return;
       }
 
       if (!pc && isPartnerConnected && isMounted) {
-          console.log(`${logPrefix}: Receiving signal, local PC not yet set up. Setting up now (non-initiator).`);
-          await setupWebRTC(false);
+          console.log(`${LOG_PREFIX}: Receiving signal, local PC not yet set up. Setting up now (non-initiator) for room ${roomIdRef.current}.`);
+          await setupWebRTC(false); // Non-initiator
           pc = peerConnectionRef.current;
       }
 
       if (!pc) {
-        console.error(`${logPrefix}: PeerConnection not initialized, cannot handle signal:`, signalData);
+        console.error(`${LOG_PREFIX}: PeerConnection not initialized for room ${roomIdRef.current}, cannot handle signal:`, signalData);
         return;
       }
 
       try {
         if (signalData.candidate) {
-          console.log(`${logPrefix}: Received ICE candidate`);
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         } else if (signalData.type === 'offer') {
-          console.log(`${logPrefix}: Received offer`);
           await pc.setRemoteDescription(new RTCSessionDescription(signalData));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           if (socketRef.current?.connected && roomIdRef.current) socketRef.current.emit('webrtcSignal', { roomId: roomIdRef.current, signalData: answer });
-          console.log(`${logPrefix}: Sent answer`);
+          console.log(`${LOG_PREFIX}: Sent answer for room ${roomIdRef.current}`);
         } else if (signalData.type === 'answer') {
-          console.log(`${logPrefix}: Received answer`);
-          if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'stable') {
+          if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'stable') { // Check state before setting remote answer
               await pc.setRemoteDescription(new RTCSessionDescription(signalData));
           } else {
-              console.warn(`${logPrefix}: Received answer but not in have-local-offer state. Current state:`, pc.signalingState, "Answer:", signalData);
+              console.warn(`${LOG_PREFIX}: Received answer for room ${roomIdRef.current} but not in have-local-offer state. Current state:`, pc.signalingState);
           }
         }
       } catch (error) {
-        console.error(`${logPrefix}: Error handling WebRTC signal:`, error, signalData);
+        console.error(`${LOG_PREFIX}: Error handling WebRTC signal for room ${roomIdRef.current}:`, error, signalData);
       }
     };
 
     const onPartnerLeft = () => {
+      console.log(`${LOG_PREFIX}: PartnerLeft event received for socket ${newSocket.id}. Current room: ${roomIdRef.current}`);
       setIsPartnerLeftRecently(true);
-      cleanupConnections(false);
+      cleanupConnections(false); // Keep local stream if user wants to find new partner
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      roomIdRef.current = null;
+      // roomIdRef.current updated by effect
       setPartnerInterests([]);
-      setIsFindingPartner(false); // Explicitly set for the user who was skipped
+      setIsFindingPartner(false); 
     };
 
-    const onDisconnect = (reason: string) => {
-      console.log(`${logPrefix}: Disconnected from socket server. Reason:`, reason);
+    const onDisconnectHandler = (reason: string) => { // Renamed
+      console.log(`${LOG_PREFIX}: Socket ${newSocket.id} disconnected from server. Reason:`, reason);
       setSocketError(true);
-      cleanupConnections(true);
+      cleanupConnections(true); // Stop local stream on full disconnect
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      roomIdRef.current = null;
+      // roomIdRef.current updated by effect
     };
 
     const onConnectError = (err: Error) => {
-      console.error(`${logPrefix}: Socket connection error:`, String(err), err);
+      console.error(`${LOG_PREFIX}: Socket ${newSocket.id} connection error:`, String(err), err);
       setSocketError(true);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
@@ -754,14 +753,15 @@ const VideoChatPageClientContent: React.FC = () => {
     newSocket.on('receiveMessage', onReceiveMessage);
     newSocket.on('webrtcSignal', onWebRTCSignal);
     newSocket.on('partnerLeft', onPartnerLeft);
-    newSocket.on('disconnect', onDisconnect);
+    newSocket.on('disconnect', onDisconnectHandler);
     newSocket.on('connect_error', onConnectError);
     newSocket.on('partner_typing_start', onPartnerTypingStart);
     newSocket.on('partner_typing_stop', onPartnerTypingStop);
 
      return () => {
-        console.log(`${logPrefix}: Cleaning up VideoChatPageClientContent. Disconnecting socket ID:`, newSocket?.id);
+        console.log(`${LOG_PREFIX}: Cleaning up VideoChatPageClientContent. Disconnecting socket ID:`, newSocket?.id);
         if (roomIdRef.current && newSocket?.connected) {
+          console.log(`${LOG_PREFIX}: Emitting leaveChat during cleanup for room: ${roomIdRef.current} (video)`);
           newSocket.emit('leaveChat', { roomId: roomIdRef.current });
         }
         if (newSocket) {
@@ -772,7 +772,7 @@ const VideoChatPageClientContent: React.FC = () => {
             newSocket.off('receiveMessage', onReceiveMessage);
             newSocket.off('webrtcSignal', onWebRTCSignal);
             newSocket.off('partnerLeft', onPartnerLeft);
-            newSocket.off('disconnect', onDisconnect);
+            newSocket.off('disconnect', onDisconnectHandler);
             newSocket.off('connect_error', onConnectError);
             newSocket.off('partner_typing_start', onPartnerTypingStart);
             newSocket.off('partner_typing_stop', onPartnerTypingStop);
@@ -792,10 +792,10 @@ const VideoChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
-    if (hasCameraPermission === undefined) {
+    if (hasCameraPermission === undefined) { // Only call if permission state is unknown
         getCameraStream();
     }
-  }, [getCameraStream, hasCameraPermission]);
+  }, [getCameraStream, hasCameraPermission]); // Add hasCameraPermission
 
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
@@ -812,7 +812,7 @@ const VideoChatPageClientContent: React.FC = () => {
           setPickerEmojiFilenames(filenames);
         })
         .catch((err) => {
-          console.error(`${logPrefix}: Failed to load emojis from emote_index.json:`, err);
+          console.error(`${LOG_PREFIX}: Failed to load emojis from emote_index.json:`, err);
           toast({
             title: "Emoji Error",
             description: `Could not load emojis for picker: ${err.message}`,
@@ -871,13 +871,26 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [isPartnerConnected, stopLocalTyping]);
 
   const handleSendMessage = useCallback(() => {
-    if (!newMessage.trim() || !socketRef.current?.connected || !roomIdRef.current || !isPartnerConnected) return;
-    socketRef.current.emit('sendMessage', {
-      roomId: roomIdRef.current,
-      message: newMessage,
+    const trimmedMessage = newMessage.trim();
+    const currentSocket = socketRef.current;
+    const currentRoomId = roomIdRef.current;
+
+    console.log(`${LOG_PREFIX}: Attempting to send message (video). Valid message: ${!!trimmedMessage}, Socket connected: ${!!currentSocket?.connected}, Room ID: ${currentRoomId}, Partner connected: ${isPartnerConnected}`);
+    
+    if (!trimmedMessage || !currentSocket?.connected || !currentRoomId || !isPartnerConnected) {
+        if (!trimmedMessage) console.warn(`${LOG_PREFIX}: Send message aborted (video): Message is empty.`);
+        if (!currentSocket?.connected) console.warn(`${LOG_PREFIX}: Send message aborted (video): Socket not connected.`);
+        if (!currentRoomId) console.warn(`${LOG_PREFIX}: Send message aborted (video): No Room ID.`);
+        if (!isPartnerConnected) console.warn(`${LOG_PREFIX}: Send message aborted (video): Partner not connected.`);
+        return;
+    }
+    console.log(`${LOG_PREFIX}: Emitting sendMessage (video):`, { roomId: currentRoomId, message: trimmedMessage, username: ownProfileUsername });
+    currentSocket.emit('sendMessage', {
+      roomId: currentRoomId,
+      message: trimmedMessage,
       username: ownProfileUsername
     });
-    addMessage(newMessage, 'me', ownProfileUsername);
+    addMessage(trimmedMessage, 'me', ownProfileUsername);
     setNewMessage('');
     stopLocalTyping();
   }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, ownProfileUsername]);
