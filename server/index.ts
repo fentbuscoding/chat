@@ -196,6 +196,8 @@ io.on('connection', (socket: Socket) => {
         if (partnerSocket && partnerSocket.connected) {
           const roomId = `${currentUser.id}#${Date.now()}`;
           rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
+          console.log(`[SERVER_ROOM_CREATED] Room ${roomId} created for users ${currentUser.id} and ${matchedPartner.id}.`);
+
 
           console.log(`[MATCH_ATTEMPT_JOIN] Attempting to join ${currentUser.id} to room ${roomId}`);
           socket.join(roomId);
@@ -205,12 +207,12 @@ io.on('connection', (socket: Socket) => {
 
 
           socket.emit('partnerFound', {
-            partnerId: matchedPartner.id,
+            partnerId: matchedPartner.id, // Send partner's actual socket ID
             roomId,
             interests: matchedPartner.interests,
           });
           partnerSocket.emit('partnerFound', {
-            partnerId: currentUser.id,
+            partnerId: currentUser.id, // Send current user's actual socket ID
             roomId,
             interests: currentUser.interests,
           });
@@ -258,6 +260,7 @@ io.on('connection', (socket: Socket) => {
         };
 
         const partnerId = roomDetails.users.find(id => id !== socket.id);
+        console.log(`[MESSAGE_DEBUG_PARTNER_ID] Determined partnerId for message relay: ${partnerId} in room ${roomId}.`);
 
         if (partnerId) {
           const partnerSocket = io.sockets.sockets.get(partnerId);
@@ -284,10 +287,10 @@ io.on('connection', (socket: Socket) => {
   socket.on('webrtcSignal', (payload: unknown) => {
     try {
       const { roomId, signalData } = WebRTCSignalPayloadSchema.parse(payload);
-      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
+      const roomDetails = rooms[roomId];
+      if (roomDetails && roomDetails.users.includes(socket.id)) {
           console.log(`[WEBRTC_SIGNAL] User ${socket.id} sending signal to room ${roomId}`);
-          // Find partner and emit directly
-          const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+          const partnerId = roomDetails.users.find(id => id !== socket.id);
           if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
             if (partnerSocket) {
@@ -300,7 +303,7 @@ io.on('connection', (socket: Socket) => {
             console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] No partner found in room ${roomId} for user ${socket.id} to send signal.`);
           }
       } else {
-          console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent. Room details: ${JSON.stringify(rooms[roomId])}`);
+          console.warn(`[WEBRTC_SIGNAL_WARN_FAIL] User ${socket.id} tried to send signal to room ${roomId} but not in room or room non-existent. Room details: ${JSON.stringify(roomDetails)}`);
       }
     } catch (error: any) {
       console.warn(`[VALIDATION_FAIL_WEBRTC_SIGNAL] Invalid webrtcSignal payload from ${socket.id}: ${error.errors ? JSON.stringify(error.errors) : error.message}`);
@@ -311,8 +314,9 @@ io.on('connection', (socket: Socket) => {
   socket.on('typing_start', (payload: unknown) => {
     try {
       const { roomId } = RoomIdPayloadSchema.parse(payload);
-      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+      const roomDetails = rooms[roomId];
+      if (roomDetails && roomDetails.users.includes(socket.id)) {
+        const partnerId = roomDetails.users.find(id => id !== socket.id);
         if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
             if (partnerSocket) {
@@ -329,8 +333,9 @@ io.on('connection', (socket: Socket) => {
   socket.on('typing_stop', (payload: unknown) => {
     try {
       const { roomId } = RoomIdPayloadSchema.parse(payload);
-      if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
-        const partnerId = rooms[roomId].users.find(id => id !== socket.id);
+      const roomDetails = rooms[roomId];
+      if (roomDetails && roomDetails.users.includes(socket.id)) {
+        const partnerId = roomDetails.users.find(id => id !== socket.id);
         if (partnerId) {
             const partnerSocket = io.sockets.sockets.get(partnerId);
             if (partnerSocket) {
@@ -423,5 +428,4 @@ server.listen(PORT, () => {
 });
 
 export {};
-
     
