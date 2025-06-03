@@ -13,7 +13,7 @@ import { cn, playSound } from '@/lib/utils';
 import { ConditionalGoldfishImage } from '@/components/ConditionalGoldfishImage';
 import HomeButton from '@/components/HomeButton';
 import { io, type Socket } from 'socket.io-client';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 
 // --- Constants ---
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
@@ -49,7 +49,7 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
-  senderUsername?: string;
+  senderUsername?: string; // For partner's username
 }
 
 interface EmoteData {
@@ -108,7 +108,7 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
-  ownUsername: string | null;
+  ownUsername: string | null; // Current user's own username
 }
 
 const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
@@ -140,9 +140,9 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const getDisplayName = (sender: 'me' | 'partner') => {
     if (sender === 'me') {
-      return ownUsername || "You";
+      return ownUsername || "You"; // Use ownUsername or fallback to "You"
     }
-    return message.senderUsername || "Stranger";
+    return message.senderUsername || "Stranger"; // Use partner's username or fallback to "Stranger"
   };
 
   return (
@@ -208,8 +208,8 @@ const ChatPageClientContent: React.FC = () => {
   const [partnerInterests, setPartnerInterests] = useState<string[]>([]);
   const [socketError, setSocketError] = useState(false);
 
-  const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false);
-  const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false);
+  const [isSelfDisconnectedRecently, setIsSelfDisconnectedRecently] = useState(false); // User initiated a disconnect/skip
+  const [isPartnerLeftRecently, setIsPartnerLeftRecently] = useState(false); // Partner disconnected/skipped
 
   const [currentEmojiIconUrl, setCurrentEmojiIconUrl] = useState(() => `${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -258,7 +258,7 @@ const ChatPageClientContent: React.FC = () => {
         text,
         sender,
         timestamp: new Date(),
-        senderUsername: sender === 'partner' ? senderUsername : undefined,
+        senderUsername: sender === 'partner' ? senderUsername : undefined, // Only store for partner messages
       };
       return [...prevMessages, newMessageItem];
     });
@@ -282,6 +282,7 @@ const ChatPageClientContent: React.FC = () => {
         if (error && error.code !== 'PGRST116') {
           console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
         } else if (profile) {
+          console.log(`${LOG_PREFIX}: Fetched own profile username:`, profile.username);
           setOwnProfileUsername(profile.username);
         }
       }
@@ -313,33 +314,32 @@ const ChatPageClientContent: React.FC = () => {
     if (socketError) {
       changeFavicon(FAVICON_SKIPPED);
     } else if (isSelfDisconnectedRecently) {
-      changeFavicon(FAVICON_SKIPPED);
-      skippedFaviconTimeoutRef.current = setTimeout(() => {
-          setIsSelfDisconnectedRecently(false); 
-          if (isFindingPartner) changeFavicon(FAVICON_SEARCHING);
-      }, 500);
+      changeFavicon(FAVICON_SKIPPED); // Briefly show skipped, then searching will take over
       // "You have disconnected" is added in handleFindOrDisconnectPartner
       // "Searching for partner" will be added by the isFindingPartner block below if applicable
+      skippedFaviconTimeoutRef.current = setTimeout(() => {
+          // This state is mainly for favicon and initial message logic, can be reset
+          // setIsSelfDisconnectedRecently(false);
+          if (isFindingPartner) changeFavicon(FAVICON_SEARCHING);
+      }, 500);
     } else if (isPartnerLeftRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-          setIsPartnerLeftRecently(false);
+          // setIsPartnerLeftRecently(false); // Reset after a delay
           if (!isFindingPartner && !isPartnerConnected) changeFavicon(FAVICON_IDLE);
       }, 1000);
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_SEARCHING_PARTNER.toLowerCase());
+      updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED.toLowerCase());
       updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED, 'partner-left');
     } else if (isFindingPartner) {
       changeFavicon(FAVICON_SEARCHING);
-      // This condition handles adding "Searching..." if we just started finding
-      // or if we started finding *after* a self-disconnect.
-      const justStartedFindingAfterSkip = prevIsSelfDisconnectedRecentlyRef.current && !prevIsFindingPartnerRef.current;
-      const initialSearch = !prevIsFindingPartnerRef.current && !isPartnerConnected && !prevIsSelfDisconnectedRecentlyRef.current;
-
-      if (initialSearch || justStartedFindingAfterSkip) {
+      // Add "Searching..." if we just started finding or if we are finding after a self-disconnect.
+      const justStartedFinding = !prevIsFindingPartnerRef.current || prevIsSelfDisconnectedRecentlyRef.current;
+      if (justStartedFinding) {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
-        // Do not filter "You have disconnected" if it was just added by skipping
+        // Don't filter "You have disconnected" if it was part of the self-skip flow
         updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search');
       }
     } else if (isPartnerConnected) {
@@ -372,9 +372,8 @@ const ChatPageClientContent: React.FC = () => {
             changeFavicon(FAVICON_SUCCESS);
          }
       }
-    } else { // Idle state
+    } else { // Idle state (not finding, not connected, no recent disconnects being processed)
       changeFavicon(FAVICON_IDLE);
-      // If we were finding and now we are not (and not connected, and no recent disconnects)
       if (prevIsFindingPartnerRef.current && !isPartnerConnected && !roomIdRef.current && !socketError && !isPartnerLeftRecently && !isSelfDisconnectedRecently) {
          const isSearchingMsgPresent = updatedMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes(SYS_MSG_SEARCHING_PARTNER.toLowerCase()));
          if (isSearchingMsgPresent) {
@@ -390,18 +389,16 @@ const ChatPageClientContent: React.FC = () => {
         setMessages(updatedMessages);
     }
 
+    // Update previous state refs for the next render cycle
     prevIsFindingPartnerRef.current = isFindingPartner;
     prevIsPartnerConnectedRef.current = isPartnerConnected;
-    prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently; 
-    prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently; 
+    prevIsSelfDisconnectedRecentlyRef.current = isSelfDisconnectedRecently;
+    prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
 
   }, [
     isPartnerConnected, isFindingPartner, socketError,
     isSelfDisconnectedRecently, isPartnerLeftRecently,
-    messages, // messages dependency is important for filtering/adding
-    partnerInterests,
-    interests,
-    changeFavicon
+    messages, partnerInterests, interests, changeFavicon
   ]);
 
   const handleFindOrDisconnectPartner = useCallback(() => {
@@ -432,14 +429,13 @@ const ChatPageClientContent: React.FC = () => {
 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
-        setRoomId(null); 
-        // roomIdRef.current will be cleared by setRoomId's effect
+        setRoomId(null);
         setPartnerInterests([]);
         setIsSelfDisconnectedRecently(true); // Mark that we just disconnected
 
         // Immediately start finding a new partner
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} now finding new partner after skip.`);
-        setIsFindingPartner(true);
+        setIsFindingPartner(true); // This will trigger the useEffect to show "Searching..."
         if (currentSocket.connected) {
           currentSocket.emit('findPartner', { chatType: 'text', interests });
         } else {
@@ -447,12 +443,11 @@ const ChatPageClientContent: React.FC = () => {
           setSocketError(true);
           setIsFindingPartner(false);
         }
-
     } else if (isFindingPartner) {
         // User wants to STOP SEARCHING
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping partner search.`);
-        setIsFindingPartner(false);
-        // The useEffect for system messages will handle adding "Stopped searching..."
+        setIsFindingPartner(false); // This will trigger useEffect to show "Stopped searching..."
+        // No need to emit anything to server if just stopping search without being in a room
     } else {
         // User wants to FIND PARTNER
         if (!currentSocket.connected) {
@@ -461,14 +456,18 @@ const ChatPageClientContent: React.FC = () => {
           return;
         }
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search.`);
-        setIsFindingPartner(true);
-        // The useEffect for system messages will handle adding "Searching..."
+        setIsFindingPartner(true); // This will trigger useEffect to show "Searching..."
         currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500); // Increased timeout slightly
+    // Reset recent disconnect flags once the primary action (finding or stopping) is initiated.
+    // The useEffect will handle the messages based on the new isFindingPartner state.
+    setIsSelfDisconnectedRecently(false);
+    setIsPartnerLeftRecently(false);
+
+    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500);
   }, [
     isPartnerConnected, isFindingPartner, interests,
-    toast, addMessageToList
+    toast, addMessageToList, ownProfileUsername
   ]);
 
   useEffect(() => {
@@ -503,7 +502,6 @@ const ChatPageClientContent: React.FC = () => {
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId);
-      // roomIdRef.current will be updated by useEffect on roomId change
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
@@ -522,30 +520,28 @@ const ChatPageClientContent: React.FC = () => {
     };
 
     const onReceiveMessage = ({ message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
-      console.log(`${LOG_PREFIX}: Socket ${newSocket.id} received message: "${receivedMessage}" from partner (username: ${senderUsername})`);
+      console.log(`${LOG_PREFIX}: Socket ${newSocket.id} received message: "${receivedMessage}" from partner (username: ${senderUsername}) in room ${roomIdRef.current}`);
       addMessageToList(receivedMessage, 'partner', senderUsername);
       setIsPartnerTyping(false);
     };
 
     const onPartnerLeft = () => {
       console.log(`${LOG_PREFIX}: PartnerLeft event received for socket ${newSocket.id}. Current room: ${roomIdRef.current}`);
-      setIsPartnerLeftRecently(true); // Triggers system message and favicon update
+      setIsPartnerLeftRecently(true); // Triggers system message and favicon update for the skipped user
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current will be updated by useEffect
       setPartnerInterests([]);
-      setIsFindingPartner(false); // Explicitly set for the user who was skipped
+      setIsFindingPartner(false); // Explicitly set for the user who was skipped, they must manually search again
     };
 
-    const onDisconnectHandler = (reason: string) => { // Renamed to avoid conflict with newSocket.disconnect
+    const onDisconnectHandler = (reason: string) => {
       console.warn(`${LOG_PREFIX}: Socket ${newSocket.id} disconnected from server. Reason:`, reason);
       setSocketError(true);
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current will be updated by useEffect
     };
 
     const onConnectError = (err: Error) => {
@@ -705,14 +701,14 @@ const ChatPageClientContent: React.FC = () => {
         if (!isPartnerConnected) console.warn(`${LOG_PREFIX}: Send message aborted: Partner not connected.`);
         return;
     }
-    
+
     console.log(`${LOG_PREFIX}: Emitting sendMessage:`, { roomId: currentRoomId, message: trimmedMessage, username: ownProfileUsername });
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: ownProfileUsername
+      username: ownProfileUsername // Send own username
     });
-    addMessageToList(trimmedMessage, 'me', ownProfileUsername);
+    addMessageToList(trimmedMessage, 'me'); // ownProfileUsername is handled by Row for 'me'
     setNewMessage('');
     stopLocalTyping();
   }, [newMessage, isPartnerConnected, addMessageToList, stopLocalTyping, ownProfileUsername]);

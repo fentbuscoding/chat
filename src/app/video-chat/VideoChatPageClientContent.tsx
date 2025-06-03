@@ -13,7 +13,7 @@ import { useTheme } from '@/components/theme-provider';
 import { cn, playSound } from '@/lib/utils';
 import HomeButton from '@/components/HomeButton';
 import { io, type Socket } from 'socket.io-client';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 
 const EMOJI_BASE_URL_DISPLAY = "https://storage.googleapis.com/chat_emoticons/display_98/";
 const STATIC_DISPLAY_EMOJI_FILENAMES = [
@@ -25,7 +25,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60;
-const LOG_PREFIX = "VideoChatPageClientContent"; // Corrected logPrefix
+const LOG_PREFIX = "VideoChatPageClientContent";
 
 // Favicon Constants
 const FAVICON_IDLE = '/Idle.ico';
@@ -48,7 +48,7 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
-  senderUsername?: string;
+  senderUsername?: string; // For partner's username
 }
 
 interface EmoteData {
@@ -105,7 +105,7 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
-  ownUsername: string | null;
+  ownUsername: string | null; // Current user's own username
 }
 
 const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
@@ -135,9 +135,9 @@ const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFile
 
   const getDisplayName = (sender: 'me' | 'partner') => {
     if (sender === 'me') {
-      return ownUsername || "You";
+      return ownUsername || "You"; // Use ownUsername or fallback to "You"
     }
-    return message.senderUsername || "Stranger";
+    return message.senderUsername || "Stranger"; // Use partner's username or fallback to "Stranger"
   };
 
   return (
@@ -250,7 +250,7 @@ const VideoChatPageClientContent: React.FC = () => {
         text,
         sender,
         timestamp: new Date(),
-        senderUsername: sender === 'partner' ? senderUsername : undefined,
+        senderUsername: sender === 'partner' ? senderUsername : undefined, // Only store for partner messages
       };
       return [...prevMessages, newMessageItem];
     });
@@ -274,6 +274,7 @@ const VideoChatPageClientContent: React.FC = () => {
         if (error && error.code !== 'PGRST116') {
           console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
         } else if (profile) {
+          console.log(`${LOG_PREFIX}: Fetched own profile username:`, profile.username);
           setOwnProfileUsername(profile.username);
         }
       }
@@ -306,24 +307,21 @@ const VideoChatPageClientContent: React.FC = () => {
     } else if (isSelfDisconnectedRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-          setIsSelfDisconnectedRecently(false);
           if (isFindingPartner) changeFavicon(FAVICON_SEARCHING);
       }, 500);
     } else if (isPartnerLeftRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => {
-          setIsPartnerLeftRecently(false);
           if (!isFindingPartner && !isPartnerConnected) changeFavicon(FAVICON_IDLE);
       }, 1000);
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_SEARCHING_PARTNER.toLowerCase());
+      updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED.toLowerCase());
       updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED, 'partner-left');
     } else if (isFindingPartner) {
       changeFavicon(FAVICON_SEARCHING);
-      const justStartedFindingAfterSkip = prevIsSelfDisconnectedRecentlyRef.current && !prevIsFindingPartnerRef.current;
-      const initialSearch = !prevIsFindingPartnerRef.current && !isPartnerConnected && !prevIsSelfDisconnectedRecentlyRef.current;
-
-      if (initialSearch || justStartedFindingAfterSkip) {
+      const justStartedFinding = !prevIsFindingPartnerRef.current || prevIsSelfDisconnectedRecentlyRef.current;
+      if (justStartedFinding) {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
         updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search');
@@ -443,9 +441,9 @@ const VideoChatPageClientContent: React.FC = () => {
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
         console.log(`${LOG_PREFIX}: Local stream stopped and video ref cleared.`);
     } else if (localStreamRef.current && localVideoRef.current && !localVideoRef.current.srcObject && stopLocalStream === false) {
+        // If not stopping stream but local video ref is not set, set it.
         localVideoRef.current.srcObject = localStreamRef.current;
     }
-
 
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   }, []);
@@ -463,12 +461,13 @@ const VideoChatPageClientContent: React.FC = () => {
     const stream = await getCameraStream();
     if (!stream) {
         toast({ title: "Camera Error", description: "Cannot setup video chat without camera.", variant: "destructive"});
+        // Consider setting states to reflect failure, e.g., setIsFindingPartner(false)
         return;
     }
 
     if (peerConnectionRef.current) {
         console.warn(`${LOG_PREFIX}: PeerConnection already exists during setupWebRTC. Closing existing before creating new.`);
-        cleanupConnections(false);
+        cleanupConnections(false); // Don't stop local stream if reusing for new connection
     }
 
     const pc = new RTCPeerConnection({
@@ -492,7 +491,7 @@ const VideoChatPageClientContent: React.FC = () => {
                 remoteVideoRef.current.srcObject = event.streams[0];
             }
         } else {
-            console.warn(`${LOG_PREFIX}: Remote video ref not available or no streams on track event.`)
+            console.warn(`${LOG_PREFIX}: Remote video ref not available or no streams on track event for room ${roomIdRef.current}.`)
         }
     };
 
@@ -503,6 +502,7 @@ const VideoChatPageClientContent: React.FC = () => {
             peerConnectionRef.current.iceConnectionState === 'disconnected' ||
             peerConnectionRef.current.iceConnectionState === 'closed') {
              console.warn(`${LOG_PREFIX}: WebRTC connection failed or disconnected for room ${roomIdRef.current}. Consider cleanup.`);
+             // Optionally trigger a more graceful disconnect here if needed
         }
       }
     };
@@ -538,25 +538,32 @@ const VideoChatPageClientContent: React.FC = () => {
     if (isPartnerConnected && roomIdRef.current) {
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${roomIdRef.current} (video).`);
         addMessage(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
-        
+
         if (currentSocket.connected) {
             console.log(`${LOG_PREFIX}: Emitting leaveChat for room: ${roomIdRef.current} (video)`);
             currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
         } else {
             console.warn(`${LOG_PREFIX}: Cannot emit leaveChat, socket not connected (video).`);
         }
-        cleanupConnections(false); 
+        cleanupConnections(false); // Keep local stream for potential next chat
 
         setIsPartnerConnected(false);
         setIsPartnerTyping(false);
-        setRoomId(null); 
+        setRoomId(null);
         setPartnerInterests([]);
         setIsSelfDisconnectedRecently(true);
 
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} now finding new partner after skip (video).`);
         setIsFindingPartner(true);
         if (currentSocket.connected) {
-            currentSocket.emit('findPartner', { chatType: 'video', interests });
+            // Ensure camera stream is still active before finding new partner
+            const stream = await getCameraStream();
+            if (stream) {
+                currentSocket.emit('findPartner', { chatType: 'video', interests });
+            } else {
+                 toast({ title: "Camera Error", description: "Cannot find new partner without camera access.", variant: "destructive"});
+                 setIsFindingPartner(false); // Stop finding if camera failed
+            }
         } else {
             toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
             setSocketError(true);
@@ -565,17 +572,18 @@ const VideoChatPageClientContent: React.FC = () => {
     } else if (isFindingPartner) {
         console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping partner search (video).`);
         setIsFindingPartner(false);
+        // No need to emit to server if just stopping search
     } else {
-        if (hasCameraPermission === false) {
+        // User wants to FIND PARTNER
+        if (hasCameraPermission === false) { // Check explicitly false
             toast({ title: "Camera Required", description: "Please enable camera access to start a video chat.", variant: "destructive" });
             isProcessingFindOrDisconnect.current = false;
-            setIsFindingPartner(false);
             return;
         }
-        const stream = await getCameraStream();
-        if (!stream) {
+        const stream = await getCameraStream(); // Attempt to get/confirm stream
+        if (!stream) { // If stream is null (permission denied or error)
             isProcessingFindOrDisconnect.current = false;
-            setIsFindingPartner(false);
+            // getCameraStream already shows a toast
             return;
         }
         if (!currentSocket.connected) {
@@ -588,10 +596,13 @@ const VideoChatPageClientContent: React.FC = () => {
         setIsFindingPartner(true);
         currentSocket.emit('findPartner', { chatType: 'video', interests });
     }
+    setIsSelfDisconnectedRecently(false); // Reset flags as action is initiated
+    setIsPartnerLeftRecently(false);
+
     setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500);
   }, [
       isPartnerConnected, isFindingPartner, interests, addMessage,
-      cleanupConnections, getCameraStream, toast, hasCameraPermission
+      cleanupConnections, getCameraStream, toast, hasCameraPermission, ownProfileUsername
     ]);
 
 
@@ -616,10 +627,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setSocketError(false);
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
             console.log(`${LOG_PREFIX}: Automatically starting partner search on initial connect (video).`);
-             if (hasCameraPermission === undefined) { 
-                await getCameraStream();
+            if (hasCameraPermission === undefined) {
+                await getCameraStream(); // Ensure permission is checked
             }
-            if (hasCameraPermission === true || (localStreamRef.current && localStreamRef.current.active)) {
+            // Check hasCameraPermission *after* getCameraStream has resolved it
+            if (localStreamRef.current && localStreamRef.current.active) { // Best check is if stream is active
                 setIsFindingPartner(true);
                 newSocket.emit('findPartner', { chatType: 'video', interests });
                 autoSearchDoneRef.current = true;
@@ -636,13 +648,12 @@ const VideoChatPageClientContent: React.FC = () => {
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId);
-      // roomIdRef.current updated by effect
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      if (isMounted) { // Ensure component is mounted before setting up WebRTC
+      if (isMounted) {
           setupWebRTC(true); // Initiator
       }
     };
@@ -675,7 +686,7 @@ const VideoChatPageClientContent: React.FC = () => {
       if (!pc && isPartnerConnected && isMounted) {
           console.log(`${LOG_PREFIX}: Receiving signal, local PC not yet set up. Setting up now (non-initiator) for room ${roomIdRef.current}.`);
           await setupWebRTC(false); // Non-initiator
-          pc = peerConnectionRef.current;
+          pc = peerConnectionRef.current; // Re-assign after setupWebRTC
       }
 
       if (!pc) {
@@ -693,7 +704,7 @@ const VideoChatPageClientContent: React.FC = () => {
           if (socketRef.current?.connected && roomIdRef.current) socketRef.current.emit('webrtcSignal', { roomId: roomIdRef.current, signalData: answer });
           console.log(`${LOG_PREFIX}: Sent answer for room ${roomIdRef.current}`);
         } else if (signalData.type === 'answer') {
-          if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'stable') { // Check state before setting remote answer
+          if (pc.signalingState === 'have-local-offer' || pc.signalingState === 'stable') {
               await pc.setRemoteDescription(new RTCSessionDescription(signalData));
           } else {
               console.warn(`${LOG_PREFIX}: Received answer for room ${roomIdRef.current} but not in have-local-offer state. Current state:`, pc.signalingState);
@@ -707,24 +718,22 @@ const VideoChatPageClientContent: React.FC = () => {
     const onPartnerLeft = () => {
       console.log(`${LOG_PREFIX}: PartnerLeft event received for socket ${newSocket.id}. Current room: ${roomIdRef.current}`);
       setIsPartnerLeftRecently(true);
-      cleanupConnections(false); // Keep local stream if user wants to find new partner
+      cleanupConnections(false);
       setIsPartnerConnected(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current updated by effect
       setPartnerInterests([]);
-      setIsFindingPartner(false); 
+      setIsFindingPartner(false); // User who was skipped must manually find new partner
     };
 
-    const onDisconnectHandler = (reason: string) => { // Renamed
+    const onDisconnectHandler = (reason: string) => {
       console.log(`${LOG_PREFIX}: Socket ${newSocket.id} disconnected from server. Reason:`, reason);
       setSocketError(true);
-      cleanupConnections(true); // Stop local stream on full disconnect
+      cleanupConnections(true);
       setIsPartnerConnected(false);
       setIsFindingPartner(false);
       setIsPartnerTyping(false);
       setRoomId(null);
-      // roomIdRef.current updated by effect
     };
 
     const onConnectError = (err: Error) => {
@@ -792,10 +801,10 @@ const VideoChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
-    if (hasCameraPermission === undefined) { // Only call if permission state is unknown
+    if (hasCameraPermission === undefined) {
         getCameraStream();
     }
-  }, [getCameraStream, hasCameraPermission]); // Add hasCameraPermission
+  }, [getCameraStream, hasCameraPermission]);
 
   useEffect(() => {
     if (effectivePageTheme === 'theme-98') {
@@ -876,7 +885,7 @@ const VideoChatPageClientContent: React.FC = () => {
     const currentRoomId = roomIdRef.current;
 
     console.log(`${LOG_PREFIX}: Attempting to send message (video). Valid message: ${!!trimmedMessage}, Socket connected: ${!!currentSocket?.connected}, Room ID: ${currentRoomId}, Partner connected: ${isPartnerConnected}`);
-    
+
     if (!trimmedMessage || !currentSocket?.connected || !currentRoomId || !isPartnerConnected) {
         if (!trimmedMessage) console.warn(`${LOG_PREFIX}: Send message aborted (video): Message is empty.`);
         if (!currentSocket?.connected) console.warn(`${LOG_PREFIX}: Send message aborted (video): Socket not connected.`);
@@ -888,9 +897,9 @@ const VideoChatPageClientContent: React.FC = () => {
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: ownProfileUsername
+      username: ownProfileUsername // Send own username
     });
-    addMessage(trimmedMessage, 'me', ownProfileUsername);
+    addMessage(trimmedMessage, 'me'); // ownProfileUsername is handled by Row for 'me'
     setNewMessage('');
     stopLocalTyping();
   }, [newMessage, isPartnerConnected, addMessage, stopLocalTyping, ownProfileUsername]);
@@ -954,14 +963,12 @@ const VideoChatPageClientContent: React.FC = () => {
     };
   }, [isPartnerTyping]);
 
-  let findOrDisconnectText: string;
-  if (isPartnerConnected) {
-    findOrDisconnectText = 'Disconnect';
-  } else if (isFindingPartner) {
-    findOrDisconnectText = 'Stop Searching';
-  } else {
-    findOrDisconnectText = 'Find Partner';
-  }
+  const findOrDisconnectText = useMemo(() => {
+    if (isPartnerConnected) return 'Disconnect';
+    if (isFindingPartner) return 'Stop Searching';
+    return 'Find Partner';
+  }, [isPartnerConnected, isFindingPartner]);
+
 
   const mainButtonDisabled = !socketRef.current?.connected || socketError;
   const inputAndSendDisabled = !socketRef.current?.connected || !isPartnerConnected || isFindingPartner || socketError;
@@ -1119,6 +1126,7 @@ const VideoChatPageClientContent: React.FC = () => {
                     'mr-1',
                     effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                   )}
+                  aria-label={findOrDisconnectText}
                 >
                   {findOrDisconnectText}
                 </Button>
@@ -1130,6 +1138,7 @@ const VideoChatPageClientContent: React.FC = () => {
                   placeholder="Type a message..."
                   className="flex-1 w-full px-1 py-1"
                   disabled={inputAndSendDisabled}
+                  aria-label="Chat message input"
                 />
                 {effectivePageTheme === 'theme-98' && (
                   <div className="relative ml-1 flex-shrink-0">
@@ -1142,19 +1151,26 @@ const VideoChatPageClientContent: React.FC = () => {
                       onMouseLeave={stopEmojiCycle}
                       onClick={toggleEmojiPicker}
                       data-ai-hint="emoji icon"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleEmojiPicker()}
+                      role="button"
+                      aria-haspopup="true"
+                      aria-expanded={isEmojiPickerOpen}
                     />
                     {isEmojiPickerOpen && (
                       <div
                         ref={emojiPickerRef}
                         className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window"
                         style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }}
+                        role="dialog"
+                        aria-label="Emoji picker"
                       >
                         {emojisLoading ? (
                           <p className="text-center w-full text-xs">Loading emojis...</p>
                         ): pickerEmojiFilenames.length > 0 ? (
-                          <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1">
+                          <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1" role="grid">
                             {pickerEmojiFilenames.map((filename) => (
-                              <img
+                               <img
                                 key={filename}
                                 src={`${EMOJI_BASE_URL_PICKER}${filename}`}
                                 alt={filename.split('.')[0]}
@@ -1164,6 +1180,12 @@ const VideoChatPageClientContent: React.FC = () => {
                                   setIsEmojiPickerOpen(false);
                                 }}
                                 data-ai-hint="emoji symbol"
+                                role="gridcell"
+                                tabIndex={0}
+                                onKeyDown={(e) => e.key === 'Enter' && (() => {
+                                    setNewMessage(prev => prev + ` :${filename.split('.')[0]}: `);
+                                    setIsEmojiPickerOpen(false);
+                                })()}
                               />
                             ))}
                           </div>
@@ -1181,6 +1203,7 @@ const VideoChatPageClientContent: React.FC = () => {
                     'ml-1',
                     effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1'
                   )}
+                  aria-label="Send message"
                 >
                   Send
                 </Button>

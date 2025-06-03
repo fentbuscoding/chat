@@ -29,7 +29,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    if (originToAllow) { 
+    if (originToAllow) {
         res.writeHead(204);
     } else {
         res.writeHead(403);
@@ -40,8 +40,8 @@ const server = http.createServer((req, res) => {
 
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
-      status: "ok", 
+    res.end(JSON.stringify({
+      status: "ok",
       onlineUserCount: onlineUserCount,
       waitingTextChat: waitingUsers.text.length,
       waitingVideoChat: waitingUsers.video.length
@@ -104,7 +104,7 @@ const RoomIdPayloadSchema = z.object({
 
 const SendMessagePayloadSchema = RoomIdPayloadSchema.extend({
   message: z.string().min(1).max(2000),
-  username: z.string().max(30).optional(),
+  username: z.string().max(30).optional(), // Client sends its username
 });
 
 const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
@@ -149,8 +149,8 @@ const findMatch = (currentUser: User): User | null => {
   potentialPartners = allWaitingForType.filter(p => p.id !== currentUser.id); // Re-filter if no interest match or no interests
   if (potentialPartners.length > 0) {
     const randomIndex = Math.floor(Math.random() * potentialPartners.length);
-    const randomPartnerToMatch = potentialPartners[randomIndex]; 
-    
+    const randomPartnerToMatch = potentialPartners[randomIndex];
+
     const originalIndexInWaitingList = allWaitingForType.findIndex(p => p.id === randomPartnerToMatch.id);
     if (originalIndexInWaitingList > -1) {
       console.log(`[MATCH_LOGIC] Random match found: ${currentUser.id} with ${randomPartnerToMatch.id}`);
@@ -180,50 +180,46 @@ io.on('connection', (socket: Socket) => {
       const now = Date.now();
       if (now - (lastMatchRequest[socket.id] || 0) < FIND_PARTNER_COOLDOWN_MS) {
         console.log(`[RATE_LIMIT] User ${socket.id} findPartner request ignored due to cooldown.`);
-        socket.emit('findPartnerCooldown'); 
+        socket.emit('findPartnerCooldown');
         return;
       }
       lastMatchRequest[socket.id] = now;
 
       console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} looking for ${chatType} chat with interests: ${interests.join(', ')}`);
-      removeFromWaitingLists(socket.id); 
+      removeFromWaitingLists(socket.id);
       const currentUser: User = { id: socket.id, interests, chatType };
-      
+
       const matchedPartner = findMatch(currentUser);
 
       if (matchedPartner) {
         const partnerSocket = io.sockets.sockets.get(matchedPartner.id);
         if (partnerSocket && partnerSocket.connected) {
-          const roomId = `${currentUser.id}#${Date.now()}`; 
+          const roomId = `${currentUser.id}#${Date.now()}`;
           rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
 
           socket.join(roomId);
           partnerSocket.join(roomId);
           console.log(`[MATCH_SUCCESS] ${currentUser.id} and ${matchedPartner.id} joined room ${roomId}. Emitting 'partnerFound'.`);
 
-          // Emit to current user
-          socket.emit('partnerFound', { 
-            partnerId: matchedPartner.id, 
-            roomId, 
-            interests: matchedPartner.interests 
-            // partnerUsername could be fetched and sent here if available server-side
+          socket.emit('partnerFound', {
+            partnerId: matchedPartner.id,
+            roomId,
+            interests: matchedPartner.interests
           });
-          // Emit to matched partner
-          partnerSocket.emit('partnerFound', { 
-            partnerId: currentUser.id, 
-            roomId, 
+          partnerSocket.emit('partnerFound', {
+            partnerId: currentUser.id,
+            roomId,
             interests: currentUser.interests
-            // currentUserUsername could be fetched and sent here
           });
         } else {
           console.error(`[MATCH_FAIL] Partner ${matchedPartner.id} socket not found or disconnected. Re-queuing current user ${currentUser.id}.`);
           if (!waitingUsers[currentUser.chatType].some(user => user.id === currentUser.id)) {
-              waitingUsers[currentUser.chatType].push(currentUser); // Re-queue current user
+              waitingUsers[currentUser.chatType].push(currentUser);
           }
           if (matchedPartner && !waitingUsers[matchedPartner.chatType].some(user => user.id === matchedPartner.id)) {
-             waitingUsers[matchedPartner.chatType].unshift(matchedPartner); // Try to re-queue partner if info is available
+             waitingUsers[matchedPartner.chatType].unshift(matchedPartner);
           }
-          socket.emit('waitingForPartner'); 
+          socket.emit('waitingForPartner');
         }
       } else {
         if (!waitingUsers[chatType].some(user => user.id === socket.id)) {
@@ -241,14 +237,14 @@ io.on('connection', (socket: Socket) => {
   socket.on('sendMessage', (payload: unknown) => {
     try {
       const { roomId, message, username } = SendMessagePayloadSchema.parse(payload);
-      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (attempted username: ${username || 'N/A'}) sending message to room ${roomId}: "${message}"`);
-      
+      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (username: ${username || 'N/A'}) sending message to room ${roomId}: "${message}"`);
+
       if (rooms[roomId] && rooms[roomId].users.includes(socket.id)) {
         console.log(`[MESSAGE_RELAY] Relaying message from ${socket.id} to room ${roomId}. Sender username: ${username || 'Stranger'}`);
-        socket.to(roomId).emit('receiveMessage', { 
-          senderId: socket.id, 
+        socket.to(roomId).emit('receiveMessage', {
+          senderId: socket.id,
           message,
-          senderUsername: username || 'Stranger'
+          senderUsername: username || 'Stranger' // Pass the username
         });
       } else {
         const roomExists = !!rooms[roomId];
@@ -275,7 +271,7 @@ io.on('connection', (socket: Socket) => {
       socket.emit('error', { message: 'Invalid payload for webrtcSignal.' });
     }
   });
-  
+
   socket.on('typing_start', (payload: unknown) => {
     try {
       const { roomId } = RoomIdPayloadSchema.parse(payload);
@@ -300,10 +296,10 @@ io.on('connection', (socket: Socket) => {
 
   const cleanupUser = (reason: string) => {
     console.log(`[CLEANUP_USER] User ${socket.id} disconnecting/cleaning up. Reason: ${reason}`);
-    onlineUserCount = Math.max(0, onlineUserCount - 1); 
+    onlineUserCount = Math.max(0, onlineUserCount - 1);
     io.emit('onlineUserCountUpdate', onlineUserCount);
     removeFromWaitingLists(socket.id);
-    delete lastMatchRequest[socket.id]; 
+    delete lastMatchRequest[socket.id];
 
     for (const roomIdInLoop in rooms) {
         if (rooms.hasOwnProperty(roomIdInLoop)) {
@@ -317,13 +313,13 @@ io.on('connection', (socket: Socket) => {
                     if (partnerSocket && partnerSocket.connected) {
                       console.log(`[CLEANUP_USER] Emitting 'partnerLeft' to ${partnerId} in room ${room.id}.`);
                       partnerSocket.emit('partnerLeft');
-                      partnerSocket.leave(room.id); 
+                      partnerSocket.leave(room.id);
                     } else {
                       console.log(`[CLEANUP_USER] Partner ${partnerId} socket not found or disconnected for room ${room.id}.`);
                     }
                 }
                 delete rooms[room.id];
-                break; 
+                break;
             }
         }
     }
@@ -338,7 +334,7 @@ io.on('connection', (socket: Socket) => {
           const room = rooms[roomId];
           const partnerId = room.users.find(id => id !== socket.id);
 
-          socket.leave(roomId); 
+          socket.leave(roomId);
           console.log(`[LEAVE_CHAT_SELF] User ${socket.id} left Socket.IO room ${roomId}`);
 
           if (partnerId) {
@@ -346,13 +342,13 @@ io.on('connection', (socket: Socket) => {
               if (partnerSocket && partnerSocket.connected) {
                   console.log(`[LEAVE_CHAT_NOTIFY_PARTNER] Emitting 'partnerLeft' to ${partnerId} for room ${roomId}`);
                   partnerSocket.emit('partnerLeft');
-                  partnerSocket.leave(roomId); 
+                  partnerSocket.leave(roomId);
                   console.log(`[LEAVE_CHAT_PARTNER_LEFT_ROOM] Partner ${partnerId} made to leave Socket.IO room ${roomId}`);
               } else {
                  console.log(`[LEAVE_CHAT_WARN] Partner ${partnerId} socket not found or disconnected when ${socket.id} left room ${roomId}`);
               }
           }
-          delete rooms[roomId]; 
+          delete rooms[roomId];
           console.log(`[LEAVE_CHAT_SUCCESS] User ${socket.id} processed leaveChat for room ${roomId}. Room deleted.`);
       } else {
           const roomExists = !!rooms[roomId];
@@ -376,6 +372,3 @@ server.listen(PORT, () => {
 });
 
 export {};
-    
-
-    
