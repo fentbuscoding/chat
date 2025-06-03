@@ -10,13 +10,14 @@ import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { Label } from '@/components/ui/label-themed';
 import { useToast } from '@/hooks/use-toast';
-import { useDebounce } from '@/hooks/use-debounce'; // Ensured this import path is correct
+import { useDebounce } from '@/hooks/use-debounce';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
-console.log('OnboardingPage component is being loaded/rendered by Next.js'); // Diagnostic log
+console.log('OnboardingPage component is being loaded/rendered by Next.js');
 
 interface UserProfile {
+  id: string; // Ensure id is part of the profile for upsert
   username: string;
   display_name: string;
   avatar_url: string | null;
@@ -34,7 +35,7 @@ export default function OnboardingPage() {
   const [displayName, setDisplayName] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null | 'checking'>(null);
   const debouncedUsername = useDebounce(username, 500);
@@ -52,12 +53,12 @@ export default function OnboardingPage() {
           .eq('id', session.user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') { 
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching profile:', error);
           toast({ title: 'Error fetching profile', description: error.message, variant: 'destructive' });
         } else if (profile) {
-          if (profile.profile_complete) {
-            router.replace('/'); 
+          if (profile.profile_complete && router.asPath.includes('/onboarding')) { // Only redirect if they are ON the onboarding page AND profile is complete
+            router.replace('/');
             return;
           }
           setUsername(profile.username || '');
@@ -66,9 +67,12 @@ export default function OnboardingPage() {
           if (profile.avatar_url) {
             setAvatarPreview(profile.avatar_url);
           }
+        } else {
+          // No profile exists yet, or error PGRST116. This is fine, onboarding will create it.
+          console.log('No existing profile found for user or error PGRST116, proceeding to onboarding form.');
         }
       } else {
-        router.replace('/signin'); 
+        router.replace('/signin');
         return;
       }
       setLoading(false);
@@ -87,18 +91,18 @@ export default function OnboardingPage() {
         .from('users')
         .select('username')
         .eq('username', debouncedUsername)
-        .neq('id', user?.id || '') 
+        .neq('id', user?.id || '')
         .single();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking username:', error);
-        setUsernameAvailable(null); 
+        setUsernameAvailable(null);
       } else {
         setUsernameAvailable(!data);
       }
     };
 
-    if (user) { 
+    if (user) {
         checkUsername();
     }
   }, [debouncedUsername, user]);
@@ -107,7 +111,7 @@ export default function OnboardingPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { 
+      if (file.size > 2 * 1024 * 1024) {
         toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
         return;
       }
@@ -142,16 +146,16 @@ export default function OnboardingPage() {
 
 
     setSaving(true);
-    let newAvatarUrl = avatarUrl; 
+    let newAvatarUrl = avatarUrl;
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
+      const filePath = `${user.id}/${fileName}`; // Store under user's ID folder
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, avatarFile, { upsert: true }); 
+        .upload(filePath, avatarFile, { upsert: true });
 
       if (uploadError) {
         toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
@@ -168,24 +172,30 @@ export default function OnboardingPage() {
       newAvatarUrl = urlData.publicUrl;
     }
 
-    const profileData: Partial<UserProfile> = {
+    const profileDataToUpsert: UserProfile = {
+      id: user.id, // Crucial for upsert to identify the row
       username,
       display_name: displayName,
       avatar_url: newAvatarUrl,
       profile_complete: true,
     };
 
-    const { error: updateError } = await supabase
+    // Use upsert to create the profile if it doesn't exist, or update it if it does.
+    const { error: upsertError } = await supabase
       .from('users')
-      .update(profileData)
-      .eq('id', user.id);
+      .upsert(profileDataToUpsert, {
+        onConflict: 'id', // Specify the conflict target (primary key)
+      })
+      .select() // Important to select to check if operation was successful
+      .single(); // Expecting a single row back
 
-    if (updateError) {
-      toast({ title: 'Profile Update Failed', description: updateError.message, variant: 'destructive' });
+    if (upsertError) {
+      toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
+      console.error("Upsert Error:", upsertError);
     } else {
       toast({ title: 'Profile Updated!', description: 'Your profile has been set up.' });
-      router.push('/'); 
-      router.refresh(); 
+      router.push('/');
+      router.refresh(); // Refresh to ensure layout components pick up new auth state/profile
     }
     setSaving(false);
   };
@@ -279,3 +289,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    
