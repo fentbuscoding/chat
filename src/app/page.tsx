@@ -15,7 +15,8 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
-import { version } from '../../package.json';
+import pkg from '../../package.json';
+const version = pkg.version;
 import AuthButtons from '@/components/AuthButtons'; // Import AuthButtons
 
 export default function SelectionLobby() {
