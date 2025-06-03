@@ -70,7 +70,7 @@ export default function OnboardingPage() {
             setAvatarPreview(profile.avatar_url);
           }
         } else {
-          console.log('Onboarding: No existing profile found for user or error PGRST116, proceeding to onboarding form. This is expected if the Supabase trigger `handle_new_user` will create the row or if client-side upsert will handle it.');
+          console.log('Onboarding: No existing profile found for user or error PGRST116. This is expected if the Supabase trigger `handle_new_user` will create the row or if client-side upsert will handle it.');
         }
       } else {
         router.replace('/signin');
@@ -177,7 +177,7 @@ export default function OnboardingPage() {
     }
 
     const profileDataToUpsert: UserProfile = {
-      id: user.id, // This is crucial: uses the authenticated user's ID.
+      id: user.id, // CRUCIAL: This uses the authenticated user's ID.
       username,
       display_name: displayName,
       avatar_url: finalAvatarUrl,
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
     const { error: upsertError } = await supabase
       .from('users')
       .upsert(profileDataToUpsert, {
-        onConflict: 'id', // Specify the conflict target (primary key)
+        onConflict: 'id', // Specify the conflict target (primary key 'id')
       })
       .select() // Important to select to check if operation was successful
       .single(); // Expecting a single row back
