@@ -17,11 +17,12 @@ import { v4 as uuidv4 } from 'uuid';
 console.log('OnboardingPage component is being loaded/rendered by Next.js');
 
 interface UserProfile {
-  id: string;
+  id: string; // Must match auth.users.id
   username: string;
   display_name: string;
   avatar_url: string | null;
   profile_complete: boolean;
+  // updated_at will be handled by the database trigger
 }
 
 export default function OnboardingPage() {
@@ -35,7 +36,7 @@ export default function OnboardingPage() {
   const [displayName, setDisplayName] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // Store the existing or newly uploaded URL
 
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null | 'checking'>(null);
   const debouncedUsername = useDebounce(username, 500);
@@ -66,13 +67,13 @@ export default function OnboardingPage() {
           }
           setUsername(profile.username || '');
           setDisplayName(profile.display_name || '');
-          setAvatarUrl(profile.avatar_url);
+          setAvatarUrl(profile.avatar_url); // Store existing avatar URL
           if (profile.avatar_url) {
             setAvatarPreview(profile.avatar_url);
           }
         } else {
           // No profile found (PGRST116) or profile exists but is minimal (e.g., only ID from trigger)
-          console.log('Onboarding: No existing complete profile found for user or profile is minimal.');
+          console.log('Onboarding: No existing complete profile found for user or profile is minimal (trigger might have run).');
         }
       } else {
         // No active session, redirect to sign-in
@@ -152,18 +153,17 @@ export default function OnboardingPage() {
     }
 
     setSaving(true);
-    let newAvatarStoragePath: string | null = null;
-    let finalAvatarUrl = avatarUrl; // Use existing avatar URL by default
+    let finalAvatarUrlToSave = avatarUrl; // Start with existing or null
 
     // 1. Upload avatar if a new one is selected
     if (avatarFile) {
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      newAvatarStoragePath = `${user.id}/${fileName}`; // Store in a user-specific folder
+      const newAvatarStoragePath = `public/${user.id}/${fileName}`; // Store in a user-specific folder within 'public' bucket for avatars
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(newAvatarStoragePath, avatarFile, { upsert: true }); // Use upsert for storage as well
+        .from('avatars') // Ensure this is your public bucket for avatars
+        .upload(newAvatarStoragePath, avatarFile, { upsert: true });
 
       if (uploadError) {
         toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
@@ -171,29 +171,36 @@ export default function OnboardingPage() {
         return;
       }
       
-      // Get public URL for the newly uploaded avatar
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newAvatarStoragePath);
       if (!urlData || !urlData.publicUrl) {
         toast({ title: 'Avatar URL Failed', description: 'Could not get public URL for avatar.', variant: 'destructive' });
         setSaving(false);
         return;
       }
-      finalAvatarUrl = urlData.publicUrl;
+      finalAvatarUrlToSave = urlData.publicUrl;
     }
 
-    // 2. Client-side fallback: Ensure user row exists before upserting profile details
-    // This is a fallback in case the server-side trigger (handle_new_user) hasn't run or failed.
-    const { data: existingUser, error: checkError } = await supabase
+    // Client-side fallback: Ensure the user row exists.
+    // This is a safety net in case the server-side trigger (handle_new_user) hasn't run or failed.
+    // The trigger is the primary mechanism for row creation.
+    const { data: existingUserRow, error: checkError } = await supabase
       .from('users')
       .select('id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle to handle null if not found without it being an error
 
-    if (checkError && checkError.code === 'PGRST116') { // PGRST116: No rows found
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means 0 rows, which is fine
+        console.error("Onboarding: Error checking for existing user row:", checkError);
+        toast({ title: 'Profile Setup Error', description: `Could not verify profile: ${checkError.message}`, variant: 'destructive' });
+        setSaving(false);
+        return;
+    }
+    
+    if (!existingUserRow) { // If row doesn't exist (trigger failed or not yet run for an older user)
       console.log(`Onboarding: User row for ${user.id} not found. Attempting client-side insert fallback.`);
       const { error: insertError } = await supabase
         .from('users')
-        .insert({ id: user.id }); // Insert minimal row; RLS 'WITH CHECK (auth.uid() = id)' must allow this.
+        .insert({ id: user.id }); // Insert minimal row with just the ID. RLS 'WITH CHECK (auth.uid() = id)' must allow this.
       
       if (insertError) {
         console.error("Onboarding: Client-side fallback insertError:", insertError);
@@ -202,21 +209,17 @@ export default function OnboardingPage() {
         return;
       }
       console.log(`Onboarding: Client-side fallback - initial user row for ${user.id} inserted successfully.`);
-    } else if (checkError) {
-      // Another error occurred while checking for the user, not PGRST116
-      console.error("Onboarding: Error checking for existing user row:", checkError);
-      toast({ title: 'Profile Setup Error', description: `Could not verify profile: ${checkError.message}`, variant: 'destructive' });
-      setSaving(false);
-      return;
     }
 
+
     // 3. Upsert the full profile data
+    // The `id` field is crucial here and MUST match `user.id` for RLS policies.
     const profileDataToUpsert: UserProfile = {
-      id: user.id, // CRUCIAL for RLS policies
+      id: user.id,
       username,
       display_name: displayName,
-      avatar_url: finalAvatarUrl,
-      profile_complete: true, // Mark profile as complete
+      avatar_url: finalAvatarUrlToSave,
+      profile_complete: true,
     };
 
     console.log("Onboarding: Attempting to upsert profile data:", profileDataToUpsert);
@@ -224,18 +227,18 @@ export default function OnboardingPage() {
     const { error: upsertError } = await supabase
       .from('users')
       .upsert(profileDataToUpsert, {
-        onConflict: 'id', // Specify the conflict target for upsert
+        onConflict: 'id', 
       })
-      .select() // Optionally select to confirm the upsert
-      .single(); // If you expect only one row to be affected
+      .select() 
+      .single(); 
 
     if (upsertError) {
       toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
       console.error("Onboarding: Upsert Error:", upsertError);
     } else {
       toast({ title: 'Profile Updated!', description: 'Your profile has been set up.' });
-      router.push('/'); // Navigate to home page or dashboard
-      router.refresh(); // Force a refresh to update any user-dependent UI
+      router.push('/'); 
+      router.refresh(); 
     }
     setSaving(false);
   };
