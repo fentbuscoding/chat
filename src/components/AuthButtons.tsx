@@ -22,7 +22,7 @@ export default function AuthButtons() {
 
       if (session?.user) {
         const { data: profileData, error: profileError } = await supabase
-          .from('users')
+          .from('user_profiles') // Changed from 'users'
           .select('username')
           .eq('id', session.user.id)
           .single();
@@ -46,7 +46,7 @@ export default function AuthButtons() {
       setUser(session?.user ?? null);
       if (session?.user) {
         const { data: profileData, error: profileError } = await supabase
-          .from('users')
+          .from('user_profiles') // Changed from 'users'
           .select('username')
           .eq('id', session.user.id)
           .single();
