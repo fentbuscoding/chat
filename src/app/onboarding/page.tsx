@@ -176,8 +176,9 @@ export default function OnboardingPage() {
       finalAvatarUrl = urlData.publicUrl;
     }
 
+    // CRUCIAL: user.id is used here for the 'id' field
     const profileDataToUpsert: UserProfile = {
-      id: user.id, // CRUCIAL: This uses the authenticated user's ID.
+      id: user.id, 
       username,
       display_name: displayName,
       avatar_url: finalAvatarUrl,
@@ -286,7 +287,7 @@ export default function OnboardingPage() {
                <p className="text-xs text-gray-500 mt-1">1-30 characters. This will be shown in chats if not anonymous.</p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={saving || usernameAvailable === 'checking' || usernameAvailable === false && username.length >=3}>
+            <Button type="submit" className="w-full" disabled={saving || usernameAvailable === 'checking' || (usernameAvailable === false && username.length >=3) }>
               {saving ? 'Saving...' : 'Save Profile & Continue'}
             </Button>
           </form>
@@ -295,5 +296,4 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
     
