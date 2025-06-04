@@ -181,7 +181,7 @@ const ChatPageClientContent: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  const roomIdRef = useRef<string | null>(null); // Ref to store current room ID
+  const roomIdRef = useRef<string | null>(null);
   const autoSearchDoneRef = useRef(false);
   const prevIsFindingPartnerRef = useRef(false);
   const prevIsPartnerConnectedRef = useRef(false);
@@ -190,7 +190,7 @@ const ChatPageClientContent: React.FC = () => {
   const hoverIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const localTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLocalTypingRef = useRef(false);
-  const isProcessingFindOrDisconnect = useRef(false); // To prevent rapid clicks
+  const isProcessingFindOrDisconnect = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -233,7 +233,7 @@ const ChatPageClientContent: React.FC = () => {
 
   useEffect(() => {
     console.log(`${LOG_PREFIX}: roomId state changed to: ${roomId}, updating roomIdRef.`);
-    roomIdRef.current = roomId; // Keep roomIdRef in sync with roomId state
+    roomIdRef.current = roomId;
   }, [roomId]);
 
   const changeFavicon = useCallback((newFaviconHref: string, removeOld: boolean = false) => {
@@ -274,17 +274,17 @@ const ChatPageClientContent: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile, error } = await supabase
-          .from('users')
+          .from('user_profiles') // Updated table name
           .select('username')
           .eq('id', user.id)
           .single();
         if (error && error.code !== 'PGRST116') { 
-          console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
+          console.error(`${LOG_PREFIX}: Error fetching own profile from user_profiles:`, error);
         } else if (profile) {
-          console.log(`${LOG_PREFIX}: Fetched own profile username:`, profile.username);
+          console.log(`${LOG_PREFIX}: Fetched own profile username from user_profiles:`, profile.username);
           setOwnProfileUsername(profile.username);
         } else {
-          console.log(`${LOG_PREFIX}: No profile found for user ${user.id} or username is null.`);
+          console.log(`${LOG_PREFIX}: No profile found in user_profiles for user ${user.id} or username is null.`);
           setOwnProfileUsername(null);
         }
       }
@@ -369,15 +369,13 @@ const ChatPageClientContent: React.FC = () => {
 
 
   const handleFindOrDisconnectPartner = useCallback(() => {
+    console.log(`${LOG_PREFIX}: handleFindOrDisconnectPartner called. isPartnerConnected=${isPartnerConnected}, roomIdRef.current=${roomIdRef.current}, isFindingPartner=${isFindingPartner}`);
     if (isProcessingFindOrDisconnect.current) {
       console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
       return;
     }
     isProcessingFindOrDisconnect.current = true;
     const currentSocket = socketRef.current;
-    const currentRoomIdVal = roomIdRef.current; // Use the ref for current value
-
-    console.log(`${LOG_PREFIX}: handleFindOrDisconnectPartner called. isPartnerConnected=${isPartnerConnected}, roomIdRef.current=${currentRoomIdVal}, isFindingPartner=${isFindingPartner}`);
 
     if (!currentSocket) {
       toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
@@ -385,18 +383,22 @@ const ChatPageClientContent: React.FC = () => {
       return;
     }
 
-    if (isPartnerConnected && currentRoomIdVal) { 
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${currentRoomIdVal}.`);
+    if (isPartnerConnected && roomIdRef.current) { 
+      console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${roomIdRef.current}.`);
       addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
-      if (currentSocket.connected) currentSocket.emit('leaveChat', { roomId: currentRoomIdVal });
-
-      setIsPartnerConnected(false); 
-      setRoomId(null); // Immediately update local state
+      
+      setIsPartnerConnected(false); // Immediate client state update
+      setRoomId(null);             // Immediate client state update
       setIsPartnerTyping(false);
       setPartnerInterests([]);
+
+      if (currentSocket.connected) {
+        currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
+      }
+
+      setIsFindingPartner(true); 
       setIsSelfDisconnectedRecently(true);
       setIsPartnerLeftRecently(false);
-      setIsFindingPartner(true); 
 
       if (currentSocket.connected) {
         console.log(`${LOG_PREFIX}: Emitting findPartner after skip for ${currentSocket.id}.`);
@@ -452,7 +454,7 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`%cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests });
       playSound("Match.wav");
       setMessages([]);
-      setRoomId(rId); // This will trigger the useEffect to update roomIdRef.current
+      setRoomId(rId); 
       setPartnerInterests(pInterests || []);
       setIsFindingPartner(false);
       setIsPartnerConnected(true); 
@@ -486,7 +488,7 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerConnected(false);
       setIsFindingPartner(false); 
       setIsPartnerTyping(false);
-      setRoomId(null); // This will trigger the useEffect to update roomIdRef.current
+      setRoomId(null); 
       setPartnerInterests([]);
       setIsPartnerLeftRecently(true);
       setIsSelfDisconnectedRecently(false);
@@ -618,7 +620,13 @@ const ChatPageClientContent: React.FC = () => {
     console.log(`${LOG_PREFIX}: Attempting send. Msg: "${trimmedMessage}", Socket Connected: ${!!currentSocket?.connected}, RoomId: ${currentRoomId}, Partner Connected State: ${isPartnerConnected}, Username: ${ownProfileUsername}`);
 
     if (!trimmedMessage || !currentSocket?.connected || !currentRoomId || !isPartnerConnected) {
-      console.warn(`${LOG_PREFIX}: Send message aborted. Conditions not met. HasMessage: ${!!trimmedMessage}, SocketConnected: ${!!currentSocket?.connected}, HasRoomID: ${!!currentRoomId}, PartnerActuallyConnected: ${isPartnerConnected}`);
+      let warning = "Send message aborted. Conditions not met.";
+      if (!trimmedMessage) warning += " Message is empty.";
+      if (!currentSocket?.connected) warning += " Socket not connected.";
+      if (!currentRoomId) warning += " Room ID is null.";
+      if (!isPartnerConnected) warning += " Partner not connected.";
+      console.warn(`${LOG_PREFIX}: ${warning}`);
+
       if (!currentSocket?.connected) toast({ title: "Not Connected", description: "Cannot send message, not connected to server.", variant: "destructive" });
       else if (!isPartnerConnected) toast({ title: "No Partner", description: "Cannot send message, no partner connected.", variant: "destructive" });
       else if (!currentRoomId) toast({ title: "No Room", description: "Cannot send message, not in a room.", variant: "destructive" });
@@ -721,4 +729,3 @@ const ChatPageClientContent: React.FC = () => {
   );
 };
 export default ChatPageClientContent;
-    
