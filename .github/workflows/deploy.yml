@@ -1,30 +1,62 @@
-- name: Deploy to EC2 via SSH
-            uses: appleboy/ssh-action@v1.0.3
-            with:
-              host: ${{ secrets.EC2_HOST }}
-              username: ${{ secrets.EC2_USER }}
-              key: ${{ secrets.SSH_PRIVATE_KEY }}
-              script: |
-                # 1. Navigate to your application's directory on EC2
-                # IMPORTANT: Adjusted path based on your input
-                cd /home/ec2-user/studio/server
+# deploy.yml
+name: Deploy Node.js Web Server to EC2 # This line should be at the very top, no leading spaces
 
-                # 2. Pull the latest code from GitHub
-                git pull origin main # Adjust branch name if different
+on:
+  push:
+    branches:
+      - main # IMPORTANT: Change this to your main branch name (e.g., 'master')
 
-                # 3. Install Node.js dependencies on EC2
-                npm install
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # GitHub-hosted runner for the CI/CD job
 
-                # 4. Rebuild the TypeScript project on EC2
-                npm run build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-                # 5. Stop the existing PM2 process gracefully (if running)
-                # IMPORTANT: Use the PM2 app name you prefer, e.g., 'studio-server'
-                pm2 stop studio-server || true
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # IMPORTANT: Ensure this matches your app's Node.js version
 
-                # 6. Start/Restart the application with PM2
-                # IMPORTANT: Entry point now points to 'dist/index.js' within your server directory
-                pm2 start dist/index.js --name studio-server --watch --ignore-watch="node_modules" --no-daemon
+      - name: Install local dependencies
+        run: npm install
 
-                # 7. Save PM2 process list
-                pm2 save
+      - name: Build TypeScript project (if you have a build step)
+        run: npm run build # Make sure you have 'build' script in package.json (e.g., "build": "tsc")
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3 # This action securely connects to your EC2 instance
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # 1. Navigate to your application's directory on EC2
+            # IMPORTANT: Adjusted path based on your input
+            cd /home/ec2-user/studio/server
+
+            # 2. Pull the latest code from GitHub
+            git pull origin main # Adjust branch name if different
+
+            # 3. Install Node.js dependencies on EC2
+            npm install
+
+            # 4. Rebuild the TypeScript project on EC2
+            npm run build
+
+            # 5. Stop the existing PM2 process gracefully (if running)
+            # IMPORTANT: Use the PM2 app name you prefer, e.g., 'studio-server'
+            pm2 stop studio-server || true
+
+            # 6. Start/Restart the application with PM2
+            # IMPORTANT: Entry point now points to 'dist/index.js' within your server directory
+            pm2 start dist/index.js --name studio-server --watch --ignore-watch="node_modules" --no-daemon
+
+            # 7. Save PM2 process list
+            pm2 save
+
+            # 8. Ensure PM2 starts on EC2 reboot (run this command manually *once* on EC2)
+            # This needs to be run once manually on the EC2 instance, not in the workflow:
+            # pm2 startup systemd
+            # Follow the instructions it gives you to enable it.
