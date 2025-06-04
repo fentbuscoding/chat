@@ -35,6 +35,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+          
             # 1. Navigate to your application's server directory on EC2
             # This path must match where your 'studio/server' folder is located on EC2.
             cd /home/ec2-user/studio/server
