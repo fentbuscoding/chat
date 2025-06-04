@@ -1,10 +1,10 @@
-# deploy.yml
-name: Deploy Node.js Web Server to EC2 # This line should be at the very top, no leading spaces
+# .github/workflows/deploy.yml
+name: Deploy Node.js Web Server to EC2
 
 on:
   push:
     branches:
-      - main # IMPORTANT: Change this to your main branch name (e.g., 'master')
+      - main # IMPORTANT: Change this to your main branch name (e.g., 'master', 'production')
 
 jobs:
   deploy:
@@ -22,13 +22,12 @@ jobs:
       - name: Install local dependencies
         run: npm install
 
-      - name: Build TypeScript project (if you have a build step)
-                  run: npm run build
-                  env: # Add this env block
-                    NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-                    NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      - name: Build TypeScript project
+        run: npm run build # Make sure you have 'build' script in package.json (e.g., "build": "tsc")
+        env: # These environment variables are passed to the 'npm run build' command
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-                # ... rest of your workflow file ...
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3 # This action securely connects to your EC2 instance
         with:
@@ -36,31 +35,38 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Navigate to your application's directory on EC2
-            # IMPORTANT: Adjusted path based on your input
+            # 1. Navigate to your application's server directory on EC2
+            # This path must match where your 'studio/server' folder is located on EC2.
             cd /home/ec2-user/studio/server
 
             # 2. Pull the latest code from GitHub
-            git pull origin main # Adjust branch name if different
+            # This uses the GitHub Deploy Key you added to your repository settings.
+            git pull origin main # Adjust branch name if different (e.g., 'master')
 
             # 3. Install Node.js dependencies on EC2
-            npm install
+            # This ensures all production dependencies are up-to-date on the server.
+            npm install --production
 
             # 4. Rebuild the TypeScript project on EC2
+            # This compiles your .ts files to .js files on the server.
             npm run build
 
             # 5. Stop the existing PM2 process gracefully (if running)
-            # IMPORTANT: Use the PM2 app name you prefer, e.g., 'studio-server'
+            # The '|| true' prevents the script from failing if the process isn't currently active.
             pm2 stop studio-server || true
 
             # 6. Start/Restart the application with PM2
-            # IMPORTANT: Entry point now points to 'dist/index.js' within your server directory
+            # 'dist/index.js' is assumed to be your compiled main entry point. Adjust if different.
+            # '--name studio-server' is the identifier PM2 uses for your application.
+            # '--watch' and '--ignore-watch' are for auto-restarting on file changes (can be removed for strict production).
+            # '--no-daemon' runs in foreground for the action, but PM2 handles daemonization later.
             pm2 start dist/index.js --name studio-server --watch --ignore-watch="node_modules" --no-daemon
 
             # 7. Save PM2 process list
+            # This saves the current PM2 process configuration, vital for PM2 to restart apps after reboots.
             pm2 save
 
-            # 8. Ensure PM2 starts on EC2 reboot (run this command manually *once* on EC2)
-            # This needs to be run once manually on the EC2 instance, not in the workflow:
-            # pm2 startup systemd
-            # Follow the instructions it gives you to enable it.
+            # NOTE: The 'pm2 startup systemd' command needs to be run *manually once* on your EC2 instance.
+            # It sets up PM2 to automatically start your managed applications when the EC2 instance boots up.
+            # Example: ssh -i "C:\Users\Ekansh\.ssh\tinchat.pem" ec2-user@YOUR_EC2_IP
+            # Then on EC2: pm2 startup systemd (and follow its instructions)
