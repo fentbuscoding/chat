@@ -23,8 +23,12 @@ jobs:
         run: npm install
 
       - name: Build TypeScript project (if you have a build step)
-        run: npm run build # Make sure you have 'build' script in package.json (e.g., "build": "tsc")
+                  run: npm run build
+                  env: # Add this env block
+                    NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+                    NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+                # ... rest of your workflow file ...
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3 # This action securely connects to your EC2 instance
         with:
