@@ -70,7 +70,7 @@ export default function OnboardingPage() {
             setAvatarPreview(profile.avatar_url);
           }
         } else {
-          console.log('Onboarding: No existing profile found for user or error PGRST116. This is expected if the Supabase trigger `handle_new_user` will create the row or if client-side upsert will handle it.');
+          console.log('Onboarding: No existing profile found for user or error PGRST116.');
         }
       } else {
         router.replace('/signin');
@@ -92,18 +92,18 @@ export default function OnboardingPage() {
         .from('users')
         .select('username')
         .eq('username', debouncedUsername)
-        .neq('id', user?.id || '') // Exclude current user's own username if editing
+        .neq('id', user?.id || '') 
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found (username is available)
+      if (error && error.code !== 'PGRST116') { 
         console.error('Error checking username:', error);
-        setUsernameAvailable(null); // Error, so unknown
+        setUsernameAvailable(null); 
       } else {
-        setUsernameAvailable(!data); // If data (a user with that username) exists, it's not available
+        setUsernameAvailable(!data); 
       }
     };
 
-    if (user) { // Only check if user is loaded
+    if (user) { 
         checkUsername();
     }
   }, [debouncedUsername, user]);
@@ -112,7 +112,7 @@ export default function OnboardingPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { // Max 2MB
+      if (file.size > 2 * 1024 * 1024) { 
         toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
         return;
       }
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
         toast({ title: 'Display Name Required', description: 'Please enter a display name.', variant: 'destructive'});
         return;
     }
-    if (usernameAvailable === false) { // Explicitly check for false
+    if (usernameAvailable === false) { 
         toast({ title: 'Username Taken', description: 'Please choose a different username.', variant: 'destructive'});
         return;
     }
@@ -150,16 +150,16 @@ export default function OnboardingPage() {
 
     setSaving(true);
     let newAvatarStoragePath: string | null = null;
-    let finalAvatarUrl = avatarUrl; // Keep existing avatar by default
+    let finalAvatarUrl = avatarUrl; 
 
     if (avatarFile) {
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-      newAvatarStoragePath = `${user.id}/${fileName}`; // Store under user's ID folder for organization
+      newAvatarStoragePath = `${user.id}/${fileName}`; 
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(newAvatarStoragePath, avatarFile, { upsert: true }); // upsert:true is good here
+        .upload(newAvatarStoragePath, avatarFile, { upsert: true }); 
 
       if (uploadError) {
         toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
@@ -176,7 +176,37 @@ export default function OnboardingPage() {
       finalAvatarUrl = urlData.publicUrl;
     }
 
-    // CRUCIAL: user.id is used here for the 'id' field
+    // First, ensure the user row exists in the database
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (checkError && checkError.code === 'PGRST116') {
+      // User doesn't exist, create the initial row first
+      // This minimal insert should pass RLS if policy allows insert where auth.uid() = id
+      console.log(`Onboarding: User row for ${user.id} not found. Attempting initial insert.`);
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({ id: user.id }); // Only include fields that have defaults or are nullable, or that RLS depends on
+      
+      if (insertError) {
+        console.error("Onboarding: Error inserting initial user row:", insertError);
+        toast({ title: 'Profile Setup Failed', description: `Could not create profile entry: ${insertError.message}`, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+      console.log(`Onboarding: Initial user row for ${user.id} inserted successfully.`);
+    } else if (checkError) {
+      // Another error occurred while checking for the user
+      console.error("Onboarding: Error checking for existing user row:", checkError);
+      toast({ title: 'Profile Setup Error', description: `Could not verify profile: ${checkError.message}`, variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
+
     const profileDataToUpsert: UserProfile = {
       id: user.id, 
       username,
@@ -190,10 +220,10 @@ export default function OnboardingPage() {
     const { error: upsertError } = await supabase
       .from('users')
       .upsert(profileDataToUpsert, {
-        onConflict: 'id', // Specify the conflict target (primary key 'id')
+        onConflict: 'id', 
       })
-      .select() // Important to select to check if operation was successful
-      .single(); // Expecting a single row back
+      .select() 
+      .single(); 
 
     if (upsertError) {
       toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
@@ -296,4 +326,6 @@ export default function OnboardingPage() {
     </div>
   );
 }
+    
+
     
