@@ -270,27 +270,31 @@ const ChatPageClientContent: React.FC = () => {
   }, []);
 
   const attemptAutoSearch = useCallback(() => {
-    if (socketRef.current?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-      console.log(`${LOG_PREFIX}: Triggering auto-search. AuthID: ${userIdRef.current}`);
+    const currentSocket = socketRef.current;
+    if (currentSocket?.connected && !isAuthLoading && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+      console.log(`${LOG_PREFIX}: Emitting 'findPartner'. Payload:`, { chatType: 'text', interests, authId: userIdRef.current });
       setIsFindingPartner(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      socketRef.current.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+      currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
       autoSearchDoneRef.current = true;
     } else {
       let reason = "";
-      if (!socketRef.current?.connected) reason += "Socket not connected. ";
+      if (!currentSocket?.connected) reason += "Socket not connected. ";
+      if(isAuthLoading) reason += "Auth still loading. ";
       if (autoSearchDoneRef.current) reason += "Auto search already done. ";
       if (isPartnerConnected) reason += "Already partner connected. ";
       if (isFindingPartner) reason += "Already finding partner. ";
       if (roomIdRef.current) reason += "Already in a room. ";
       if (reason) console.log(`${LOG_PREFIX}: Auto-search conditions not met: ${reason}`);
     }
-  }, [isPartnerConnected, isFindingPartner, interests]);
+  }, [isAuthLoading, isPartnerConnected, isFindingPartner, interests, addMessageToList]); // Removed addMessageToList as it's not directly used by attemptAutoSearch
 
+  // Effect to fetch user auth status and profile
   useEffect(() => {
-    if (!isMounted) return;
-    
+    if (!isMounted) return; 
+    setIsAuthLoading(true);
+
     const fetchOwnProfile = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -314,27 +318,30 @@ const ChatPageClientContent: React.FC = () => {
             setOwnProfileUsername(null);
           }
         } else {
-          console.log(`${LOG_PREFIX}: No authenticated user found.`);
-          setOwnProfileUsername(null);
+           console.log(`${LOG_PREFIX}: No authenticated user found.`);
+           setOwnProfileUsername(null);
         }
       } catch (e) {
         console.error(`${LOG_PREFIX}: Exception fetching own profile:`, e);
         userIdRef.current = null;
         setOwnProfileUsername(null);
+      } finally {
+        setIsAuthLoading(false);
+        console.log(`${LOG_PREFIX}: Auth check complete. AuthID: ${userIdRef.current}, Username: ${ownProfileUsername}`);
+        // Moved auto-search attempt to a dedicated effect that waits for isAuthLoading to be false AND socket to be connected
       }
-      
-      setIsAuthLoading(false);
     };
     
     fetchOwnProfile();
-  }, [isMounted]);
+  }, [isMounted]); 
 
-  // Separate effect for auto-search after auth completes
+  // This useEffect triggers auto-search once auth is loaded AND socket is connected.
   useEffect(() => {
     if (!isAuthLoading && socketRef.current?.connected) {
+      console.log(`${LOG_PREFIX}: Auth and Socket ready, attempting auto-search.`);
       attemptAutoSearch();
     }
-  }, [isAuthLoading, attemptAutoSearch]);
+  }, [isAuthLoading, attemptAutoSearch]); // attemptAutoSearch is stable due to useCallback
 
 
   useEffect(() => {
@@ -448,7 +455,7 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerLeftRecently(false);
 
       if (currentSocket.connected) {
-        console.log(`${LOG_PREFIX}: Emitting findPartner after skip for ${currentSocket.id}. AuthID: ${userIdRef.current}`);
+        console.log(`${LOG_PREFIX}: Emitting 'findPartner' after skip. Payload:`, { chatType: 'text', interests, authId: userIdRef.current });
         currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
       } else {
         toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
@@ -460,13 +467,15 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
       setIsSelfDisconnectedRecently(false); 
       setIsPartnerLeftRecently(false);
+      // Note: We don't emit anything to the server to "stop" searching explicitly.
+      // The server handles this by the user not being in a waiting list or by timeout.
     } else { 
       if (!currentSocket.connected) {
         toast({ title: "Connecting...", description: "Attempting to connect to chat server.", variant: "default" });
         isProcessingFindOrDisconnect.current = false; 
         return;
       }
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search. AuthID: ${userIdRef.current}`);
+      console.log(`${LOG_PREFIX}: Emitting 'findPartner' from button. Payload:`, { chatType: 'text', interests, authId: userIdRef.current });
       setIsFindingPartner(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
@@ -487,20 +496,24 @@ const ChatPageClientContent: React.FC = () => {
 
     console.log(`${LOG_PREFIX}: Socket useEffect runs. Attempting to connect to: ${socketServerUrl}`);
     const newSocket = io(socketServerUrl, { withCredentials: true, transports: ['websocket', 'polling'] });
-    socketRef.current = newSocket; 
+    const socketToClean = newSocket; // Capture for cleanup
+    socketRef.current = newSocket; // Assign to ref
     console.log(`${LOG_PREFIX}: Socket instance created with id ${newSocket.id} (initial) and assigned to socketRef.current.`);
 
-    const socketToClean = newSocket; 
 
     const onConnect = () => {
       console.log(`%cSOCKET CONNECTED: ${socketToClean.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
+      // Attempt auto-search after connection, only if auth is already loaded
       if (!isAuthLoading) {
+        console.log(`${LOG_PREFIX}: Socket connected and auth already loaded, attempting auto-search.`);
         attemptAutoSearch();
+      } else {
+        console.log(`${LOG_PREFIX}: Socket connected, but auth is still loading. Auto-search will be attempted after auth check if needed.`);
       }
     };
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
-      console.log(`%cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
+      console.log(`%cSOCKET EVENT: partnerFound%c`, 'color: green; font-weight: bold;', 'color: inherit;', { partnerIdFromServer: pId, roomId: rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId); 
@@ -510,7 +523,7 @@ const ChatPageClientContent: React.FC = () => {
       setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
     };
     const onWaitingForPartner = () => {
-      if (socketToClean.connected) console.log(`${LOG_PREFIX}: Server ack 'waitingForPartner' for ${socketToClean.id}`);
+      if (socketToClean.connected) console.log(`%cSOCKET EVENT: waitingForPartner%c for ${socketToClean.id}`, 'color: blue; font-weight: bold;', 'color: inherit;');
     };
     const onFindPartnerCooldown = () => {
       if (socketToClean.connected) {
@@ -528,8 +541,8 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerTyping(false);
     };
     const onPartnerLeft = () => {
-      if (socketToClean.connected) {
-        console.log(`%cSOCKET EVENT: partnerLeft`, 'color: red; font-weight: bold;', `Room: ${roomIdRef.current}, Socket: ${socketToClean.id}`);
+      if (socketToClean.connected) { // Check if the specific socket instance is still connected
+        console.log(`%cSOCKET EVENT: partnerLeft%c`, 'color: red; font-weight: bold;', 'color: inherit;', `Room: ${roomIdRef.current}, Socket: ${socketToClean.id}`);
         setIsPartnerConnected(false);
         setIsFindingPartner(false); 
         setIsPartnerTyping(false);
@@ -576,11 +589,12 @@ const ChatPageClientContent: React.FC = () => {
       socketToClean.disconnect();
       console.log(`${LOG_PREFIX}: Disconnected socket ${socketToClean.id} in cleanup.`);
 
+      // Only nullify socketRef.current if it's the same instance being cleaned up
       if (socketRef.current === socketToClean) { 
         socketRef.current = null;
         console.log(`${LOG_PREFIX}: Set socketRef.current to null because it matched the socket being cleaned.`);
       } else {
-        console.log(`${LOG_PREFIX}: Did NOT null socketRef.current. Current is ${socketRef.current?.id}, cleaned was ${socketToClean?.id}.`);
+        console.log(`${LOG_PREFIX}: Did NOT null socketRef.current. Current is ${socketRef.current?.id}, cleaned was ${socketToClean?.id}. This might indicate an issue if an old socket is cleaned after a new one is established.`);
       }
 
       if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
@@ -590,7 +604,7 @@ const ChatPageClientContent: React.FC = () => {
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
       changeFavicon(FAVICON_DEFAULT, true);
     };
-  }, [interests, addMessageToList, toast, changeFavicon, attemptAutoSearch, isAuthLoading]); 
+  }, [interests, toast, changeFavicon, isAuthLoading, attemptAutoSearch, addMessageToList]); // Added isAuthLoading and attemptAutoSearch
 
   useEffect(() => { setIsMounted(true); }, []);
 
