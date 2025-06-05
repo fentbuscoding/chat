@@ -274,7 +274,7 @@ const ChatPageClientContent: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile, error } = await supabase
-          .from('user_profiles') // Updated table name
+          .from('user_profiles')
           .select('username')
           .eq('id', user.id)
           .single();
@@ -374,30 +374,34 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
       return;
     }
-    isProcessingFindOrDisconnect.current = true;
+    isProcessingFindOrDisconnect.current = true; // Guard action
     const currentSocket = socketRef.current;
 
     if (!currentSocket) {
       toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
-      isProcessingFindOrDisconnect.current = false;
+      isProcessingFindOrDisconnect.current = false; // Release guard
       return;
     }
 
-    if (isPartnerConnected && roomIdRef.current) { 
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${roomIdRef.current}.`);
+    const currentRoomId = roomIdRef.current;
+
+    if (isPartnerConnected && currentRoomId) { 
+      console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${currentRoomId}.`);
       addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
       
-      setIsPartnerConnected(false); // Immediate client state update
-      setRoomId(null);             // Immediate client state update
+      // Immediate client state update to reflect user's action
+      setIsPartnerConnected(false);
+      setRoomId(null); // Crucial: Client considers itself out of the room
       setIsPartnerTyping(false);
       setPartnerInterests([]);
 
       if (currentSocket.connected) {
-        currentSocket.emit('leaveChat', { roomId: roomIdRef.current });
+        currentSocket.emit('leaveChat', { roomId: currentRoomId });
       }
 
+      // Transition to finding a new partner
       setIsFindingPartner(true); 
-      setIsSelfDisconnectedRecently(true);
+      setIsSelfDisconnectedRecently(true); // To manage system messages/favicon correctly
       setIsPartnerLeftRecently(false);
 
       if (currentSocket.connected) {
@@ -406,17 +410,20 @@ const ChatPageClientContent: React.FC = () => {
       } else {
         toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
         setSocketError(true);
-        setIsFindingPartner(false);
+        setIsFindingPartner(false); // Don't stay in finding state if socket is down
       }
     } else if (isFindingPartner) { 
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping partner search.`);
       setIsFindingPartner(false);
       setIsSelfDisconnectedRecently(false); 
       setIsPartnerLeftRecently(false);
+      // Note: No explicit socket.emit('stopFinding') is sent; server handles this implicitly if client disconnects or is matched.
+      // Or if a user stops searching, they just won't be in the queue anymore for the next match attempt.
     } else { 
       if (!currentSocket.connected) {
         toast({ title: "Connecting...", description: "Attempting to connect to chat server.", variant: "default" });
-        isProcessingFindOrDisconnect.current = false; return;
+        isProcessingFindOrDisconnect.current = false; // Release guard
+        return;
       }
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search.`);
       setIsFindingPartner(true);
@@ -424,7 +431,10 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerLeftRecently(false);
       currentSocket.emit('findPartner', { chatType: 'text', interests });
     }
-    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500);
+    
+    // Release the guard after the primary action has been initiated
+    // The server's `findPartnerCooldown` event handles rate limiting for finding.
+    isProcessingFindOrDisconnect.current = false; 
   }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList]);
 
   useEffect(() => {
@@ -729,3 +739,5 @@ const ChatPageClientContent: React.FC = () => {
   );
 };
 export default ChatPageClientContent;
+
+    
