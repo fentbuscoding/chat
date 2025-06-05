@@ -182,6 +182,7 @@ const ChatPageClientContent: React.FC = () => {
 
   const socketRef = useRef<Socket | null>(null);
   const roomIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null); // To store authenticated user ID
   const autoSearchDoneRef = useRef(false);
   const prevIsFindingPartnerRef = useRef(false);
   const prevIsPartnerConnectedRef = useRef(false);
@@ -272,6 +273,7 @@ const ChatPageClientContent: React.FC = () => {
     if (!isMounted) return;
     const fetchOwnProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      userIdRef.current = user?.id || null; // Store user ID
       if (user) {
         const { data: profile, error } = await supabase
           .from('user_profiles')
@@ -374,12 +376,12 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
       return;
     }
-    isProcessingFindOrDisconnect.current = true; // Guard action
+    isProcessingFindOrDisconnect.current = true; 
     const currentSocket = socketRef.current;
 
     if (!currentSocket) {
       toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
-      isProcessingFindOrDisconnect.current = false; // Release guard
+      isProcessingFindOrDisconnect.current = false; 
       return;
     }
 
@@ -389,9 +391,8 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${currentRoomId}.`);
       addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
       
-      // Immediate client state update to reflect user's action
       setIsPartnerConnected(false);
-      setRoomId(null); // Crucial: Client considers itself out of the room
+      setRoomId(null); 
       setIsPartnerTyping(false);
       setPartnerInterests([]);
 
@@ -399,41 +400,36 @@ const ChatPageClientContent: React.FC = () => {
         currentSocket.emit('leaveChat', { roomId: currentRoomId });
       }
 
-      // Transition to finding a new partner
       setIsFindingPartner(true); 
-      setIsSelfDisconnectedRecently(true); // To manage system messages/favicon correctly
+      setIsSelfDisconnectedRecently(true); 
       setIsPartnerLeftRecently(false);
 
       if (currentSocket.connected) {
-        console.log(`${LOG_PREFIX}: Emitting findPartner after skip for ${currentSocket.id}.`);
-        currentSocket.emit('findPartner', { chatType: 'text', interests });
+        console.log(`${LOG_PREFIX}: Emitting findPartner after skip for ${currentSocket.id}. AuthID: ${userIdRef.current}`);
+        currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
       } else {
         toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
         setSocketError(true);
-        setIsFindingPartner(false); // Don't stay in finding state if socket is down
+        setIsFindingPartner(false); 
       }
     } else if (isFindingPartner) { 
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping partner search.`);
       setIsFindingPartner(false);
       setIsSelfDisconnectedRecently(false); 
       setIsPartnerLeftRecently(false);
-      // Note: No explicit socket.emit('stopFinding') is sent; server handles this implicitly if client disconnects or is matched.
-      // Or if a user stops searching, they just won't be in the queue anymore for the next match attempt.
     } else { 
       if (!currentSocket.connected) {
         toast({ title: "Connecting...", description: "Attempting to connect to chat server.", variant: "default" });
-        isProcessingFindOrDisconnect.current = false; // Release guard
+        isProcessingFindOrDisconnect.current = false; 
         return;
       }
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search.`);
+      console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting partner search. AuthID: ${userIdRef.current}`);
       setIsFindingPartner(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      currentSocket.emit('findPartner', { chatType: 'text', interests });
+      currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
     }
     
-    // Release the guard after the primary action has been initiated
-    // The server's `findPartnerCooldown` event handles rate limiting for finding.
     isProcessingFindOrDisconnect.current = false; 
   }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList]);
 
@@ -453,15 +449,15 @@ const ChatPageClientContent: React.FC = () => {
         console.log(`%cSOCKET CONNECTED: ${newSocket.id}`, 'color: orange; font-weight: bold;');
         setSocketError(false);
         if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${LOG_PREFIX}: Auto-starting partner search on connect.`);
+            console.log(`${LOG_PREFIX}: Auto-starting partner search on connect. AuthID: ${userIdRef.current}`);
             setIsFindingPartner(true);
             setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
-            newSocket.emit('findPartner', { chatType: 'text', interests });
+            newSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
             autoSearchDoneRef.current = true;
         }
     };
-    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string }) => {
-      console.log(`%cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests });
+    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
+      console.log(`%cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId); 
@@ -469,6 +465,7 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
       setIsPartnerConnected(true); 
       setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
+      // For text chat, partner's display name and avatar are primarily used in message rendering if available via `senderUsername`
     };
     const onWaitingForPartner = () => {
         console.log(`${LOG_PREFIX}: Server ack 'waitingForPartner' for ${newSocket.id}`);
@@ -739,5 +736,7 @@ const ChatPageClientContent: React.FC = () => {
   );
 };
 export default ChatPageClientContent;
+
+    
 
     

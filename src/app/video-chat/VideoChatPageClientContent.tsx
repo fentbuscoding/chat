@@ -120,6 +120,7 @@ const VideoChatPageClientContent: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const roomIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null); // To store authenticated user ID
   const autoSearchDoneRef = useRef(false);
   const isProcessingFindOrDisconnect = useRef(false);
 
@@ -200,6 +201,7 @@ const VideoChatPageClientContent: React.FC = () => {
     if (!isMounted) return;
     const fetchOwnProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      userIdRef.current = user?.id || null; // Store user ID
       if (user) {
         const { data: profile, error } = await supabase
           .from('user_profiles')
@@ -363,7 +365,7 @@ const VideoChatPageClientContent: React.FC = () => {
     
     const currentRoomId = roomIdRef.current;
 
-    if (isPartnerConnected && currentRoomId) { // User wants to DISCONNECT/SKIP
+    if (isPartnerConnected && currentRoomId) { 
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in video room ${currentRoomId}.`);
       addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip-video');
       
@@ -382,8 +384,8 @@ const VideoChatPageClientContent: React.FC = () => {
       if (currentSocket.connected) {
         const stream = await getCameraStream(); 
         if (stream) { 
-            console.log(`${LOG_PREFIX}: Emitting findPartner after video skip for ${currentSocket.id}.`); 
-            currentSocket.emit('findPartner', { chatType: 'video', interests }); 
+            console.log(`${LOG_PREFIX}: Emitting findPartner after video skip for ${currentSocket.id}. AuthID: ${userIdRef.current}`); 
+            currentSocket.emit('findPartner', { chatType: 'video', interests, authId: userIdRef.current }); 
         } else { 
             toast({ title: "Camera Error", description: "Cannot find new partner without camera.", variant: "destructive"}); 
             setIsFindingPartner(false); 
@@ -393,12 +395,12 @@ const VideoChatPageClientContent: React.FC = () => {
         setSocketError(true); 
         setIsFindingPartner(false); 
       }
-    } else if (isFindingPartner) { // User wants to STOP SEARCHING
+    } else if (isFindingPartner) { 
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping video partner search.`);
       setIsFindingPartner(false); 
       setIsSelfDisconnectedRecently(false); 
       setIsPartnerLeftRecently(false);
-    } else { // User wants to FIND PARTNER
+    } else { 
       if (hasCameraPermission === false) { 
         toast({ title: "Camera Required", description: "Enable camera for video chat.", variant: "destructive" }); 
         isProcessingFindOrDisconnect.current = false; 
@@ -415,11 +417,11 @@ const VideoChatPageClientContent: React.FC = () => {
         setSocketError(true); 
         return; 
       }
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting video partner search.`);
+      console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting video partner search. AuthID: ${userIdRef.current}`);
       setIsFindingPartner(true); 
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      currentSocket.emit('findPartner', { chatType: 'video', interests });
+      currentSocket.emit('findPartner', { chatType: 'video', interests, authId: userIdRef.current });
     }
     isProcessingFindOrDisconnect.current = false; 
   }, [isPartnerConnected, isFindingPartner, interests, addMessageToList, cleanupConnections, getCameraStream, toast, hasCameraPermission]);
@@ -435,14 +437,14 @@ const VideoChatPageClientContent: React.FC = () => {
       console.log(`%cSOCKET CONNECTED (VIDEO): ${newSocket.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
       if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-        console.log(`${LOG_PREFIX}: Auto-starting video partner search on connect.`);
+        console.log(`${LOG_PREFIX}: Auto-starting video partner search on connect. AuthID: ${userIdRef.current}`);
         let stream;
         if(hasCameraPermission === undefined) stream = await getCameraStream(); else stream = localStreamRef.current;
 
         if (stream?.active) { 
             setIsFindingPartner(true); 
             setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
-            newSocket.emit('findPartner', { chatType: 'video', interests }); 
+            newSocket.emit('findPartner', { chatType: 'video', interests, authId: userIdRef.current }); 
             autoSearchDoneRef.current = true; 
         } else { 
             console.log(`${LOG_PREFIX}: Camera not active/ready, not auto-searching. Permission: ${hasCameraPermission}`); 
@@ -451,8 +453,8 @@ const VideoChatPageClientContent: React.FC = () => {
         }
       }
     };
-    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string }) => {
-      console.log(`%cSOCKET EVENT: partnerFound (VIDEO)`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests });
+    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
+      console.log(`%cSOCKET EVENT: partnerFound (VIDEO)`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
       playSound("Match.wav");
       setMessages([]); setRoomId(rId); setPartnerInterests(pInterests || []);
       setIsFindingPartner(false); setIsPartnerConnected(true); setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
@@ -663,3 +665,5 @@ const VideoChatPageClientContent: React.FC = () => {
 };
 export default VideoChatPageClientContent;
 
+
+    
