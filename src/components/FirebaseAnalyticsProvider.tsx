@@ -2,29 +2,41 @@
 'use client';
 
 import { useEffect } from 'react';
-import { app, analytics as firebaseAnalyticsInstance, perf as firebasePerfInstance } from '@/lib/firebase'; // Ensure analytics and perf are initialized
+// Import 'app' specifically, not the instances of analytics/perf directly from lib/firebase
+// as they might be null.
+import { app as firebaseApp } from '@/lib/firebase';
 import { getAnalytics, isSupported as isAnalyticsSupported, type Analytics } from 'firebase/analytics';
-import { getPerformance, isSupported as isPerfSupported, type Performance } from 'firebase/performance';
+import { getPerformance, type Performance } from 'firebase/performance';
 
 
 export function FirebaseAnalyticsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // This effect ensures that Analytics and Performance Monitoring are initialized on the client side.
-    // The actual initialization logic (getAnalytics, getPerformance) is in lib/firebase.ts,
-    // but we can ensure it's accessed here to trigger it if not already.
     if (typeof window !== 'undefined') {
-      isAnalyticsSupported().then(supported => {
-        if (supported) {
-          const analytics = getAnalytics(app);
-          console.log("Firebase Analytics initialized on client.");
+      if (firebaseApp) { // Check if the app object from lib/firebase is not null
+        isAnalyticsSupported().then(supported => {
+          if (supported) {
+            try {
+              const analyticsInstance = getAnalytics(firebaseApp); // Initialize here
+              // console.log("Firebase Analytics initialized on client.");
+            } catch (e) {
+                console.error("Error getting Firebase Analytics instance:", e);
+            }
+          } else {
+            // console.warn("Firebase Analytics not supported in this client environment.");
+          }
+        }).catch(e => console.error("Error checking Firebase Analytics support:", e));
+
+        try {
+            const perfInstance = getPerformance(firebaseApp); // Initialize here
+            if (perfInstance) {
+                // console.log("Firebase Performance Monitoring initialized on client.");
+            }
+        } catch (e) {
+            console.error("Error getting Firebase Performance instance:", e);
         }
-      });
-      // Performance monitoring does not have a separate isSupported() check for its specific module in the same way,
-      // but it relies on the general browser environment. If firebase/app is supported, perf should be too.
-      // getPerformance() itself handles initialization.
-      const perf = getPerformance(app);
-      if (perf) {
-        console.log("Firebase Performance Monitoring initialized on client.");
+
+      } else {
+        console.warn("Firebase app instance not available (likely due to missing API key or init failure). Analytics and Performance monitoring disabled.");
       }
     }
   }, []);
