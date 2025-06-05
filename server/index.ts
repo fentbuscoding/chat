@@ -1,7 +1,12 @@
-
 import http from 'http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!; // Use service key for server-side operations
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Define allowed origins
 const allowedOrigins = [
@@ -69,17 +74,26 @@ const io = new SocketIOServer(server, {
 
 const PORT = process.env.PORT || 3001;
 
+// Updated interfaces to include auth info
 interface User {
-  id: string;
+  id: string; // Socket ID
+  authId?: string; // Supabase auth user ID
   interests: string[];
   chatType: 'text' | 'video';
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
 }
 
 interface Room {
   id: string;
-  users: string[]; // Should contain socket IDs
+  users: string[]; // Socket IDs
   chatType: 'text' | 'video';
 }
+
+// Map socket IDs to auth user IDs for lookup
+const socketToAuthId: { [socketId: string]: string } = {};
+const authIdToSocketId: { [authId: string]: string } = {};
 
 const waitingUsers: { [key in 'text' | 'video']: User[] } = {
   text: [],
@@ -96,6 +110,7 @@ const StringArraySchema = z.array(z.string().max(100)).max(10);
 const FindPartnerPayloadSchema = z.object({
   chatType: z.enum(['text', 'video']),
   interests: StringArraySchema,
+  authId: z.string().uuid().optional(), // Add auth ID for authenticated users
 });
 
 const RoomIdPayloadSchema = z.object({
@@ -111,6 +126,47 @@ const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
   signalData: z.any(),
 });
 
+// Helper function to fetch user profile from Supabase
+async function fetchUserProfile(authId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('username, display_name, avatar_url')
+      .eq('id', authId)
+      .single();
+
+    if (error) {
+      console.error(`[SUPABASE_ERROR] Error fetching profile for ${authId}:`, error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error(`[SUPABASE_EXCEPTION] Exception fetching profile for ${authId}:`, err);
+    return null;
+  }
+}
+
+// Helper function to update user online status
+async function updateUserOnlineStatus(authId: string, isOnline: boolean) {
+  if (!authId) return;
+
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ 
+        is_online: isOnline,
+        last_seen: new Date().toISOString()
+      })
+      .eq('id', authId);
+
+    if (error) {
+      console.error(`[SUPABASE_ERROR] Error updating online status for ${authId}:`, error);
+    }
+  } catch (err) {
+    console.error(`[SUPABASE_EXCEPTION] Exception updating online status for ${authId}:`, err);
+  }
+}
 
 function removeFromWaitingLists(socketId: string) {
   (['text', 'video'] as const).forEach(type => {
@@ -162,7 +218,6 @@ const findMatch = (currentUser: User): User | null => {
   return null;
 };
 
-
 io.on('connection', (socket: Socket) => {
   onlineUserCount++;
   console.log(`[CONNECT] User connected: ${socket.id}. Total online: ${onlineUserCount}`);
@@ -172,10 +227,10 @@ io.on('connection', (socket: Socket) => {
     socket.emit('onlineUserCount', onlineUserCount);
   });
 
-  socket.on('findPartner', (payload: unknown) => {
+  socket.on('findPartner', async (payload: unknown) => {
     try {
       const validatedPayload = FindPartnerPayloadSchema.parse(payload);
-      const { chatType, interests } = validatedPayload;
+      const { chatType, interests, authId } = validatedPayload;
 
       const now = Date.now();
       if (now - (lastMatchRequest[socket.id] || 0) < FIND_PARTNER_COOLDOWN_MS) {
@@ -185,9 +240,28 @@ io.on('connection', (socket: Socket) => {
       }
       lastMatchRequest[socket.id] = now;
 
-      console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} looking for ${chatType} chat with interests: ${interests.join(', ')}`);
+      console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} (authId: ${authId || 'anonymous'}) looking for ${chatType} chat with interests: ${interests.join(', ')}`);
+      
+      // Store auth mapping if provided
+      if (authId) {
+        socketToAuthId[socket.id] = authId;
+        authIdToSocketId[authId] = socket.id;
+        await updateUserOnlineStatus(authId, true);
+      }
+
       removeFromWaitingLists(socket.id);
-      const currentUser: User = { id: socket.id, interests, chatType };
+      
+      // Create user object with profile info if authenticated
+      const currentUser: User = { id: socket.id, interests, chatType, authId };
+      
+      if (authId) {
+        const profile = await fetchUserProfile(authId);
+        if (profile) {
+          currentUser.username = profile.username;
+          currentUser.displayName = profile.display_name;
+          currentUser.avatarUrl = profile.avatar_url;
+        }
+      }
 
       const matchedPartner = findMatch(currentUser);
 
@@ -198,23 +272,29 @@ io.on('connection', (socket: Socket) => {
           rooms[roomId] = { id: roomId, users: [currentUser.id, matchedPartner.id], chatType };
           console.log(`[SERVER_ROOM_CREATED] Room ${roomId} created for users ${currentUser.id} and ${matchedPartner.id}.`);
 
-
           console.log(`[MATCH_ATTEMPT_JOIN] Attempting to join ${currentUser.id} to room ${roomId}`);
           socket.join(roomId);
           console.log(`[MATCH_ATTEMPT_JOIN] Attempting to join ${matchedPartner.id} to room ${roomId}`);
           partnerSocket.join(roomId);
           console.log(`[MATCH_SUCCESS] ${currentUser.id} and ${matchedPartner.id} joined room ${roomId}. Emitting 'partnerFound'. Room details: ${JSON.stringify(rooms[roomId])}. Sockets in room: ${Array.from(io.sockets.adapter.rooms.get(roomId) || []).join(', ')}`);
 
-
+          // Include profile info in partner found event
           socket.emit('partnerFound', {
             partnerId: matchedPartner.id,
             roomId,
             interests: matchedPartner.interests,
+            partnerUsername: matchedPartner.username,
+            partnerDisplayName: matchedPartner.displayName,
+            partnerAvatarUrl: matchedPartner.avatarUrl,
           });
+          
           partnerSocket.emit('partnerFound', {
             partnerId: currentUser.id,
             roomId,
             interests: currentUser.interests,
+            partnerUsername: currentUser.username,
+            partnerDisplayName: currentUser.displayName,
+            partnerAvatarUrl: currentUser.avatarUrl,
           });
         } else {
           console.warn(`[MATCH_FAIL_SOCKET_ISSUE] Partner ${matchedPartner.id} socket not found or disconnected. Re-queuing current user ${currentUser.id}.`);
@@ -253,7 +333,6 @@ io.on('connection', (socket: Socket) => {
       const socketsInRoom = io.sockets.adapter.rooms.get(roomId);
       console.log(`[MESSAGE_DEBUG_SOCKETS_IN_ROOM] Sockets currently in Socket.IO room ${roomId}: ${socketsInRoom ? Array.from(socketsInRoom).join(', ') : 'NONE'}`);
 
-
       if (roomDetails.users.includes(socket.id)) {
         const senderUsernameOrDefault = username || 'Stranger';
         const messagePayload = {
@@ -280,7 +359,6 @@ io.on('connection', (socket: Socket) => {
       socket.emit('error', { message: 'Invalid payload for sendMessage.' });
     }
   });
-
 
   socket.on('webrtcSignal', (payload: unknown) => {
     try {
@@ -336,12 +414,20 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  const cleanupUser = (reason: string) => {
+  const cleanupUser = async (reason: string) => {
     console.log(`[CLEANUP_USER_INIT] User ${socket.id} disconnecting/cleaning up. Reason: ${reason}`);
     onlineUserCount = Math.max(0, onlineUserCount - 1);
     io.emit('onlineUserCountUpdate', onlineUserCount);
     removeFromWaitingLists(socket.id);
     delete lastMatchRequest[socket.id];
+
+    // Update online status if authenticated
+    const authId = socketToAuthId[socket.id];
+    if (authId) {
+      await updateUserOnlineStatus(authId, false);
+      delete socketToAuthId[socket.id];
+      delete authIdToSocketId[authId];
+    }
 
     for (const roomIdInLoop in rooms) {
         if (rooms.hasOwnProperty(roomIdInLoop)) {
@@ -401,9 +487,9 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', async (reason) => {
     console.log(`[DISCONNECT_EVENT] User ${socket.id} disconnected. Reason: ${reason}`);
-    cleanupUser(`socket.io disconnect event: ${reason}`);
+    await cleanupUser(`socket.io disconnect event: ${reason}`);
   });
 });
 
@@ -412,4 +498,3 @@ server.listen(PORT, () => {
 });
 
 export {};
-    
