@@ -202,7 +202,7 @@ const VideoChatPageClientContent: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile, error } = await supabase
-          .from('user_profiles') // Changed from 'users'
+          .from('user_profiles')
           .select('username')
           .eq('id', user.id)
           .single();
@@ -240,21 +240,26 @@ const VideoChatPageClientContent: React.FC = () => {
     } else if (isSelfDisconnectedRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => { if (isFindingPartner) changeFavicon(FAVICON_SEARCHING); }, 500);
+       if (isFindingPartner) { 
+           updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED.toLowerCase());
+           updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING.toLowerCase());
+           updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search-after-skip-video');
+       }
     } else if (isPartnerLeftRecently) {
       changeFavicon(FAVICON_SKIPPED);
       skippedFaviconTimeoutRef.current = setTimeout(() => { if (!isFindingPartner && !isPartnerConnected) changeFavicon(FAVICON_IDLE); }, 1000);
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_SEARCHING_PARTNER);
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING);
       updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED);
-      updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED, 'partner-left');
+      updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED, 'partner-left-video');
     } else if (isFindingPartner) {
       changeFavicon(FAVICON_SEARCHING);
-      const justStartedFindingOrSkipped = !prevIsFindingPartnerRef.current || prevIsSelfDisconnectedRecentlyRef.current;
+      const justStartedFindingOrSkipped = !prevIsFindingPartnerRef.current || prevIsSelfDisconnectedRecentlyRef.current || prevIsPartnerLeftRecentlyRef.current;
       if (justStartedFindingOrSkipped) {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED);
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING);
-        if (!prevIsSelfDisconnectedRecentlyRef.current) updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED);
-        updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search');
+        updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED);
+        updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_SEARCHING_PARTNER, 'search-video');
       }
     } else if (isPartnerConnected) {
       if (!prevIsPartnerConnectedRef.current) {
@@ -265,10 +270,10 @@ const VideoChatPageClientContent: React.FC = () => {
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_PARTNER_DISCONNECTED);
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_STOPPED_SEARCHING);
         updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_YOU_DISCONNECTED);
-        updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_CONNECTED_PARTNER, 'connect');
+        updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_CONNECTED_PARTNER, 'connect-video');
         if (interests.length > 0 && partnerInterests.length > 0) {
           const common = interests.filter(i => partnerInterests.includes(i));
-          if (common.length > 0) updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, `${SYS_MSG_COMMON_INTERESTS_PREFIX}${common.join(', ')}.`, 'common');
+          if (common.length > 0) updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, `${SYS_MSG_COMMON_INTERESTS_PREFIX}${common.join(', ')}.`, 'common-video');
         }
       } else if (!successTransitionIntervalRef.current && !successTransitionEndTimeoutRef.current) changeFavicon(FAVICON_SUCCESS);
     } else {
@@ -276,7 +281,7 @@ const VideoChatPageClientContent: React.FC = () => {
       if (prevIsFindingPartnerRef.current && !isFindingPartner && !isPartnerConnected && !roomIdRef.current && !socketError && !isPartnerLeftRecently && !isSelfDisconnectedRecently) {
         if (updatedMessages.some(msg => msg.sender === 'system' && msg.text.toLowerCase().includes(SYS_MSG_SEARCHING_PARTNER))) {
           updatedMessages = filterSystemMessagesFrom(updatedMessages, SYS_MSG_SEARCHING_PARTNER);
-          updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_STOPPED_SEARCHING, 'stopsearch');
+          updatedMessages = addSystemMessageIfNotPresentIn(updatedMessages, SYS_MSG_STOPPED_SEARCHING, 'stopsearch-video');
         }
       }
     }
@@ -349,50 +354,74 @@ const VideoChatPageClientContent: React.FC = () => {
   }, [getCameraStream, toast, cleanupConnections]);
 
   const handleFindOrDisconnectPartner = useCallback(async () => {
-    if (isProcessingFindOrDisconnect.current) { console.log(`${LOG_PREFIX}: Action already in progress.`); return; }
-    isProcessingFindOrDisconnect.current = true;
+    console.log(`${LOG_PREFIX}: handleFindOrDisconnectPartner called. isPartnerConnected=${isPartnerConnected}, roomIdRef.current=${roomIdRef.current}, isFindingPartner=${isFindingPartner}`);
+    if (isProcessingFindOrDisconnect.current) { console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`); return; }
+    isProcessingFindOrDisconnect.current = true; 
+
     const currentSocket = socketRef.current;
-    if (!currentSocket) { toast({ title: "Not Connected", description: "Chat server connection not established.", variant: "destructive" }); isProcessingFindOrDisconnect.current = false; return; }
+    if (!currentSocket) { toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" }); isProcessingFindOrDisconnect.current = false; return; }
+    
     const currentRoomId = roomIdRef.current;
 
     if (isPartnerConnected && currentRoomId) { // User wants to DISCONNECT/SKIP
-      console.log(`${LOG_PREFIX}: User ${currentSocket.id} skipping in room ${currentRoomId} (video).`);
+      console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in video room ${currentRoomId}.`);
       addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip-video');
       
-      setIsPartnerConnected(false); // Immediate client state update
+      setIsPartnerConnected(false);
       setIsPartnerTyping(false);
-      setRoomId(null); // Immediate client state update
+      setRoomId(null); 
       setPartnerInterests([]);
-
+      
       if (currentSocket.connected) currentSocket.emit('leaveChat', { roomId: currentRoomId });
-      cleanupConnections(false); // Keep local stream for next potential connection
+      cleanupConnections(false); 
       
       setIsFindingPartner(true); 
       setIsSelfDisconnectedRecently(true);
       setIsPartnerLeftRecently(false);
 
       if (currentSocket.connected) {
-        const stream = await getCameraStream(); // Ensure stream is active
-        if (stream) { console.log(`${LOG_PREFIX}: Emitting findPartner after video skip for ${currentSocket.id}.`); currentSocket.emit('findPartner', { chatType: 'video', interests }); }
-        else { toast({ title: "Camera Error", description: "Cannot find new partner without camera.", variant: "destructive"}); setIsFindingPartner(false); }
-      } else { toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" }); setSocketError(true); setIsFindingPartner(false); }
+        const stream = await getCameraStream(); 
+        if (stream) { 
+            console.log(`${LOG_PREFIX}: Emitting findPartner after video skip for ${currentSocket.id}.`); 
+            currentSocket.emit('findPartner', { chatType: 'video', interests }); 
+        } else { 
+            toast({ title: "Camera Error", description: "Cannot find new partner without camera.", variant: "destructive"}); 
+            setIsFindingPartner(false); 
+        }
+      } else { 
+        toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" }); 
+        setSocketError(true); 
+        setIsFindingPartner(false); 
+      }
     } else if (isFindingPartner) { // User wants to STOP SEARCHING
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} stopping video partner search.`);
       setIsFindingPartner(false); 
       setIsSelfDisconnectedRecently(false); 
       setIsPartnerLeftRecently(false);
     } else { // User wants to FIND PARTNER
-      if (hasCameraPermission === false) { toast({ title: "Camera Required", description: "Enable camera for video chat.", variant: "destructive" }); isProcessingFindOrDisconnect.current = false; return; }
+      if (hasCameraPermission === false) { 
+        toast({ title: "Camera Required", description: "Enable camera for video chat.", variant: "destructive" }); 
+        isProcessingFindOrDisconnect.current = false; 
+        return; 
+      }
       const stream = await getCameraStream();
-      if (!stream) { isProcessingFindOrDisconnect.current = false; return; } // getCameraStream shows toast
-      if (!currentSocket.connected) { toast({ title: "Connection Lost", description: "Cannot find partner.", variant: "destructive" }); isProcessingFindOrDisconnect.current = false; setSocketError(true); return; }
+      if (!stream) { 
+        isProcessingFindOrDisconnect.current = false; 
+        return; 
+      } 
+      if (!currentSocket.connected) { 
+        toast({ title: "Connection Lost", description: "Cannot find partner.", variant: "destructive" }); 
+        isProcessingFindOrDisconnect.current = false; 
+        setSocketError(true); 
+        return; 
+      }
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} starting video partner search.`);
       setIsFindingPartner(true); 
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
       currentSocket.emit('findPartner', { chatType: 'video', interests });
     }
-    setTimeout(() => { isProcessingFindOrDisconnect.current = false; }, 500);
+    isProcessingFindOrDisconnect.current = false; 
   }, [isPartnerConnected, isFindingPartner, interests, addMessageToList, cleanupConnections, getCameraStream, toast, hasCameraPermission]);
 
   useEffect(() => {
@@ -417,7 +446,7 @@ const VideoChatPageClientContent: React.FC = () => {
             autoSearchDoneRef.current = true; 
         } else { 
             console.log(`${LOG_PREFIX}: Camera not active/ready, not auto-searching. Permission: ${hasCameraPermission}`); 
-            addMessageToList("Camera access needed to start video chat.", "system"); 
+            addMessageToList("Camera access needed to start video chat.", "system", undefined, "camera-needed-video"); 
             setIsFindingPartner(false); 
         }
       }
@@ -633,3 +662,4 @@ const VideoChatPageClientContent: React.FC = () => {
   );
 };
 export default VideoChatPageClientContent;
+
