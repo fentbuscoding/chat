@@ -221,7 +221,7 @@ const ChatPageClientContent: React.FC = () => {
   const [typingDots, setTypingDots] = useState('.');
 
   const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true); // New state
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
@@ -296,7 +296,7 @@ const ChatPageClientContent: React.FC = () => {
           }
         } else {
            console.log(`${LOG_PREFIX}: No authenticated user found.`);
-           setOwnProfileUsername(null); // Ensure it's null if no user
+           setOwnProfileUsername(null);
         }
       } catch (e) {
         console.error(`${LOG_PREFIX}: Exception fetching own profile:`, e);
@@ -305,18 +305,20 @@ const ChatPageClientContent: React.FC = () => {
       } finally {
         setIsAuthLoading(false);
         console.log(`${LOG_PREFIX}: Auth check complete. AuthID: ${userIdRef.current}, Username: ${ownProfileUsername}`);
-        // Trigger auto-search if conditions are met (moved here)
+        // Attempt auto-search if socket is already connected and other conditions met
         if (socketRef.current?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-          console.log(`${LOG_PREFIX}: Auto-starting partner search after auth check. AuthID: ${userIdRef.current}`);
+          console.log(`${LOG_PREFIX}: Auth complete. Triggering auto-search. AuthID: ${userIdRef.current}`);
           setIsFindingPartner(true);
           setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
           socketRef.current.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
           autoSearchDoneRef.current = true;
+        } else if (!socketRef.current?.connected) {
+            console.log(`${LOG_PREFIX}: Auth check complete, but socket not connected. Auto-search will be attempted on socket connect.`);
         }
       }
     };
     fetchOwnProfile();
-  }, [isMounted, interests]); // Added interests to dependencies
+  }, [isMounted, interests]);
 
   useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
@@ -458,34 +460,38 @@ const ChatPageClientContent: React.FC = () => {
       currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
     }
     
-    isProcessingFindOrDisconnect.current = false; 
+    // Reset the guard at the end of the synchronous part of the function
+    isProcessingFindOrDisconnect.current = false;
   }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList, isAuthLoading]);
 
   // Effect to setup socket connection
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
-      console.error(`${LOG_PREFIX}: Socket server URL is not defined.`);
+      console.error(`${LOG_PREFIX}: Socket server URL is not defined. Cannot connect.`);
       toast({ title: "Config Error", description: "Chat server URL missing.", variant: "destructive" });
       setSocketError(true);
-      return;
+      return; // Abort effect if URL is missing
     }
-    console.log(`${LOG_PREFIX}: Connecting to socket server: ${socketServerUrl}`);
+
+    console.log(`${LOG_PREFIX}: Socket useEffect runs. Attempting to connect to: ${socketServerUrl}`);
     const newSocket = io(socketServerUrl, { withCredentials: true, transports: ['websocket', 'polling'] });
     socketRef.current = newSocket;
+    console.log(`${LOG_PREFIX}: Socket instance created with id ${newSocket.id} and assigned to socketRef.current.`);
+
 
     const onConnect = () => {
         console.log(`%cSOCKET CONNECTED: ${newSocket.id}`, 'color: orange; font-weight: bold;');
         setSocketError(false);
-        // Auto-search logic moved to the auth useEffect to ensure authId is available
+        // Attempt auto-search if auth is already loaded and other conditions met
         if (!isAuthLoading && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${LOG_PREFIX}: Auto-starting partner search on connect (auth already loaded). AuthID: ${userIdRef.current}`);
+            console.log(`${LOG_PREFIX}: Socket connected AND auth already loaded. Triggering auto-search. AuthID: ${userIdRef.current}`);
             setIsFindingPartner(true);
             setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
             newSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
             autoSearchDoneRef.current = true;
-        } else if (isAuthLoading && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${LOG_PREFIX}: Socket connected, but auth is still loading. Auto-search will be triggered after auth check.`);
+        } else if (isAuthLoading) {
+            console.log(`${LOG_PREFIX}: Socket connected, but auth is still loading. Auto-search will be attempted after auth check if needed.`);
         }
     };
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
@@ -557,21 +563,40 @@ const ChatPageClientContent: React.FC = () => {
     newSocket.on('partner_typing_stop', onPartnerTypingStop);
 
     return () => {
-      console.log(`${LOG_PREFIX}: Cleaning up. Disconnecting socket: ${newSocket?.id}`);
-      if (roomIdRef.current && newSocket?.connected) {
-        newSocket.emit('leaveChat', { roomId: roomIdRef.current });
+      const socketToClean = newSocket; 
+      console.log(`${LOG_PREFIX}: Cleanup for socket effect. Socket to clean ID: ${socketToClean?.id}. Current socketRef ID: ${socketRef.current?.id}`);
+      
+      if (roomIdRef.current && socketToClean?.connected) {
+        console.log(`${LOG_PREFIX}: Emitting leaveChat from cleanup for room ${roomIdRef.current} on socket ${socketToClean.id}`);
+        socketToClean.emit('leaveChat', { roomId: roomIdRef.current });
       }
-      newSocket.removeAllListeners();
-      newSocket.disconnect();
-      socketRef.current = null;
-      changeFavicon(FAVICON_DEFAULT, true);
+      
+      if (socketToClean) {
+        socketToClean.removeAllListeners();
+        socketToClean.disconnect();
+        console.log(`${LOG_PREFIX}: Disconnected socket ${socketToClean.id} in cleanup.`);
+      } else {
+        console.warn(`${LOG_PREFIX}: socketToClean was unexpectedly null or undefined in cleanup.`);
+      }
+
+      if (socketRef.current === socketToClean) {
+        socketRef.current = null;
+        console.log(`${LOG_PREFIX}: Set socketRef.current to null because it matched the socket being cleaned.`);
+      } else {
+        console.log(`${LOG_PREFIX}: Did NOT null socketRef.current. Current is ${socketRef.current?.id}, cleaned was ${socketToClean?.id}. This might be okay if a new socket was established.`);
+      }
+
       if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
       if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
       if (skippedFaviconTimeoutRef.current) clearTimeout(skippedFaviconTimeoutRef.current);
       if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
+      changeFavicon(FAVICON_DEFAULT, true);
     };
-  }, [addMessageToList, toast, interests, changeFavicon, isAuthLoading]); // Added isAuthLoading
+  // Stable dependencies that define the socket's behavior or are needed for its emissions.
+  // `interests` is included because it's part of the `findPartner` payload on connect/reconnect.
+  // Callbacks like `addMessageToList`, `toast`, `changeFavicon` should be stable if memoized correctly.
+  }, [interests, addMessageToList, toast, changeFavicon]); // `isAuthLoading` removed as direct dep for socket creation
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -674,7 +699,7 @@ const ChatPageClientContent: React.FC = () => {
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: ownProfileUsername, // Will be null for anonymous users
+      username: ownProfileUsername, 
     });
 
     addMessageToList(trimmedMessage, 'me');
