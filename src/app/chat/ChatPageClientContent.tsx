@@ -216,10 +216,10 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('.');
 
-  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // Actual username from DB
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
-  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // Actual username from DB
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
   const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
@@ -523,6 +523,7 @@ const ChatPageClientContent: React.FC = () => {
     const onConnect = () => {
       console.log(`%cSOCKET CONNECTED: ${socketToClean.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
+      setIsSocketConnected(true);
       // Reset auto search flag when reconnecting
       autoSearchDoneRef.current = false;
       // Add a small delay to ensure socket is fully established before auto-search
@@ -588,6 +589,7 @@ const ChatPageClientContent: React.FC = () => {
     };
     const onDisconnectHandler = (reason: string) => {
       console.warn(`${LOG_PREFIX}: Socket ${socketToClean.id} disconnected. Reason: ${reason}`);
+      setIsSocketConnected(false);
       // Only set socket error for unexpected disconnections
       if (reason !== 'io client disconnect') {
         setSocketError(true);
@@ -602,6 +604,7 @@ const ChatPageClientContent: React.FC = () => {
     const onConnectError = (err: Error) => {
         console.error(`${LOG_PREFIX}: Socket ${socketToClean.id} connection error: ${String(err)}`, err);
         setSocketError(true);
+        setIsSocketConnected(false);
         toast({ title: "Connection Error", description: `Could not connect to chat: ${String(err)}`, variant: "destructive" });
         setIsFindingPartner(false); setIsPartnerTyping(false);
     };
@@ -775,8 +778,8 @@ const ChatPageClientContent: React.FC = () => {
     return 'Find Partner';
   }, [isPartnerConnected, isFindingPartner]);
 
-  const mainButtonDisabled = useMemo(() => !socketRef.current?.connected || socketError, [socketError]);
-  const inputAndSendDisabled = useMemo(() => !socketRef.current?.connected || !isPartnerConnected || isFindingPartner || socketError, [isPartnerConnected, isFindingPartner, socketError]);
+  const mainButtonDisabled = useMemo(() => !isSocketConnected || socketError || isProcessingFindOrDisconnect.current, [isSocketConnected, socketError]);
+  const inputAndSendDisabled = useMemo(() => !isSocketConnected || !isPartnerConnected || isFindingPartner || socketError, [isSocketConnected, isPartnerConnected, isFindingPartner, socketError]);
 
   if (!isMounted) return <div className="flex flex-1 items-center justify-center p-4"><p>Loading chat...</p></div>;
 
