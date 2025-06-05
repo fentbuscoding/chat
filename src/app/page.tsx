@@ -40,9 +40,8 @@ export default function SelectionLobby() {
   const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
-    if (isNavigating) {
-      setIsNavigating(false);
-    }
+    // Reset isNavigating to false when the pathname changes (navigation completes)
+    setIsNavigating(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -81,7 +80,14 @@ export default function SelectionLobby() {
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
+        setUsersOnline(0); // Set to 0 or some error indicator
+        if (tempSocket?.connected) tempSocket.disconnect();
+      });
+
+      tempSocket.on('error', (err) => { // General socket error
+        console.error("SelectionLobby: General socket error for user count:", err);
         setUsersOnline(0);
+        if (tempSocket?.connected) tempSocket.disconnect();
       });
 
     } catch (error) {
@@ -96,7 +102,7 @@ export default function SelectionLobby() {
       } else if (tempSocket) {
         console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
         tempSocket.removeAllListeners();
-        tempSocket.disconnect();
+        tempSocket.disconnect(); // Ensure disconnect is called even if not connected
       }
     };
   }, []);
@@ -138,11 +144,11 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
-    setIsNavigating(true);
+    setIsNavigating(true); // Set immediately
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
-      setIsNavigating(false);
+      setIsNavigating(false); // Reset if router isn't available
       return;
     }
     const interestsString = selectedInterests.join(',');
@@ -157,7 +163,13 @@ export default function SelectionLobby() {
     } else {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
-    router.push(path);
+    
+    router.push(path)
+      .catch((err) => {
+        console.error("Navigation failed:", err);
+        toast({ variant: "destructive", title: "Navigation Error", description: "Could not start chat session." });
+        setIsNavigating(false); // Reset on navigation error
+      });
   }, [router, selectedInterests, toast]);
 
 
@@ -326,7 +338,7 @@ export default function SelectionLobby() {
                     placeholder={selectedInterests.length < 5 ? "Add interest..." : "Max interests reached"}
                     className="flex-grow p-0 border-none outline-none shadow-none bg-transparent themed-input-inner"
                     style={{ minWidth: '80px' }}
-                    disabled={selectedInterests.length >= 5 && !currentInterest || isNavigating}
+                    disabled={(selectedInterests.length >= 5 && !currentInterest) || isNavigating}
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
