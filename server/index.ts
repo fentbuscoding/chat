@@ -78,7 +78,7 @@ const PORT = process.env.PORT || 3001;
 // Updated interfaces to include auth info
 interface User {
   id: string; // Socket ID
-  authId?: string; // Supabase auth user ID
+  authId?: string | null; // Supabase auth user ID, can be null
   interests: string[];
   chatType: 'text' | 'video';
   username?: string;
@@ -111,7 +111,7 @@ const StringArraySchema = z.array(z.string().max(100)).max(10);
 const FindPartnerPayloadSchema = z.object({
   chatType: z.enum(['text', 'video']),
   interests: StringArraySchema,
-  authId: z.string().uuid().optional(),
+  authId: z.string().uuid().nullable().optional(),
 });
 
 const RoomIdPayloadSchema = z.object({
@@ -178,60 +178,44 @@ function removeFromWaitingLists(socketId: string) {
 }
 
 const findMatch = (currentUser: User): User | null => {
-  const queue = waitingUsers[currentUser.chatType]; // Direct reference to the specific queue
+  const queue = waitingUsers[currentUser.chatType]; 
 
-  // Attempt 1: Interest-based matching
   if (currentUser.interests.length > 0) {
-    // Iterate with index to allow safe modification if needed, or use a copy
     for (let i = 0; i < queue.length; i++) {
       const potentialPartner = queue[i];
-      if (potentialPartner.id === currentUser.id) continue; // Don't match with self
+      if (potentialPartner.id === currentUser.id) continue; 
 
       const hasCommonInterest = potentialPartner.interests &&
                                 potentialPartner.interests.some(interest => currentUser.interests.includes(interest));
 
       if (hasCommonInterest) {
-        // Re-find the partner by ID in the live queue to get the current index,
-        // as the queue might have been modified by a concurrent operation.
         const actualIndex = waitingUsers[currentUser.chatType].findIndex(u => u.id === potentialPartner.id);
         
         if (actualIndex !== -1) {
-          // Ensure it's not the current user again (double check, though primary check is above)
           if (waitingUsers[currentUser.chatType][actualIndex].id === currentUser.id) continue;
-
           console.log(`[MATCH_LOGIC_INTEREST] Interest match found: ${currentUser.id} with ${waitingUsers[currentUser.chatType][actualIndex].id}`);
-          return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; // Remove and return
+          return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; 
         } else {
-          // This means potentialPartner was identified, but by the time we tried to get its actualIndex,
-          // it was already removed from the queue (likely by another match process).
           console.log(`[MATCH_LOGIC_CONCURRENCY] Interest-candidate ${potentialPartner.id} was already removed from queue. Continuing search.`);
-          // The loop will continue, but `i` might skip an element if splice happened before this iteration's `potentialPartner`.
-          // To be extremely safe, if a splice happens, one might decrement `i` or re-evaluate, but findIndex handles lookup.
         }
       }
     }
     console.log(`[MATCH_LOGIC_NO_INTEREST_MATCH] No interest-based match for ${currentUser.id}. Proceeding to random match.`);
   }
 
-  // Attempt 2: Random matching
-  // Create a list of candidates *excluding the current user* from the current state of the queue
   const candidates = waitingUsers[currentUser.chatType].filter(p => p.id !== currentUser.id);
   if (candidates.length > 0) {
-    // Shuffle candidates array to make random matching more fair when iterating
     for (let i = candidates.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; // ES6 destructuring swap
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; 
     }
 
     for (const randomPartner of candidates) {
-        // Re-find the partner by ID in the live queue to get its current index.
         const actualIndex = waitingUsers[currentUser.chatType].findIndex(u => u.id === randomPartner.id);
         if (actualIndex !== -1) {
-            // Ensure it's not the current user
             if (waitingUsers[currentUser.chatType][actualIndex].id === currentUser.id) continue;
-
             console.log(`[MATCH_LOGIC_RANDOM] Random match found: ${currentUser.id} with ${waitingUsers[currentUser.chatType][actualIndex].id}`);
-            return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; // Remove and return
+            return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; 
         } else {
             console.log(`[MATCH_LOGIC_CONCURRENCY] Random-candidate ${randomPartner.id} was already removed from queue. Continuing search.`);
         }
@@ -485,4 +469,5 @@ server.listen(PORT, () => {
 });
 
 export {};
+    
     
