@@ -272,7 +272,7 @@ const ChatPageClientContent: React.FC = () => {
     const currentSocket = socketRef.current;
     console.log(`${LOG_PREFIX}: attemptAutoSearch called. Socket connected: ${!!currentSocket?.connected}, Auth loading: ${isAuthLoading}, Auto search done: ${autoSearchDoneRef.current}, Partner connected: ${isPartnerConnected}, Finding partner: ${isFindingPartner}, Room ID: ${roomIdRef.current}`);
     
-    // Allow search even if auth is still loading for anonymous users
+    // Auto-search can proceed regardless of auth loading state
     if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
       console.log(`${LOG_PREFIX}: Conditions met for auto search. Emitting 'findPartner'. Payload:`, { 
         chatType: 'text', 
@@ -293,7 +293,7 @@ const ChatPageClientContent: React.FC = () => {
       if (roomIdRef.current) reason += "Already in a room. ";
       if (reason) console.log(`${LOG_PREFIX}: Auto-search conditions not met: ${reason}`);
     }
-  }, [isAuthLoading, isPartnerConnected, isFindingPartner, interests]);
+  }, [isPartnerConnected, isFindingPartner, interests]);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -340,14 +340,14 @@ const ChatPageClientContent: React.FC = () => {
     fetchOwnProfile();
   }, [isMounted]);
 
-  // Effect to trigger auto-search when auth is resolved AND socket is connected
+  // Effect to trigger auto-search when socket is connected (regardless of auth state)
   useEffect(() => {
-    console.log(`${LOG_PREFIX}: useEffect for auto-search trigger. Auth loading: ${isAuthLoading}, Socket connected: ${!!socketRef.current?.connected}`);
-    if (!isAuthLoading && socketRef.current?.connected) {
-      console.log(`${LOG_PREFIX}: Auth resolved and socket connected. Attempting auto search.`);
+    console.log(`${LOG_PREFIX}: useEffect for auto-search trigger. Socket connected: ${!!socketRef.current?.connected}`);
+    if (socketRef.current?.connected) {
+      console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
       attemptAutoSearch();
     }
-  }, [isAuthLoading, attemptAutoSearch]);
+  }, [attemptAutoSearch]);
 
 
   useEffect(() => {
@@ -510,13 +510,9 @@ const ChatPageClientContent: React.FC = () => {
     const onConnect = () => {
       console.log(`%cSOCKET CONNECTED: ${socketToClean.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
-      // Attempt auto-search if auth is already resolved.
-      if (!isAuthLoading) {
-        console.log(`${LOG_PREFIX}: Socket connected and auth already resolved. Attempting auto search.`);
-        attemptAutoSearch();
-      } else {
-        console.log(`${LOG_PREFIX}: Socket connected, but auth is still loading. Auto-search will be attempted after auth check completes.`);
-      }
+      // Attempt auto-search immediately when socket connects
+      console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
+      attemptAutoSearch();
     };
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
       console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
@@ -611,7 +607,7 @@ const ChatPageClientContent: React.FC = () => {
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
       changeFavicon(FAVICON_DEFAULT, true); // Reset favicon on unmount
     };
-  }, [toast, changeFavicon, addMessageToList, attemptAutoSearch, isAuthLoading]); 
+  }, [toast, changeFavicon, addMessageToList, attemptAutoSearch]); 
 
 
   useEffect(() => { setIsMounted(true); }, []);
