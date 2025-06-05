@@ -340,14 +340,14 @@ const ChatPageClientContent: React.FC = () => {
     fetchOwnProfile();
   }, [isMounted]);
 
-  // Effect to trigger auto-search when socket is connected (regardless of auth state)
-  useEffect(() => {
-    console.log(`${LOG_PREFIX}: useEffect for auto-search trigger. Socket connected: ${!!socketRef.current?.connected}`);
-    if (socketRef.current?.connected) {
-      console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
-      attemptAutoSearch();
-    }
-  }, [attemptAutoSearch]);
+  // Remove the separate auto-search useEffect since it's now handled in onConnect
+  // useEffect(() => {
+  //   console.log(`${LOG_PREFIX}: useEffect for auto-search trigger. Socket connected: ${!!socketRef.current?.connected}`);
+  //   if (socketRef.current?.connected) {
+  //     console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
+  //     attemptAutoSearch();
+  //   }
+  // }, [attemptAutoSearch]);
 
 
   useEffect(() => {
@@ -492,13 +492,19 @@ const ChatPageClientContent: React.FC = () => {
     }, 200);
   }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList]);
 
-  // Effect for socket connection management
+  // Effect for socket connection management - Only run once when component mounts
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
       console.error(`${LOG_PREFIX}: Socket server URL is not defined. Cannot connect.`);
       toast({ title: "Config Error", description: "Chat server URL missing.", variant: "destructive" });
       setSocketError(true);
+      return;
+    }
+
+    // Prevent creating multiple sockets
+    if (socketRef.current) {
+      console.log(`${LOG_PREFIX}: Socket already exists, skipping creation.`);
       return;
     }
 
@@ -523,7 +529,20 @@ const ChatPageClientContent: React.FC = () => {
       setTimeout(() => {
         if (socketToClean.connected && !autoSearchDoneRef.current) {
           console.log(`${LOG_PREFIX}: Socket connected and stable. Attempting auto search.`);
-          attemptAutoSearch();
+          // Call attemptAutoSearch directly here instead of relying on useEffect
+          const currentSocket = socketRef.current;
+          if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+            console.log(`${LOG_PREFIX}: Conditions met for auto search. Emitting 'findPartner'. Payload:`, { 
+              chatType: 'text', 
+              interests, 
+              authId: userIdRef.current 
+            });
+            setIsFindingPartner(true);
+            setIsSelfDisconnectedRecently(false);
+            setIsPartnerLeftRecently(false);
+            currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+            autoSearchDoneRef.current = true;
+          }
         }
       }, 100);
     };
@@ -622,7 +641,7 @@ const ChatPageClientContent: React.FC = () => {
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
       changeFavicon(FAVICON_DEFAULT, true); // Reset favicon on unmount
     };
-  }, [toast, changeFavicon, addMessageToList, attemptAutoSearch]); 
+  }, []); // Empty dependency array - only run once on mount 
 
 
   useEffect(() => { setIsMounted(true); }, []);
