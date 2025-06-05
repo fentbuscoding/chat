@@ -182,7 +182,7 @@ const ChatPageClientContent: React.FC = () => {
 
   const socketRef = useRef<Socket | null>(null);
   const roomIdRef = useRef<string | null>(null);
-  const userIdRef = useRef<string | null>(null); // To store authenticated user ID
+  const userIdRef = useRef<string | null>(null);
   const autoSearchDoneRef = useRef(false);
   const prevIsFindingPartnerRef = useRef(false);
   const prevIsPartnerConnectedRef = useRef(false);
@@ -221,6 +221,7 @@ const ChatPageClientContent: React.FC = () => {
   const [typingDots, setTypingDots] = useState('.');
 
   const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // New state
 
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
@@ -269,30 +270,53 @@ const ChatPageClientContent: React.FC = () => {
     });
   }, []);
 
+  // Effect to fetch user auth status and profile
   useEffect(() => {
     if (!isMounted) return;
+    setIsAuthLoading(true);
     const fetchOwnProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      userIdRef.current = user?.id || null; // Store user ID
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('username')
-          .eq('id', user.id)
-          .single();
-        if (error && error.code !== 'PGRST116') { 
-          console.error(`${LOG_PREFIX}: Error fetching own profile from user_profiles:`, error);
-        } else if (profile) {
-          console.log(`${LOG_PREFIX}: Fetched own profile username from user_profiles:`, profile.username);
-          setOwnProfileUsername(profile.username);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userIdRef.current = user?.id || null;
+        if (user) {
+          const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('id', user.id)
+            .single();
+          if (error && error.code !== 'PGRST116') {
+            console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
+            setOwnProfileUsername(null);
+          } else if (profile) {
+            console.log(`${LOG_PREFIX}: Fetched own profile username:`, profile.username);
+            setOwnProfileUsername(profile.username);
+          } else {
+            console.log(`${LOG_PREFIX}: No profile found for user ${user.id} or username is null.`);
+            setOwnProfileUsername(null);
+          }
         } else {
-          console.log(`${LOG_PREFIX}: No profile found in user_profiles for user ${user.id} or username is null.`);
-          setOwnProfileUsername(null);
+           console.log(`${LOG_PREFIX}: No authenticated user found.`);
+           setOwnProfileUsername(null); // Ensure it's null if no user
+        }
+      } catch (e) {
+        console.error(`${LOG_PREFIX}: Exception fetching own profile:`, e);
+        userIdRef.current = null;
+        setOwnProfileUsername(null);
+      } finally {
+        setIsAuthLoading(false);
+        console.log(`${LOG_PREFIX}: Auth check complete. AuthID: ${userIdRef.current}, Username: ${ownProfileUsername}`);
+        // Trigger auto-search if conditions are met (moved here)
+        if (socketRef.current?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+          console.log(`${LOG_PREFIX}: Auto-starting partner search after auth check. AuthID: ${userIdRef.current}`);
+          setIsFindingPartner(true);
+          setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
+          socketRef.current.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+          autoSearchDoneRef.current = true;
         }
       }
     };
     fetchOwnProfile();
-  }, [isMounted]);
+  }, [isMounted, interests]); // Added interests to dependencies
 
   useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
@@ -376,15 +400,19 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
       return;
     }
-    isProcessingFindOrDisconnect.current = true; 
+    
     const currentSocket = socketRef.current;
 
     if (!currentSocket) {
       toast({ title: "Not Connected", description: "Chat server connection not yet established.", variant: "destructive" });
-      isProcessingFindOrDisconnect.current = false; 
+      return;
+    }
+     if (isAuthLoading) {
+      toast({ title: "Initializing", description: "Authenticating, please wait...", variant: "default" });
       return;
     }
 
+    isProcessingFindOrDisconnect.current = true; 
     const currentRoomId = roomIdRef.current;
 
     if (isPartnerConnected && currentRoomId) { 
@@ -431,8 +459,9 @@ const ChatPageClientContent: React.FC = () => {
     }
     
     isProcessingFindOrDisconnect.current = false; 
-  }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList]);
+  }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList, isAuthLoading]);
 
+  // Effect to setup socket connection
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
@@ -448,12 +477,15 @@ const ChatPageClientContent: React.FC = () => {
     const onConnect = () => {
         console.log(`%cSOCKET CONNECTED: ${newSocket.id}`, 'color: orange; font-weight: bold;');
         setSocketError(false);
-        if (!autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
-            console.log(`${LOG_PREFIX}: Auto-starting partner search on connect. AuthID: ${userIdRef.current}`);
+        // Auto-search logic moved to the auth useEffect to ensure authId is available
+        if (!isAuthLoading && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+            console.log(`${LOG_PREFIX}: Auto-starting partner search on connect (auth already loaded). AuthID: ${userIdRef.current}`);
             setIsFindingPartner(true);
             setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
             newSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
             autoSearchDoneRef.current = true;
+        } else if (isAuthLoading && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
+            console.log(`${LOG_PREFIX}: Socket connected, but auth is still loading. Auto-search will be triggered after auth check.`);
         }
     };
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
@@ -465,7 +497,6 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false);
       setIsPartnerConnected(true); 
       setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
-      // For text chat, partner's display name and avatar are primarily used in message rendering if available via `senderUsername`
     };
     const onWaitingForPartner = () => {
         console.log(`${LOG_PREFIX}: Server ack 'waitingForPartner' for ${newSocket.id}`);
@@ -540,7 +571,7 @@ const ChatPageClientContent: React.FC = () => {
       if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
     };
-  }, [addMessageToList, toast, interests, changeFavicon]); 
+  }, [addMessageToList, toast, interests, changeFavicon, isAuthLoading]); // Added isAuthLoading
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -643,7 +674,7 @@ const ChatPageClientContent: React.FC = () => {
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: ownProfileUsername,
+      username: ownProfileUsername, // Will be null for anonymous users
     });
 
     addMessageToList(trimmedMessage, 'me');
@@ -673,8 +704,8 @@ const ChatPageClientContent: React.FC = () => {
     return 'Find Partner';
   }, [isPartnerConnected, isFindingPartner]);
 
-  const mainButtonDisabled = useMemo(() => !socketRef.current?.connected || socketError, [socketError]);
-  const inputAndSendDisabled = useMemo(() => !socketRef.current?.connected || !isPartnerConnected || isFindingPartner || socketError, [isPartnerConnected, isFindingPartner, socketError]);
+  const mainButtonDisabled = useMemo(() => !socketRef.current?.connected || socketError || isAuthLoading, [socketError, isAuthLoading]);
+  const inputAndSendDisabled = useMemo(() => !socketRef.current?.connected || !isPartnerConnected || isFindingPartner || socketError || isAuthLoading, [isPartnerConnected, isFindingPartner, socketError, isAuthLoading]);
 
   if (!isMounted) return <div className="flex flex-1 items-center justify-center p-4"><p>Loading chat...</p></div>;
 
@@ -690,6 +721,9 @@ const ChatPageClientContent: React.FC = () => {
           <div className={cn('window-body window-body-content flex-grow', effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5')}>
             <div className={cn("flex-grow overflow-y-auto", effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1')} style={{ height: messagesContainerComputedHeight }}>
               <div>
+                {isAuthLoading && messages.length === 0 && (
+                  <div className="text-center text-xs italic p-2 text-gray-500 dark:text-gray-400">Initializing authentication...</div>
+                )}
                 {messages.map((msg, index) => (
                   <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} ownUsername={ownProfileUsername} />
                 ))}
@@ -736,7 +770,4 @@ const ChatPageClientContent: React.FC = () => {
   );
 };
 export default ChatPageClientContent;
-
-    
-
     
