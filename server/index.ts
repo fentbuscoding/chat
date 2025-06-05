@@ -1,13 +1,19 @@
-
 import http from 'http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!; // Use service key for server-side operations
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+let supabase: any = null;
+if (supabaseUrl && supabaseServiceKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceKey);
+  console.log('[SUPABASE] Client initialized successfully');
+} else {
+  console.warn('[SUPABASE] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY - profile features will be disabled');
+}
 
 // Define allowed origins
 const allowedOrigins = [
@@ -50,7 +56,8 @@ const server = http.createServer((req, res) => {
       status: "ok",
       onlineUserCount: onlineUserCount,
       waitingTextChat: waitingUsers.text.length,
-      waitingVideoChat: waitingUsers.video.length
+      waitingVideoChat: waitingUsers.video.length,
+      supabaseEnabled: !!supabase
     }));
   } else if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -78,7 +85,7 @@ const PORT = process.env.PORT || 3001;
 // Updated interfaces to include auth info
 interface User {
   id: string; // Socket ID
-  authId?: string | null; // Supabase auth user ID, can be null
+  authId: string | null; // Supabase auth user ID, can be null for anonymous users
   interests: string[];
   chatType: 'text' | 'video';
   username?: string;
@@ -111,7 +118,7 @@ const StringArraySchema = z.array(z.string().max(100)).max(10);
 const FindPartnerPayloadSchema = z.object({
   chatType: z.enum(['text', 'video']),
   interests: StringArraySchema,
-  authId: z.string().uuid().nullable().optional(),
+  authId: z.string().uuid().nullable().optional().default(null),
 });
 
 const RoomIdPayloadSchema = z.object({
@@ -120,7 +127,7 @@ const RoomIdPayloadSchema = z.object({
 
 const SendMessagePayloadSchema = RoomIdPayloadSchema.extend({
   message: z.string().min(1).max(2000),
-  username: z.string().max(30).optional(),
+  username: z.string().max(30).nullable().optional(),
 });
 
 const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
@@ -129,6 +136,8 @@ const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
 
 // Helper function to fetch user profile from Supabase
 async function fetchUserProfile(authId: string) {
+  if (!supabase || !authId) return null;
+  
   try {
     const { data, error } = await supabase
       .from('user_profiles')
@@ -137,33 +146,15 @@ async function fetchUserProfile(authId: string) {
       .single();
 
     if (error) {
-      console.error(`[SUPABASE_ERROR] Error fetching profile for ${authId}:`, error);
+      if (error.code !== 'PGRST116') {
+        console.error(`[SUPABASE_ERROR] Error fetching profile for ${authId}:`, error);
+      }
       return null;
     }
     return data;
   } catch (err) {
     console.error(`[SUPABASE_EXCEPTION] Exception fetching profile for ${authId}:`, err);
     return null;
-  }
-}
-
-// Helper function to update user online status
-async function updateUserOnlineStatus(authId: string, isOnline: boolean) {
-  if (!authId) return;
-  try {
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ 
-        is_online: isOnline,
-        last_seen: new Date().toISOString()
-      })
-      .eq('id', authId);
-
-    if (error) {
-      console.error(`[SUPABASE_ERROR] Error updating online status for ${authId}:`, error);
-    }
-  } catch (err) {
-    console.error(`[SUPABASE_EXCEPTION] Exception updating online status for ${authId}:`, err);
   }
 }
 
@@ -254,14 +245,13 @@ io.on('connection', (socket: Socket) => {
       if (authId) {
         socketToAuthId[socket.id] = authId;
         authIdToSocketId[authId] = socket.id;
-        await updateUserOnlineStatus(authId, true);
       }
 
       removeFromWaitingLists(socket.id);
       
       const currentUser: User = { id: socket.id, interests, chatType, authId };
       
-      if (authId) {
+      if (authId && supabase) {
         const profile = await fetchUserProfile(authId);
         if (profile) {
           currentUser.username = profile.username;
@@ -408,7 +398,6 @@ io.on('connection', (socket: Socket) => {
 
     const authId = socketToAuthId[socket.id];
     if (authId) {
-      await updateUserOnlineStatus(authId, false);
       delete socketToAuthId[socket.id];
       delete authIdToSocketId[authId];
     }
@@ -466,8 +455,9 @@ io.on('connection', (socket: Socket) => {
 
 server.listen(PORT, () => {
   console.log(`[SERVER_START] Socket.IO server running on port ${PORT}`);
+  if (!supabase) {
+    console.warn('[SERVER_START] Running without Supabase integration - profiles will not be loaded');
+  }
 });
 
 export {};
-    
-    
