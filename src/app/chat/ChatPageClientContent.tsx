@@ -503,16 +503,29 @@ const ChatPageClientContent: React.FC = () => {
     }
 
     console.log(`${LOG_PREFIX}: Socket useEffect (setup/teardown) runs. Attempting to connect to: ${socketServerUrl}`);
-    const newSocket = io(socketServerUrl, { withCredentials: true, transports: ['websocket', 'polling'] });
+    const newSocket = io(socketServerUrl, { 
+      withCredentials: true, 
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    });
     socketRef.current = newSocket;
     const socketToClean = newSocket;
 
     const onConnect = () => {
       console.log(`%cSOCKET CONNECTED: ${socketToClean.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
-      // Attempt auto-search immediately when socket connects
-      console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
-      attemptAutoSearch();
+      // Reset auto search flag when reconnecting
+      autoSearchDoneRef.current = false;
+      // Add a small delay to ensure socket is fully established before auto-search
+      setTimeout(() => {
+        if (socketToClean.connected && !autoSearchDoneRef.current) {
+          console.log(`${LOG_PREFIX}: Socket connected and stable. Attempting auto search.`);
+          attemptAutoSearch();
+        }
+      }, 100);
     };
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
       console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
@@ -556,8 +569,16 @@ const ChatPageClientContent: React.FC = () => {
     };
     const onDisconnectHandler = (reason: string) => {
       console.warn(`${LOG_PREFIX}: Socket ${socketToClean.id} disconnected. Reason: ${reason}`);
-      setSocketError(true);
-      setIsPartnerConnected(false); setIsFindingPartner(false); setIsPartnerTyping(false); setRoomId(null);
+      // Only set socket error for unexpected disconnections
+      if (reason !== 'io client disconnect') {
+        setSocketError(true);
+      }
+      setIsPartnerConnected(false); 
+      setIsFindingPartner(false); 
+      setIsPartnerTyping(false); 
+      setRoomId(null);
+      // Reset auto search flag so it can retry when reconnecting
+      autoSearchDoneRef.current = false;
     };
     const onConnectError = (err: Error) => {
         console.error(`${LOG_PREFIX}: Socket ${socketToClean.id} connection error: ${String(err)}`, err);
@@ -583,11 +604,7 @@ const ChatPageClientContent: React.FC = () => {
     return () => {
       console.log(`${LOG_PREFIX}: Cleanup for socket effect. Socket to clean ID: ${socketToClean?.id}. Current socketRef ID: ${socketRef.current?.id}`);
       
-      if (roomIdRef.current && socketToClean?.connected) {
-        console.log(`${LOG_PREFIX}: Emitting leaveChat from cleanup for room ${roomIdRef.current} on socket ${socketToClean.id}`);
-        socketToClean.emit('leaveChat', { roomId: roomIdRef.current });
-      }
-      
+      // Disconnect gracefully without leaving chat (to prevent unnecessary server cleanup)
       socketToClean.removeAllListeners();
       socketToClean.disconnect();
       console.log(`${LOG_PREFIX}: Disconnected socket ${socketToClean.id} in cleanup.`);
@@ -595,8 +612,6 @@ const ChatPageClientContent: React.FC = () => {
       if (socketRef.current === socketToClean) { 
         socketRef.current = null;
         console.log(`${LOG_PREFIX}: Set socketRef.current to null because it matched the socket being cleaned.`);
-      } else {
-        console.log(`${LOG_PREFIX}: Did NOT null socketRef.current. Current is ${socketRef.current?.id}, cleaned was ${socketToClean?.id}. This might indicate an issue if an old socket is cleaned after a new one is established.`);
       }
 
       // Clear any pending timeouts
