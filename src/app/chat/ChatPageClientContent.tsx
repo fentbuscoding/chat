@@ -220,6 +220,8 @@ const ChatPageClientContent: React.FC = () => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // Actual username from DB
+
+  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
   const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
