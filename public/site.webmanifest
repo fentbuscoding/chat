@@ -1,0 +1,68 @@
+{
+  "name": "TinChat - Connect with People",
+  "short_name": "TinChat",
+  "description": "Connect with people through text or video chat. Meet someone new instantly!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Text Chat",
+      "short_name": "Text Chat",
+      "description": "Start a new text chat conversation",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "/icon-text-chat.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Start Video Chat",
+      "short_name": "Video Chat",
+      "description": "Start a new video chat conversation",
+      "url": "/video-chat",
+      "icons": [
+        {
+          "src": "/icon-video-chat.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
