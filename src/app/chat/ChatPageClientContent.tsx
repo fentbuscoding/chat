@@ -271,6 +271,19 @@ const ChatPageClientContent: React.FC = () => {
 
   const ownDisplayUsername = useMemo(() => ownProfileUsername || "You", [ownProfileUsername]);
 
+  // Handle profile card functionality
+  const handleUsernameClick = useCallback((authId: string) => {
+    if (authId && authId !== 'anonymous') {
+      setProfileCardUserId(authId);
+      setIsProfileCardOpen(true);
+    }
+  }, []);
+
+  const handleProfileCardClose = useCallback(() => {
+    setIsProfileCardOpen(false);
+    setProfileCardUserId(null);
+  }, []);
+
 
   useEffect(() => {
     console.log(`${LOG_PREFIX}: isPartnerConnected state changed to: ${isPartnerConnected}`);
