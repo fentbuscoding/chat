@@ -5,8 +5,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/components/theme-provider';
 import { supabase } from '@/lib/supabase';
 import { sanitizeCSS, getDefaultProfileCSS } from '@/lib/SafeCSS';
+import { cn } from '@/lib/utils';
 
 interface ProfileCustomizerProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { currentTheme } = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -112,92 +115,134 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
 
   if (!isOpen) return null;
 
+  // Use 98.css theme styling similar to ChatPageClientContent
+  const isTheme98 = currentTheme === 'theme-98';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Customize Your Profile</h2>
-          <Button onClick={onClose} variant="outline">
-            Close
-          </Button>
+      <div className={cn(
+        'window flex flex-col relative',
+        'max-w-6xl w-full mx-4 max-h-[90vh]',
+        isTheme98 ? '' : 'bg-white dark:bg-gray-800 rounded-lg'
+      )} style={{ width: '90vw', height: '90vh' }}>
+        
+        {/* Title Bar */}
+        <div className={cn("title-bar", isTheme98 ? '' : 'border-b p-4')}>
+          <div className="flex items-center justify-between">
+            <div className="title-bar-text">Profile Customizer</div>
+            <Button 
+              onClick={onClose} 
+              className={cn(isTheme98 ? '' : 'ml-auto')}
+              variant={isTheme98 ? undefined : "outline"}
+            >
+              Close
+            </Button>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Panel - Form */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Display Name
-                </label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                  maxLength={50}
-                />
-              </div>
+        {/* Window Body */}
+        <div className={cn(
+          'window-body window-body-content flex-grow overflow-hidden',
+          isTheme98 ? 'p-2' : 'p-6'
+        )}>
+          {loading ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+              {/* Left Panel - Form */}
+              <div className="space-y-4 overflow-y-auto">
+                <div>
+                  <label className={cn(
+                    "block text-sm font-medium mb-2",
+                    isTheme98 ? '' : ''
+                  )}>
+                    Display Name
+                  </label>
+                  <Input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your display name"
+                    maxLength={50}
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Bio
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell people about yourself..."
-                  className="w-full h-24 p-3 border border-gray-300 dark:border-gray-600 rounded-md resize-none bg-white dark:bg-gray-700"
-                  maxLength={200}
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  {bio.length}/200 characters
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell people about yourself..."
+                    className={cn(
+                      "w-full h-24 p-3 resize-none",
+                      isTheme98 
+                        ? "sunken-panel" 
+                        : "border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                    )}
+                    maxLength={200}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {bio.length}/200 characters
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Custom CSS
+                  </label>
+                  <textarea
+                    value={customCSS}
+                    onChange={(e) => setCustomCSS(e.target.value)}
+                    placeholder="/* Add your custom CSS here */&#10;.profile-card-container {&#10;  background: your-gradient;&#10;  border-radius: 15px;&#10;}"
+                    className={cn(
+                      "w-full h-64 p-3 font-mono text-sm resize-none",
+                      isTheme98 
+                        ? "sunken-panel" 
+                        : "border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                    )}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Allowed selectors: .profile-card-container, .profile-avatar, .profile-display-name, .profile-username, .profile-bio, .profile-divider
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button onClick={handleReset} variant="outline">
+                    Reset to Default
+                  </Button>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className="flex-1"
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Custom CSS
-                </label>
-                <textarea
-                  value={customCSS}
-                  onChange={(e) => setCustomCSS(e.target.value)}
-                  placeholder="/* Add your custom CSS here */&#10;.profile-card-container {&#10;  background: your-gradient;&#10;  border-radius: 15px;&#10;}"
-                  className="w-full h-64 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-700"
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  Allowed selectors: .profile-card-container, .profile-avatar, .profile-display-name, .profile-username, .profile-bio, .profile-divider
+              {/* Right Panel - Preview */}
+              <div className={cn(
+                "flex flex-col",
+                isTheme98 ? "" : "lg:border-l lg:pl-6"
+              )}>
+                <h3 className="text-lg font-semibold mb-4">Preview</h3>
+                <div className={cn(
+                  "flex-1 p-4 overflow-auto",
+                  isTheme98 
+                    ? "sunken-panel" 
+                    : "bg-gray-100 dark:bg-gray-900 rounded-lg"
+                )}>
+                  <ProfilePreview 
+                    customCSS={customCSS}
+                    bio={bio}
+                    displayName={displayName}
+                  />
                 </div>
               </div>
-
-              <div className="flex space-x-2">
-                <Button onClick={handleReset} variant="outline">
-                  Reset to Default
-                </Button>
-                <Button 
-                  onClick={handleSave} 
-                  disabled={saving}
-                  className="flex-1"
-                >
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
             </div>
-
-            {/* Right Panel - Preview */}
-            <div className="lg:border-l lg:pl-6">
-              <h3 className="text-lg font-semibold mb-4">Preview</h3>
-              <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg">
-                <ProfilePreview 
-                  customCSS={customCSS}
-                  bio={bio}
-                  displayName={displayName}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
