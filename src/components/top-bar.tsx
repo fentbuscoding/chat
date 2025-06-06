@@ -1,8 +1,8 @@
-
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useTheme, type Theme } from '@/components/theme-provider';
+import { usePathname } from 'next/navigation';
 import { Label } from '@/components/ui/label-themed';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select-themed';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ const availableStamps: ThemeStamp[] = [
 
 export function TopBar() {
   const { currentTheme, selectedTheme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [customizerPosition, setCustomizerPosition] = useState({ top: 0, left: 0 });
@@ -59,7 +60,6 @@ export function TopBar() {
     htmlElement.classList.add('theme-transitioning');
     console.log("TopBar: Added theme-transitioning class for sub-theme.");
 
-
     let link = document.getElementById(DYNAMIC_THEME_STYLE_ID) as HTMLLinkElement | null;
 
     if (cssFile) {
@@ -79,15 +79,23 @@ export function TopBar() {
         document.head.appendChild(link);
         console.log("TopBar: Created new sub-theme CSS link:", newHref);
       }
-      localStorage.setItem('selectedWin98SubTheme', cssFile);
-      console.log("TopBar: Stored sub-theme in localStorage:", cssFile);
+      
+      // Only save to localStorage if NOT on home page
+      if (pathname !== '/') {
+        localStorage.setItem('selectedWin98SubTheme', cssFile);
+        console.log("TopBar: Stored sub-theme in localStorage:", cssFile);
+      }
     } else {
       if (link) {
         link.remove();
         console.log("TopBar: Removed sub-theme CSS link.");
       }
-      localStorage.removeItem('selectedWin98SubTheme');
-      console.log("TopBar: Cleared sub-theme from localStorage.");
+      
+      // Only remove from localStorage if NOT on home page
+      if (pathname !== '/') {
+        localStorage.removeItem('selectedWin98SubTheme');
+        console.log("TopBar: Cleared sub-theme from localStorage.");
+      }
     }
     
     setTimeout(() => {
@@ -95,19 +103,30 @@ export function TopBar() {
       console.log("TopBar: Removed theme-transitioning class for sub-theme.");
     }, 150);
 
-  }, []);
+  }, [pathname]);
+
+  // Effect to handle home page sub-theme reset
+  useEffect(() => {
+    if (!mounted) return;
+    
+    // If we're on the home page, always clear any sub-themes
+    if (pathname === '/' && selectedTheme === 'theme-98') {
+      console.log("TopBar: On home page, clearing any sub-themes");
+      applyWin98SubTheme(null);
+    }
+    // If we're NOT on home page and theme is 98, apply stored subtheme
+    else if (pathname !== '/' && selectedTheme === 'theme-98') {
+      const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
+      if (storedSubTheme) {
+        console.log("TopBar: Not on home page, applying stored sub-theme:", storedSubTheme);
+        applyWin98SubTheme(storedSubTheme);
+      }
+    }
+  }, [pathname, selectedTheme, applyWin98SubTheme, mounted]);
 
   useEffect(() => {
     setMounted(true);
-    // On initial mount, if theme is 98, apply stored subtheme
-    if (selectedTheme === 'theme-98') {
-        const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
-        if (storedSubTheme) {
-            applyWin98SubTheme(storedSubTheme);
-        }
-    }
-  }, [selectedTheme, applyWin98SubTheme]);
-
+  }, []);
 
   const handleThemeChange = (newThemeString: string) => {
     if (newThemeString === 'theme-98' || newThemeString === 'theme-7') {
@@ -118,15 +137,38 @@ export function TopBar() {
       if (newTheme === 'theme-7') {
         applyWin98SubTheme(null); 
       } else if (newTheme === 'theme-98') {
-        const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
-        applyWin98SubTheme(storedSubTheme); 
+        // If on home page, don't apply any sub-theme
+        if (pathname === '/') {
+          applyWin98SubTheme(null);
+        } else {
+          // If not on home page, apply stored sub-theme
+          const storedSubTheme = localStorage.getItem('selectedWin98SubTheme');
+          applyWin98SubTheme(storedSubTheme); 
+        }
       }
     }
     setIsCustomizerOpen(false);
   };
 
+  const handleSubThemeSelect = useCallback((cssFile: string | null) => {
+    // If on home page, don't allow sub-theme selection (or reset immediately)
+    if (pathname === '/') {
+      console.log("TopBar: On home page, sub-theme selection ignored");
+      return;
+    }
+    
+    applyWin98SubTheme(cssFile);
+    setIsCustomizerOpen(false);
+  }, [pathname, applyWin98SubTheme]);
+
   const toggleCustomizer = useCallback(() => {
     if (!themeIconRef.current) return;
+
+    // Don't show customizer on home page
+    if (pathname === '/') {
+      console.log("TopBar: Customizer disabled on home page");
+      return;
+    }
 
     if (!isCustomizerOpen) {
       const iconRect = themeIconRef.current.getBoundingClientRect();
@@ -146,7 +188,7 @@ export function TopBar() {
       });
     }
     setIsCustomizerOpen(prev => !prev);
-  }, [isCustomizerOpen]);
+  }, [isCustomizerOpen, pathname]);
 
   useEffect(() => {
     if (!isCustomizerOpen) return;
@@ -168,7 +210,6 @@ export function TopBar() {
     };
   }, [isCustomizerOpen]);
 
-
   if (!mounted) {
     const defaultInitialTheme: Theme = 'theme-98'; 
     return (
@@ -181,7 +222,7 @@ export function TopBar() {
           id="theme-select-dropdown"
           value={defaultInitialTheme} 
           disabled
-          readOnly // Use readOnly for select in non-interactive state
+          readOnly
           className="w-[120px] field-row"
           style={{ height: '21px' }}
           onChange={() => {}} 
@@ -189,14 +230,7 @@ export function TopBar() {
           <option value="theme-98">Windows 98</option>
           <option value="theme-7">Windows 7</option>
         </select>
-        {defaultInitialTheme === 'theme-98' && (
-          <img
-            src="/icons/theme.png"
-            alt="Customize Theme"
-            className="w-5 h-5 cursor-pointer" 
-            data-ai-hint="theme settings icon"
-          />
-        )}
+        {/* Don't show customize icon during loading */}
       </div>
     );
   }
@@ -230,7 +264,8 @@ export function TopBar() {
         </Select>
       )}
 
-      {currentTheme === 'theme-98' && (
+      {/* Only show customize icon if theme is 98 AND not on home page */}
+      {currentTheme === 'theme-98' && pathname !== '/' && (
         <img
           ref={themeIconRef}
           src="/icons/theme.png"
@@ -241,7 +276,8 @@ export function TopBar() {
         />
       )}
 
-      {isCustomizerOpen && currentTheme === 'theme-98' && (
+      {/* Only show customizer if theme is 98 AND not on home page */}
+      {isCustomizerOpen && currentTheme === 'theme-98' && pathname !== '/' && (
         <div
           ref={customizerWindowRef}
           className="window fixed z-50"
@@ -265,7 +301,11 @@ export function TopBar() {
             <p className="text-xs mb-2">Select a theme stamp:</p>
             <ul className="list-none p-0 m-0">
               {availableStamps.map((stamp) => (
-                <li key={stamp.name} className="mb-2 p-1 hover:bg-gray-300 cursor-pointer flex items-center" onClick={() => applyWin98SubTheme(stamp.cssFile)}>
+                <li 
+                  key={stamp.name} 
+                  className="mb-2 p-1 hover:bg-gray-300 cursor-pointer flex items-center" 
+                  onClick={() => handleSubThemeSelect(stamp.cssFile)}
+                >
                   <img 
                     src={stamp.imageUrl}
                     alt={stamp.name}
@@ -283,4 +323,3 @@ export function TopBar() {
     </div>
   );
 }
-
