@@ -128,6 +128,7 @@ const RoomIdPayloadSchema = z.object({
 const SendMessagePayloadSchema = RoomIdPayloadSchema.extend({
   message: z.string().min(1).max(2000),
   username: z.string().max(30).nullable().optional(),
+  authId: z.string().uuid().nullable().optional(), // Add authId to message payload
 });
 
 const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
@@ -330,9 +331,11 @@ io.on('connection', (socket: Socket) => {
           partnerSocket.join(roomId);
           console.log(`[MATCH_SUCCESS] ${currentUser.id} and ${matchedPartner.id} joined room ${roomId}. Emitting 'partnerFound'.`);
 
-          // Use actual username or fallback to "Stranger"
-          const currentUserDisplayName = currentUser.username || "Stranger";
-          const partnerDisplayName = matchedPartner.username || "Stranger";
+          // Use display_name if available, fallback to username, then to "Stranger"
+          const currentUserDisplayName = currentUser.display_name || currentUser.username || "Stranger";
+          const partnerDisplayName = matchedPartner.display_name || matchedPartner.username || "Stranger";
+
+          console.log(`[MATCH_SUCCESS_USERNAMES] Current user display name: "${currentUserDisplayName}", Partner display name: "${partnerDisplayName}"`);
 
           socket.emit('partnerFound', {
             partnerId: matchedPartner.id,
@@ -379,21 +382,47 @@ io.on('connection', (socket: Socket) => {
     }
   });
 
-  socket.on('sendMessage', (payload: unknown) => {
+  socket.on('sendMessage', async (payload: unknown) => {
     try {
-      const { roomId, message, username } = SendMessagePayloadSchema.parse(payload);
-      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (username: ${username || 'Stranger'}) sending message to room ${roomId}: "${message}"`);
+      const { roomId, message, username, authId } = SendMessagePayloadSchema.parse(payload);
+      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (authId: ${authId || 'anonymous'}, username: ${username || 'none provided'}) sending message to room ${roomId}: "${message}"`);
+      
       const roomDetails = rooms[roomId];
       if (!roomDetails) {
         console.warn(`[MESSAGE_WARN_SEND_FAIL] Room ${roomId} not found for message from ${socket.id}.`);
         return;
       }
+      
       if (roomDetails.users.includes(socket.id)) {
-        const senderUsernameOrDefault = username || 'Stranger';
-        const messagePayload = { senderId: socket.id, message, senderUsername: senderUsernameOrDefault };
+        let senderUsernameToSend = 'Stranger'; // Default for anonymous users
+        
+        // If user is authenticated and has a username, use it
+        if (authId && username) {
+          senderUsernameToSend = username;
+          console.log(`[MESSAGE_AUTHENTICATED_USER] Using authenticated username: ${username}`);
+        } else if (authId && !username) {
+          // User is authenticated but no username provided, try to fetch from database
+          console.log(`[MESSAGE_FETCH_USERNAME] Authenticated user without username, fetching from database for authId: ${authId}`);
+          const profile = await fetchUserProfile(authId);
+          if (profile) {
+            senderUsernameToSend = profile.display_name || profile.username || 'Stranger';
+            console.log(`[MESSAGE_FETCHED_USERNAME] Fetched username: ${senderUsernameToSend}`);
+          }
+        } else {
+          // Anonymous user
+          console.log(`[MESSAGE_ANONYMOUS_USER] Anonymous user, using 'Stranger'`);
+        }
+        
+        const messagePayload = { 
+          senderId: socket.id, 
+          message, 
+          senderUsername: senderUsernameToSend,
+          senderAuthId: authId || null // Include sender's auth ID for clickable usernames
+        };
+        
         const partnerId = roomDetails.users.find(id => id !== socket.id);
         if (partnerId) {
-          console.log(`[MESSAGE_RELAY_DIRECT_IO_TO] Relaying message from ${socket.id} to partner ${partnerId} in room ${roomId}.`);
+          console.log(`[MESSAGE_RELAY_DIRECT_IO_TO] Relaying message from ${socket.id} (${senderUsernameToSend}) to partner ${partnerId} in room ${roomId}.`);
           io.to(partnerId).emit('receiveMessage', messagePayload);
         } else {
           console.warn(`[MESSAGE_WARN_RELAY_FAIL] No partner found in room ${roomId} for user ${socket.id}.`);

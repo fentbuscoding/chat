@@ -152,8 +152,8 @@ const Row = React.memo(({
   // Use senderUsername for partner, and ownDisplayName for 'me'
   const displayName = message.sender === 'me' ? ownDisplayName : (message.senderUsername || "Stranger");
   
-  // Check if username should be clickable (partner with authId)
-  const isClickable = message.sender === 'partner' && partnerAuthId && partnerAuthId !== 'anonymous';
+  // Check if username should be clickable (partner with authId AND not anonymous)
+  const isClickable = message.sender === 'partner' && partnerAuthId && partnerAuthId !== 'anonymous' && partnerAuthId !== null;
 
   const UsernameComponent = ({ children, className }: { children: React.ReactNode, className: string }) => {
     if (isClickable) {
@@ -275,7 +275,11 @@ const ChatPageClientContent: React.FC = () => {
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
   const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
 
-  const ownDisplayUsername = useMemo(() => ownProfileUsername || "You", [ownProfileUsername]);
+  const ownDisplayUsername = useMemo(() => {
+    // For authenticated users, show their profile username or "You" 
+    // For anonymous users, show "You"
+    return ownProfileUsername || "You";
+  }, [ownProfileUsername]);
 
   // Handle profile card functionality
   const handleUsernameClick = useCallback((authId: string) => {
@@ -374,7 +378,7 @@ const ChatPageClientContent: React.FC = () => {
           console.log(`${LOG_PREFIX}: Fetching profile for authenticated user: ${user.id}`);
           const { data: profile, error } = await supabase
             .from('user_profiles')
-            .select('username')
+            .select('username, display_name')
             .eq('id', user.id)
             .single();
             
@@ -382,8 +386,11 @@ const ChatPageClientContent: React.FC = () => {
             console.error(`${LOG_PREFIX}: Error fetching own profile:`, error);
             setOwnProfileUsername(null);
           } else if (profile) {
-            console.log(`${LOG_PREFIX}: Fetched own profile username: ${profile.username}`);
-            setOwnProfileUsername(profile.username);
+            console.log(`${LOG_PREFIX}: Fetched own profile:`, profile);
+            // Use display_name if available, fallback to username
+            const displayUsername = profile.display_name || profile.username;
+            setOwnProfileUsername(displayUsername);
+            console.log(`${LOG_PREFIX}: Set own display username to: ${displayUsername}`);
           } else {
             console.log(`${LOG_PREFIX}: No profile found for user ${user.id} or username is null.`);
             setOwnProfileUsername(null);
@@ -636,11 +643,17 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
       }
     };
-    const onReceiveMessage = ({ senderId, message: receivedMessage, senderUsername }: { senderId: string, message: string, senderUsername?: string }) => {
+    const onReceiveMessage = ({ senderId, message: receivedMessage, senderUsername, senderAuthId }: { senderId: string, message: string, senderUsername?: string, senderAuthId?: string }) => {
       console.log(`${LOG_PREFIX}: %c[[CLIENT RECEIVE MESSAGE]]`, 'color: purple; font-size: 1.2em; font-weight: bold;',
-        `RAW_PAYLOAD:`, { senderId, message: receivedMessage, senderUsername },
+        `RAW_PAYLOAD:`, { senderId, message: receivedMessage, senderUsername, senderAuthId },
         `CURRENT_ROOM_ID_REF: ${roomIdRef.current}`
       );
+      
+      // Store the sender's auth ID for clickable usernames
+      if (senderAuthId) {
+        setPartnerAuthId(senderAuthId);
+      }
+      
       addMessageToList(receivedMessage, 'partner', senderUsername, `partner-${Math.random().toString(36).substring(2,7)}`);
       setIsPartnerTyping(false);
     };
@@ -800,7 +813,10 @@ const ChatPageClientContent: React.FC = () => {
     const currentSocket = socketRef.current;
     const currentRoomId = roomIdRef.current;
 
-    console.log(`${LOG_PREFIX}: Attempting send. Msg: "${trimmedMessage}", Socket Connected: ${!!currentSocket?.connected}, RoomId: ${currentRoomId}, Partner Connected State: ${isPartnerConnected}, Own DB Username: ${ownProfileUsername}`);
+    // Determine what username to send - use display username for authenticated users, null for anonymous
+    const usernameToSend = userIdRef.current ? ownProfileUsername : null;
+
+    console.log(`${LOG_PREFIX}: Attempting send. Msg: "${trimmedMessage}", Socket Connected: ${!!currentSocket?.connected}, RoomId: ${currentRoomId}, Partner Connected State: ${isPartnerConnected}, Username to send: ${usernameToSend}, User Auth ID: ${userIdRef.current || 'anonymous'}`);
 
     if (!trimmedMessage || !currentSocket?.connected || !currentRoomId || !isPartnerConnected) {
       let warning = "Send message aborted. Conditions not met.";
@@ -819,7 +835,8 @@ const ChatPageClientContent: React.FC = () => {
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: ownProfileUsername, 
+      username: usernameToSend, // Send username only if authenticated, null for anonymous
+      authId: userIdRef.current, // Send auth ID for server-side username resolution
     });
 
     addMessageToList(trimmedMessage, 'me'); 

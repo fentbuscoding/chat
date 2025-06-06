@@ -24,6 +24,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
   const { currentTheme } = useTheme();
 
@@ -36,59 +37,134 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
   const loadCurrentProfile = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('ProfileCustomizer: Getting current user...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('ProfileCustomizer: Auth error:', userError);
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in to customize your profile",
+          variant: "destructive"
+        });
+        onClose();
+        return;
+      }
+
+      if (!user) {
+        console.error('ProfileCustomizer: No authenticated user found');
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in to customize your profile",
+          variant: "destructive"
+        });
+        onClose();
+        return;
+      }
+
+      console.log('ProfileCustomizer: Loading profile for user:', user.id);
+      setCurrentUser(user);
 
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('profile_card_css, bio, display_name')
+        .select('profile_card_css, bio, display_name, username')
         .eq('id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      if (data) {
+        console.error('ProfileCustomizer: Error loading profile:', error);
+        console.log('ProfileCustomizer: Profile not found, using empty values');
+        setCustomCSS('');
+        setBio('');
+        setDisplayName('');
+      } else if (data) {
+        console.log('ProfileCustomizer: Profile data loaded:', data);
         setCustomCSS(data.profile_card_css || '');
         setBio(data.bio || '');
         setDisplayName(data.display_name || '');
+      } else {
+        console.log('ProfileCustomizer: No existing profile data found');
+        setCustomCSS('');
+        setBio('');
+        setDisplayName('');
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load profile data",
-        variant: "destructive"
-      });
+      console.error('ProfileCustomizer: Exception loading profile:', error);
+      setCustomCSS('');
+      setBio('');
+      setDisplayName('');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
+    if (saving) {
+      console.log('ProfileCustomizer: Save already in progress, ignoring');
+      return;
+    }
+
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
+      if (!currentUser) {
+        throw new Error('No user found - please refresh and try again');
       }
+
+      console.log('ProfileCustomizer: Starting save process for user:', currentUser.id);
 
       // Sanitize CSS before saving
       const sanitizedCSS = sanitizeCSS(customCSS);
+      console.log('ProfileCustomizer: CSS sanitized, original length:', customCSS.length, 'sanitized length:', sanitizedCSS.length);
 
-      const { error } = await supabase
+      // Prepare the data to save
+      const profileData = {
+        profile_card_css: sanitizedCSS,
+        bio: bio.trim(),
+        display_name: displayName.trim() || null
+      };
+
+      console.log('ProfileCustomizer: Attempting to save profile data:', profileData);
+
+      // First, try to update the existing profile
+      const { data: updateResult, error: updateError } = await supabase
         .from('user_profiles')
-        .upsert({
-          id: user.id,
-          profile_card_css: sanitizedCSS,
-          bio: bio.trim(),
-          display_name: displayName.trim() || null
-        }, {
-          onConflict: 'id'
-        });
+        .update(profileData)
+        .eq('id', currentUser.id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('ProfileCustomizer: Update error:', updateError);
+        
+        if (updateError.code === 'PGRST116') {
+          // No rows found, try to insert
+          console.log('ProfileCustomizer: No existing profile found, attempting insert');
+          
+          const insertData = {
+            id: currentUser.id,
+            ...profileData,
+            username: currentUser.email?.split('@')[0] || 'user',
+            profile_complete: false
+          };
+
+          const { data: insertResult, error: insertError } = await supabase
+            .from('user_profiles')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('ProfileCustomizer: Insert error:', insertError);
+            throw new Error(`Failed to create profile: ${insertError.message}`);
+          }
+
+          console.log('ProfileCustomizer: Profile created successfully:', insertResult);
+        } else {
+          throw new Error(`Failed to update profile: ${updateError.message}`);
+        }
+      } else {
+        console.log('ProfileCustomizer: Profile updated successfully:', updateResult);
+      }
 
       toast({
         title: "Success",
@@ -96,12 +172,15 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
         variant: "default"
       });
 
-      onClose();
-    } catch (error) {
-      console.error('Error saving profile:', error);
+      setTimeout(() => {
+        onClose();
+      }, 500);
+
+    } catch (error: any) {
+      console.error('ProfileCustomizer: Save error:', error);
       toast({
         title: "Error",
-        description: "Failed to save profile customization",
+        description: error.message || "Failed to save profile customization",
         variant: "destructive"
       });
     } finally {
@@ -113,9 +192,16 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
     setCustomCSS(getDefaultProfileCSS());
   };
 
+  const handleClose = () => {
+    if (saving) {
+      console.log('ProfileCustomizer: Cannot close while saving');
+      return;
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
-  // Use 98.css theme styling similar to ChatPageClientContent
   const isTheme98 = currentTheme === 'theme-98';
 
   return (
@@ -126,36 +212,31 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
         isTheme98 ? '' : 'bg-white dark:bg-gray-800 rounded-lg'
       )} style={{ width: '90vw', height: '90vh' }}>
         
-        {/* Title Bar */}
         <div className={cn("title-bar", isTheme98 ? '' : 'border-b p-4')}>
           <div className="flex items-center justify-between">
             <div className="title-bar-text">Profile Customizer</div>
             <Button 
-              onClick={onClose} 
+              onClick={handleClose} 
               className={cn(isTheme98 ? '' : 'ml-auto')}
               variant={isTheme98 ? undefined : "outline"}
+              disabled={saving}
             >
-              Close
+              {saving ? 'Saving...' : 'Close'}
             </Button>
           </div>
         </div>
 
-        {/* Window Body */}
         <div className={cn(
           'window-body window-body-content flex-grow overflow-hidden',
           isTheme98 ? 'p-2' : 'p-6'
         )}>
           {loading ? (
-            <div className="text-center py-8">Loading...</div>
+            <div className="text-center py-8">Loading profile data...</div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-              {/* Left Panel - Form */}
               <div className="space-y-4 overflow-y-auto">
                 <div>
-                  <label className={cn(
-                    "block text-sm font-medium mb-2",
-                    isTheme98 ? '' : ''
-                  )}>
+                  <label className="block text-sm font-medium mb-2">
                     Display Name
                   </label>
                   <Input
@@ -163,7 +244,11 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Your display name"
                     maxLength={50}
+                    disabled={saving}
                   />
+                  <div className="text-xs text-gray-500 mt-1">
+                    This will be shown in chats and on your profile
+                  </div>
                 </div>
 
                 <div>
@@ -181,6 +266,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                         : "border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
                     )}
                     maxLength={200}
+                    disabled={saving}
                   />
                   <div className="text-xs text-gray-500 mt-1">
                     {bio.length}/200 characters
@@ -194,13 +280,14 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                   <textarea
                     value={customCSS}
                     onChange={(e) => setCustomCSS(e.target.value)}
-                    placeholder="/* Add your custom CSS here */&#10;.profile-card-container {&#10;  background: your-gradient;&#10;  border-radius: 15px;&#10;}"
+                    placeholder="/* Add your custom CSS here */&#10;.profile-card-container {&#10;  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);&#10;  border-radius: 15px;&#10;}"
                     className={cn(
                       "w-full h-64 p-3 font-mono text-sm resize-none",
                       isTheme98 
                         ? "sunken-panel" 
                         : "border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
                     )}
+                    disabled={saving}
                   />
                   <div className="text-xs text-gray-500 mt-1">
                     Allowed selectors: .profile-card-container, .profile-avatar, .profile-display-name, .profile-username, .profile-bio, .profile-divider
@@ -208,7 +295,11 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                 </div>
 
                 <div className="flex space-x-2">
-                  <Button onClick={handleReset} variant="outline">
+                  <Button 
+                    onClick={handleReset} 
+                    variant="outline"
+                    disabled={saving}
+                  >
                     Reset to Default
                   </Button>
                   <Button 
@@ -219,9 +310,14 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     {saving ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
+
+                {saving && (
+                  <div className="text-xs text-gray-500 text-center">
+                    Please wait while we save your changes...
+                  </div>
+                )}
               </div>
 
-              {/* Right Panel - Preview */}
               <div className={cn(
                 "flex flex-col",
                 isTheme98 ? "" : "lg:border-l lg:pl-6"
@@ -237,6 +333,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     customCSS={customCSS}
                     bio={bio}
                     displayName={displayName}
+                    currentUser={currentUser}
                   />
                 </div>
               </div>
@@ -248,26 +345,19 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
   );
 };
 
-// Preview component
 interface ProfilePreviewProps {
   customCSS: string;
   bio: string;
   displayName: string;
+  currentUser: any;
 }
 
 const ProfilePreview: React.FC<ProfilePreviewProps> = ({ 
   customCSS, 
   bio, 
-  displayName 
+  displayName,
+  currentUser
 }) => {
-  const [currentUser, setCurrentUser] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUser(user);
-    });
-  }, []);
-
   const defaultCSS = `
     .profile-card-container {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
