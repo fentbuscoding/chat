@@ -50,7 +50,7 @@ export default function OnboardingPage() {
         setUser(session.user);
         console.log(`Onboarding: User ID: ${session.user.id}`);
         const { data: profile, error } = await supabase
-          .from('user_profiles') // Updated table name
+          .from('user_profiles')
           .select('username, display_name, avatar_url, profile_complete')
           .eq('id', session.user.id)
           .single();
@@ -90,24 +90,25 @@ export default function OnboardingPage() {
       }
       setUsernameAvailable('checking');
       const { data, error } = await supabase
-        .from('user_profiles') // Updated table name
+        .from('user_profiles')
         .select('username')
         .eq('username', debouncedUsername)
         .neq('id', user?.id || '')
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single()
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) { // Removed check for error.code !== 'PGRST116' as maybeSingle handles "no row" gracefully
         console.error('Error checking username in user_profiles:', error);
-        setUsernameAvailable(null);
+        toast({ title: "Username Check Failed", description: error.message, variant: "destructive"});
+        setUsernameAvailable(null); // Indicate error or unknown state
       } else {
-        setUsernameAvailable(!data);
+        setUsernameAvailable(!data); // If data is null (no user found), username is available
       }
     };
 
     if (user) {
         checkUsername();
     }
-  }, [debouncedUsername, user]);
+  }, [debouncedUsername, user, toast]);
 
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,7 +178,7 @@ export default function OnboardingPage() {
     }
 
     const { data: existingUserRow, error: checkError } = await supabase
-      .from('user_profiles') // Updated table name
+      .from('user_profiles')
       .select('id')
       .eq('id', user.id)
       .maybeSingle();
@@ -192,9 +193,8 @@ export default function OnboardingPage() {
     if (!existingUserRow) {
       console.log(`Onboarding: User row for ${user.id} not found in user_profiles. Attempting client-side insert fallback.`);
       const { error: insertError } = await supabase
-        .from('user_profiles') // Updated table name
-        .insert({ id: user.id, username: username }); // Insert minimal row, username might be required by policy or unique constraint.
-                                                     // display_name, avatar_url will be set by subsequent upsert.
+        .from('user_profiles')
+        .insert({ id: user.id, username: username }); 
       
       if (insertError) {
         console.error("Onboarding: Client-side fallback insertError to user_profiles:", insertError);
@@ -216,7 +216,7 @@ export default function OnboardingPage() {
     console.log("Onboarding: Attempting to upsert profile data to user_profiles:", profileDataToUpsert);
 
     const { error: upsertError } = await supabase
-      .from('user_profiles') // Updated table name
+      .from('user_profiles')
       .upsert(profileDataToUpsert, {
         onConflict: 'id', 
       })
@@ -324,3 +324,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+    

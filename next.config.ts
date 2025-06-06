@@ -17,11 +17,11 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
 
 const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com/firebasejs/ https://static.cloudflareinsights.com https://www.googletagmanager.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://www.googletagmanager.com;
     style-src 'self' 'unsafe-inline' https://unpkg.com;
     img-src 'self' data: https://placehold.co https://github.com https://storage.googleapis.com ${supabaseHostname ? supabaseHostname : ''};
     font-src 'self' https://unpkg.com;
-    connect-src 'self' ${NEXT_PUBLIC_SOCKET_SERVER_URL} wss://${socketServerHostname} *.google.com *.googleapis.com https://firebaseinstallations.googleapis.com https://firebaseremoteconfig.googleapis.com https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com ${supabaseHostname ? `https://${supabaseHostname} wss://${supabaseHostname}` : ''};
+    connect-src 'self' ${NEXT_PUBLIC_SOCKET_SERVER_URL} wss://${socketServerHostname} *.google.com *.googleapis.com https://www.google-analytics.com https://ssl.google-analytics.com https://analytics.google.com ${supabaseHostname ? `https://${supabaseHostname} wss://${supabaseHostname}` : ''};
     frame-src 'self' ${supabaseHostname ? `https://${supabaseHostname}` : ''};
     object-src 'none';
     base-uri 'self';

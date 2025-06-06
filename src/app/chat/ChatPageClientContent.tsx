@@ -109,20 +109,10 @@ interface RowProps {
   theme: string;
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
-  ownDisplayName: string;
-  partnerAuthId: string | null;
-  onUsernameClick: (authId: string) => void;
+  ownUsername: string | null; // Current user's own username
 }
 
-const Row = React.memo(({ 
-  message, 
-  theme, 
-  previousMessageSender, 
-  pickerEmojiFilenames, 
-  ownDisplayName,
-  partnerAuthId,
-  onUsernameClick
-}: RowProps) => {
+const Row = React.memo(({ message, theme, previousMessageSender, pickerEmojiFilenames, ownUsername }: RowProps) => {
   if (message.sender === 'system') {
     return (
       <div className="mb-2">
@@ -149,28 +139,11 @@ const Row = React.memo(({
     : [message.text]
   ), [message.text, theme, pickerEmojiFilenames]);
 
-  // Use senderUsername for partner, and ownDisplayName for 'me'
-  const displayName = message.sender === 'me' ? ownDisplayName : (message.senderUsername || "Stranger");
-  
-  // Check if username should be clickable (partner with authId)
-  const isClickable = message.sender === 'partner' && partnerAuthId && partnerAuthId !== 'anonymous';
-
-  const UsernameComponent = ({ children, className }: { children: React.ReactNode, className: string }) => {
-    if (isClickable) {
-      return (
-        <button
-          onClick={() => onUsernameClick(partnerAuthId)}
-          className={cn(
-            className,
-            "hover:underline cursor-pointer transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-current focus:ring-offset-1"
-          )}
-          type="button"
-        >
-          {children}
-        </button>
-      );
+  const getDisplayName = (sender: 'me' | 'partner') => {
+    if (sender === 'me') {
+      return ownUsername || "You";
     }
-    return <span className={className}>{children}</span>;
+    return message.senderUsername || "Stranger";
   };
 
   return (
@@ -184,17 +157,13 @@ const Row = React.memo(({
       <div className="mb-1 break-words">
         {message.sender === 'me' && (
           <>
-            <UsernameComponent className="text-blue-600 font-bold mr-1">
-              {displayName}:
-            </UsernameComponent>
+            <span className="text-blue-600 font-bold mr-1">{getDisplayName('me')}:</span>
             <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
         {message.sender === 'partner' && (
           <>
-            <UsernameComponent className="text-red-600 font-bold mr-1">
-              {displayName}:
-            </UsernameComponent>
+            <span className="text-red-600 font-bold mr-1">{getDisplayName('partner')}:</span>
             <span className={cn(theme === 'theme-7' && 'theme-7-text-shadow')}>{messageContent}</span>
           </>
         )}
@@ -252,17 +221,10 @@ const ChatPageClientContent: React.FC = () => {
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [typingDots, setTypingDots] = useState('.');
 
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // New state
 
-  const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
-  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
-  const [isScrollEnabled, setIsScrollEnabled] = useState(true);
-
-  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // Actual username from DB
-
-  // Store partner's auth ID for profile card
-  const [partnerAuthId, setPartnerAuthId] = useState<string | null>(null);
+  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
   const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
@@ -591,8 +553,8 @@ const ChatPageClientContent: React.FC = () => {
         }
       }, 100);
     };
-    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl, partnerAuthId }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string, partnerAuthId?: string }) => {
-      console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl, partnerAuthId });
+    const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string }) => {
+      console.log(`%cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl });
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId); 
@@ -621,32 +583,19 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerTyping(false);
     };
     const onPartnerLeft = () => {
-      if (socketToClean.connected) {
-        console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerLeft`, 'color: red; font-weight: bold;', `Room: ${roomIdRef.current}, Socket: ${socketToClean.id}`);
-        setIsPartnerConnected(false);
-        setIsFindingPartner(false);
-        setIsPartnerTyping(false);
-        setRoomId(null); 
-        setPartnerInterests([]);
-        setPartnerAuthId(null); // Clear partner auth ID
-        setIsPartnerLeftRecently(true);
-        setIsSelfDisconnectedRecently(false);
-      }
+      console.log(`%cSOCKET EVENT: partnerLeft`, 'color: red; font-weight: bold;', `Room: ${roomIdRef.current}, Socket: ${newSocket.id}`);
+      setIsPartnerConnected(false);
+      setIsFindingPartner(false); 
+      setIsPartnerTyping(false);
+      setRoomId(null); 
+      setPartnerInterests([]);
+      setIsPartnerLeftRecently(true);
+      setIsSelfDisconnectedRecently(false);
     };
     const onDisconnectHandler = (reason: string) => {
-      console.warn(`${LOG_PREFIX}: Socket ${socketToClean.id} disconnected. Reason: ${reason}`);
-      setIsSocketConnected(false);
-      // Only set socket error for unexpected disconnections
-      if (reason !== 'io client disconnect') {
-        setSocketError(true);
-      }
-      setIsPartnerConnected(false); 
-      setIsFindingPartner(false); 
-      setIsPartnerTyping(false); 
-      setRoomId(null);
-      setPartnerAuthId(null); // Clear partner auth ID
-      // Reset auto search flag so it can retry when reconnecting
-      autoSearchDoneRef.current = false;
+      console.warn(`${LOG_PREFIX}: Socket ${newSocket.id} disconnected. Reason: ${reason}`);
+      setSocketError(true);
+      setIsPartnerConnected(false); setIsFindingPartner(false); setIsPartnerTyping(false); setRoomId(null);
     };
     const onConnectError = (err: Error) => {
         console.error(`${LOG_PREFIX}: Socket ${socketToClean.id} connection error: ${String(err)}`, err);
@@ -846,16 +795,7 @@ const ChatPageClientContent: React.FC = () => {
                   <div className="text-center text-xs italic p-2 text-gray-500 dark:text-gray-400">Initializing authentication...</div>
                 )}
                 {messages.map((msg, index) => (
-                  <Row 
-                    key={msg.id} 
-                    message={msg} 
-                    theme={effectivePageTheme} 
-                    previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} 
-                    pickerEmojiFilenames={pickerEmojiFilenames} 
-                    ownDisplayName={ownDisplayUsername}
-                    partnerAuthId={partnerAuthId}
-                    onUsernameClick={handleUsernameClick}
-                  />
+                  <Row key={msg.id} message={msg} theme={effectivePageTheme} previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} pickerEmojiFilenames={pickerEmojiFilenames} ownUsername={ownProfileUsername} />
                 ))}
                 {isPartnerTyping && (
                   <div className={cn("text-xs italic text-left pl-1 py-0.5", effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400')}>

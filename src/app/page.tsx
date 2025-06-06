@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -17,7 +16,7 @@ import { useTheme } from '@/components/theme-provider';
 import { listCursors } from '@/ai/flows/list-cursors-flow';
 import pkg from '../../package.json';
 const version = pkg.version;
-import AuthButtons from '@/components/AuthButtons'; // Import AuthButtons
+import AuthButtons from '@/components/AuthButtons';
 
 export default function SelectionLobby() {
   const [currentInterest, setCurrentInterest] = useState('');
@@ -41,15 +40,17 @@ export default function SelectionLobby() {
 
   useEffect(() => {
     // Reset isNavigating to false when the pathname changes (navigation completes)
+    // This assumes that a pathname change signifies the end of navigation.
     setIsNavigating(false);
   }, [pathname]);
 
-  useEffect(() => {
-    if (router) {
-      router.prefetch('/chat');
-      router.prefetch('/video-chat');
-    }
-  }, [router]);
+  // Removed prefetch calls as a debugging step
+  // useEffect(() => {
+  //   if (router) {
+  //     router.prefetch('/chat');
+  //     router.prefetch('/video-chat');
+  //   }
+  // }, [router]);
 
 
   useEffect(() => {
@@ -75,16 +76,17 @@ export default function SelectionLobby() {
 
       tempSocket.on('onlineUserCount', (count: number) => {
         setUsersOnline(count);
+        // Disconnect after getting the count to avoid holding unnecessary connections
         tempSocket?.disconnect();
       });
 
       tempSocket.on('connect_error', (err) => {
         console.error("SelectionLobby: Socket connection error for user count. Full error:", err);
-        setUsersOnline(0); // Set to 0 or some error indicator
+        setUsersOnline(0); 
         if (tempSocket?.connected) tempSocket.disconnect();
       });
 
-      tempSocket.on('error', (err) => { // General socket error
+      tempSocket.on('error', (err) => { 
         console.error("SelectionLobby: General socket error for user count:", err);
         setUsersOnline(0);
         if (tempSocket?.connected) tempSocket.disconnect();
@@ -100,9 +102,10 @@ export default function SelectionLobby() {
         console.log("SelectionLobby: Disconnecting socket for user count on unmount.");
         tempSocket?.disconnect();
       } else if (tempSocket) {
+        // Ensure all listeners are removed even if connection wasn't fully established
         console.log("SelectionLobby: Cleaning up non-connected socket for user count on unmount.");
         tempSocket.removeAllListeners();
-        tempSocket.disconnect(); // Ensure disconnect is called even if not connected
+        tempSocket.disconnect();
       }
     };
   }, []);
@@ -144,13 +147,13 @@ export default function SelectionLobby() {
   }, []);
 
   const handleStartChat = useCallback((type: 'text' | 'video') => {
-    setIsNavigating(true); // Set immediately
     if (!router) {
       console.error("SelectionLobby: Router is not available in handleStartChat.");
       toast({ variant: "destructive", title: "Navigation Error", description: "Could not initiate chat. Router not available." });
-      setIsNavigating(false); // Reset if router isn't available
+      setIsNavigating(false); 
       return;
     }
+    setIsNavigating(true); 
     const interestsString = selectedInterests.join(',');
     const params = new URLSearchParams();
     if (interestsString) {
@@ -164,12 +167,19 @@ export default function SelectionLobby() {
         path = `/chat${queryString ? `?${queryString}` : ''}`;
     }
     
-    router.push(path)
-      .catch((err) => {
+    // router.push returns a Promise
+    const navigationPromise = router.push(path);
+    if (navigationPromise && typeof navigationPromise.catch === 'function') {
+      navigationPromise.catch((err) => {
         console.error("Navigation failed:", err);
         toast({ variant: "destructive", title: "Navigation Error", description: "Could not start chat session." });
         setIsNavigating(false); // Reset on navigation error
       });
+    } else {
+      // Fallback if router.push doesn't return a promise as expected (should not happen with App Router)
+      console.warn("router.push did not return a promise. isNavigating state might not reset on error.");
+      // setIsNavigating will be reset by the useEffect for pathname change on success
+    }
   }, [router, selectedInterests, toast]);
 
 
@@ -264,7 +274,7 @@ export default function SelectionLobby() {
     <div className="flex flex-1 flex-col px-4 pt-4 relative">
       <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
         <p className="text-gray-500 text-xs">v{version}</p>
-        <AuthButtons /> {/* Added AuthButtons here */}
+        <AuthButtons />
       </div>
 
       <div className="flex-grow min-h-screen flex items-center justify-center">

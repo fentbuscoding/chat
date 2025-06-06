@@ -9,7 +9,7 @@ import './(fonts)/fonts.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ConditionalTopBar } from '@/components/conditional-top-bar';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseAnalyticsProvider } from '@/components/FirebaseAnalyticsProvider';
+// FirebaseAnalyticsProvider import removed
 import { ClientEffectManager } from '@/components/ClientEffectManager';
 
 // Metadata object should be defined outside the component if it's a client component,
@@ -36,15 +36,14 @@ export default function RootLayout({
           defaultTheme="theme-98"
           enableSystem={false}
         >
-          <FirebaseAnalyticsProvider>
-              <ConditionalTopBar />
-              {/* Add key={pathname} to the main element */}
-              <main key={pathname} className="flex-1 flex flex-col relative">
-                {children}
-              </main>
-              <Toaster />
-              <ClientEffectManager />
-          </FirebaseAnalyticsProvider>
+          {/* FirebaseAnalyticsProvider wrapper removed */}
+          <ConditionalTopBar />
+          {/* Add key={pathname} to the main element */}
+          <main key={pathname} className="flex-1 flex flex-col relative">
+            {children}
+          </main>
+          <Toaster />
+          <ClientEffectManager />
         </ThemeProvider>
         <Script src="/animated-cursor.js" strategy="afterInteractive" />
         <Script src="/oneko.js" strategy="afterInteractive" />
