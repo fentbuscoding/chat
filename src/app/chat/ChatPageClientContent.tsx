@@ -576,16 +576,17 @@ const ChatPageClientContent: React.FC = () => {
           console.log(`${LOG_PREFIX}: Socket connected and stable. Attempting auto search.`);
           // Call attemptAutoSearch directly here instead of relying on useEffect
           const currentSocket = socketRef.current;
+          const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
           if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
             console.log(`${LOG_PREFIX}: Conditions met for auto search. Emitting 'findPartner'. Payload:`, { 
               chatType: 'text', 
-              interests, 
+              interests: currentInterests, 
               authId: userIdRef.current 
             });
             setIsFindingPartner(true);
             setIsSelfDisconnectedRecently(false);
             setIsPartnerLeftRecently(false);
-            currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+            currentSocket.emit('findPartner', { chatType: 'text', interests: currentInterests, authId: userIdRef.current });
             autoSearchDoneRef.current = true;
           }
         }
