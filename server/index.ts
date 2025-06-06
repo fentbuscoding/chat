@@ -1,13 +1,19 @@
-
 import http from 'http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!; // Use service key for server-side operations
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+let supabase: any = null;
+if (supabaseUrl && supabaseServiceKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceKey);
+  console.log('[SUPABASE] Client initialized successfully');
+} else {
+  console.warn('[SUPABASE] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY - profile features will be disabled');
+}
 
 // Define allowed origins
 const allowedOrigins = [
@@ -50,7 +56,8 @@ const server = http.createServer((req, res) => {
       status: "ok",
       onlineUserCount: onlineUserCount,
       waitingTextChat: waitingUsers.text.length,
-      waitingVideoChat: waitingUsers.video.length
+      waitingVideoChat: waitingUsers.video.length,
+      supabaseEnabled: !!supabase
     }));
   } else if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -78,7 +85,7 @@ const PORT = process.env.PORT || 3001;
 // Updated interfaces to include auth info
 interface User {
   id: string; // Socket ID
-  authId?: string; // Supabase auth user ID
+  authId: string | null; // Supabase auth user ID, can be null for anonymous users
   interests: string[];
   chatType: 'text' | 'video';
   username?: string;
@@ -111,7 +118,7 @@ const StringArraySchema = z.array(z.string().max(100)).max(10);
 const FindPartnerPayloadSchema = z.object({
   chatType: z.enum(['text', 'video']),
   interests: StringArraySchema,
-  authId: z.string().uuid().optional(),
+  authId: z.string().uuid().nullable().optional().default(null),
 });
 
 const RoomIdPayloadSchema = z.object({
@@ -120,15 +127,30 @@ const RoomIdPayloadSchema = z.object({
 
 const SendMessagePayloadSchema = RoomIdPayloadSchema.extend({
   message: z.string().min(1).max(2000),
-  username: z.string().max(30).optional(),
+  username: z.string().max(30).nullable().optional(),
 });
 
 const WebRTCSignalPayloadSchema = RoomIdPayloadSchema.extend({
   signalData: z.any(),
 });
 
+// Helper function to log queue state
+function logQueueState(chatType: 'text' | 'video', context: string) {
+  const queue = waitingUsers[chatType];
+  console.log(`[QUEUE_STATE_${context.toUpperCase()}] ${chatType} queue (size: ${queue.length}):`, 
+    queue.map(u => ({
+      socketId: u.id,
+      authId: u.authId || 'anonymous',
+      interests: u.interests,
+      username: u.username || 'no-username'
+    }))
+  );
+}
+
 // Helper function to fetch user profile from Supabase
 async function fetchUserProfile(authId: string) {
+  if (!supabase || !authId) return null;
+  
   try {
     const { data, error } = await supabase
       .from('user_profiles')
@@ -137,7 +159,9 @@ async function fetchUserProfile(authId: string) {
       .single();
 
     if (error) {
-      console.error(`[SUPABASE_ERROR] Error fetching profile for ${authId}:`, error);
+      if (error.code !== 'PGRST116') {
+        console.error(`[SUPABASE_ERROR] Error fetching profile for ${authId}:`, error);
+      }
       return null;
     }
     return data;
@@ -147,101 +171,93 @@ async function fetchUserProfile(authId: string) {
   }
 }
 
-// Helper function to update user online status
-async function updateUserOnlineStatus(authId: string, isOnline: boolean) {
-  if (!authId) return;
-  try {
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ 
-        is_online: isOnline,
-        last_seen: new Date().toISOString()
-      })
-      .eq('id', authId);
-
-    if (error) {
-      console.error(`[SUPABASE_ERROR] Error updating online status for ${authId}:`, error);
-    }
-  } catch (err) {
-    console.error(`[SUPABASE_EXCEPTION] Exception updating online status for ${authId}:`, err);
-  }
-}
-
 function removeFromWaitingLists(socketId: string) {
   (['text', 'video'] as const).forEach(type => {
     const index = waitingUsers[type].findIndex(u => u.id === socketId);
     if (index !== -1) {
       waitingUsers[type].splice(index, 1);
       console.log(`[WAITING_LIST_REMOVE] User ${socketId} removed from ${type} waiting list.`);
+      logQueueState(type, 'AFTER_REMOVE');
     }
   });
 }
 
 const findMatch = (currentUser: User): User | null => {
-  const queue = waitingUsers[currentUser.chatType]; // Direct reference to the specific queue
+  console.log(`[MATCH_LOGIC_START] User ${currentUser.id} (authId: ${currentUser.authId || 'anonymous'}, interests: ${currentUser.interests.join(', ') || 'none'}) looking for ${currentUser.chatType} match.`);
+  
+  const queue = waitingUsers[currentUser.chatType];
+  logQueueState(currentUser.chatType, 'MATCH_ATTEMPT');
 
-  // Attempt 1: Interest-based matching
+  // Filter out self from candidates
+  const candidates = queue.filter(p => p.id !== currentUser.id);
+  console.log(`[MATCH_LOGIC_CANDIDATES] Available candidates for ${currentUser.id}: ${candidates.length}`);
+  
+  if (candidates.length === 0) {
+    console.log(`[MATCH_LOGIC_NO_CANDIDATES] No candidates available for ${currentUser.id}`);
+    return null;
+  }
+
+  let selectedPartner: User | null = null;
+
+  // Try interest-based matching first if current user has interests
   if (currentUser.interests.length > 0) {
-    // Iterate with index to allow safe modification if needed, or use a copy
-    for (let i = 0; i < queue.length; i++) {
-      const potentialPartner = queue[i];
-      if (potentialPartner.id === currentUser.id) continue; // Don't match with self
+    console.log(`[MATCH_LOGIC_INTEREST_PHASE] User ${currentUser.id} has interests, attempting interest-based match.`);
+    
+    for (const potentialPartner of candidates) {
+      console.log(`[MATCH_LOGIC_INTEREST_TRY] User ${currentUser.id} considering interest match with ${potentialPartner.id} (authId: ${potentialPartner.authId || 'anonymous'}, interests: ${potentialPartner.interests.join(', ') || 'none'}).`);
 
-      const hasCommonInterest = potentialPartner.interests &&
+      const hasCommonInterest = potentialPartner.interests.length > 0 &&
                                 potentialPartner.interests.some(interest => currentUser.interests.includes(interest));
 
       if (hasCommonInterest) {
-        // Re-find the partner by ID in the live queue to get the current index,
-        // as the queue might have been modified by a concurrent operation.
-        const actualIndex = waitingUsers[currentUser.chatType].findIndex(u => u.id === potentialPartner.id);
-        
-        if (actualIndex !== -1) {
-          // Ensure it's not the current user again (double check, though primary check is above)
-          if (waitingUsers[currentUser.chatType][actualIndex].id === currentUser.id) continue;
-
-          console.log(`[MATCH_LOGIC_INTEREST] Interest match found: ${currentUser.id} with ${waitingUsers[currentUser.chatType][actualIndex].id}`);
-          return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; // Remove and return
-        } else {
-          // This means potentialPartner was identified, but by the time we tried to get its actualIndex,
-          // it was already removed from the queue (likely by another match process).
-          console.log(`[MATCH_LOGIC_CONCURRENCY] Interest-candidate ${potentialPartner.id} was already removed from queue. Continuing search.`);
-          // The loop will continue, but `i` might skip an element if splice happened before this iteration's `potentialPartner`.
-          // To be extremely safe, if a splice happens, one might decrement `i` or re-evaluate, but findIndex handles lookup.
-        }
+        console.log(`[MATCH_LOGIC_INTEREST_COMMON_FOUND] Common interest found for ${currentUser.id} with ${potentialPartner.id}.`);
+        selectedPartner = potentialPartner;
+        break;
+      } else {
+        console.log(`[MATCH_LOGIC_INTEREST_NO_COMMON] No common interest for ${currentUser.id} with ${potentialPartner.id}.`);
       }
     }
-    console.log(`[MATCH_LOGIC_NO_INTEREST_MATCH] No interest-based match for ${currentUser.id}. Proceeding to random match.`);
+    
+    if (!selectedPartner) {
+      console.log(`[MATCH_LOGIC_INTEREST_PHASE_END] No interest-based match for ${currentUser.id}. Proceeding to random match.`);
+    }
+  } else {
+    console.log(`[MATCH_LOGIC_INTEREST_PHASE_SKIP] User ${currentUser.id} has no interests. Skipping interest-based match phase.`);
   }
 
-  // Attempt 2: Random matching
-  // Create a list of candidates *excluding the current user* from the current state of the queue
-  const candidates = waitingUsers[currentUser.chatType].filter(p => p.id !== currentUser.id);
-  if (candidates.length > 0) {
-    // Shuffle candidates array to make random matching more fair when iterating
-    for (let i = candidates.length - 1; i > 0; i--) {
+  // Random matching if no interest match found or user has no interests
+  if (!selectedPartner) {
+    console.log(`[MATCH_LOGIC_RANDOM_PHASE] Random matching for ${currentUser.id} (candidates: ${candidates.length})`);
+    
+    if (candidates.length > 0) {
+      // Shuffle candidates to make random matching more fair
+      const shuffledCandidates = [...candidates];
+      for (let i = shuffledCandidates.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; // ES6 destructuring swap
+        [shuffledCandidates[i], shuffledCandidates[j]] = [shuffledCandidates[j], shuffledCandidates[i]]; 
+      }
+
+      selectedPartner = shuffledCandidates[0];
+      console.log(`[MATCH_LOGIC_RANDOM_SUCCESS] Random match selected: ${currentUser.id} with ${selectedPartner.id} (authId: ${selectedPartner.authId || 'anonymous'}).`);
     }
+  }
 
-    for (const randomPartner of candidates) {
-        // Re-find the partner by ID in the live queue to get its current index.
-        const actualIndex = waitingUsers[currentUser.chatType].findIndex(u => u.id === randomPartner.id);
-        if (actualIndex !== -1) {
-            // Ensure it's not the current user
-            if (waitingUsers[currentUser.chatType][actualIndex].id === currentUser.id) continue;
-
-            console.log(`[MATCH_LOGIC_RANDOM] Random match found: ${currentUser.id} with ${waitingUsers[currentUser.chatType][actualIndex].id}`);
-            return waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0]; // Remove and return
-        } else {
-            console.log(`[MATCH_LOGIC_CONCURRENCY] Random-candidate ${randomPartner.id} was already removed from queue. Continuing search.`);
-        }
+  if (selectedPartner) {
+    // Remove the selected partner from the waiting list
+    const actualIndex = waitingUsers[currentUser.chatType].findIndex(u => u.id === selectedPartner.id);
+    if (actualIndex !== -1) {
+      const removedPartner = waitingUsers[currentUser.chatType].splice(actualIndex, 1)[0];
+      console.log(`[MATCH_LOGIC_SUCCESS] Match found and partner removed from queue: ${currentUser.id} with ${removedPartner.id}.`);
+      logQueueState(currentUser.chatType, 'AFTER_MATCH');
+      return removedPartner;
+    } else {
+      console.log(`[MATCH_LOGIC_CONCURRENCY] Selected partner ${selectedPartner.id} was already removed from queue. No match possible.`);
     }
   }
   
-  console.log(`[MATCH_LOGIC_NO_PARTNERS_END] No potential partners for ${currentUser.id} in ${currentUser.chatType} list after all checks.`);
+  console.log(`[MATCH_LOGIC_NO_MATCH_END] No match found for ${currentUser.id} in ${currentUser.chatType} list.`);
   return null;
 };
-
 
 io.on('connection', (socket: Socket) => {
   onlineUserCount++;
@@ -265,26 +281,41 @@ io.on('connection', (socket: Socket) => {
       }
       lastMatchRequest[socket.id] = now;
 
-      console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} (authId: ${authId || 'anonymous'}) looking for ${chatType} chat with interests: ${interests.join(', ')}`);
+      console.log(`[FIND_PARTNER_REQUEST] User ${socket.id} (authId: ${authId || 'anonymous'}) looking for ${chatType} chat with interests: ${interests.join(', ') || 'none'}`);
       
       if (authId) {
         socketToAuthId[socket.id] = authId;
         authIdToSocketId[authId] = socket.id;
-        await updateUserOnlineStatus(authId, true);
       }
 
+      // Remove user from any existing waiting lists
       removeFromWaitingLists(socket.id);
       
-      const currentUser: User = { id: socket.id, interests, chatType, authId };
+      const currentUser: User = { 
+        id: socket.id, 
+        interests: interests || [], 
+        chatType, 
+        authId: authId || null 
+      };
       
-      if (authId) {
+      // Fetch profile if authenticated
+      if (authId && supabase) {
+        console.log(`[PROFILE_FETCH_ATTEMPT] Fetching profile for authId: ${authId}`);
         const profile = await fetchUserProfile(authId);
         if (profile) {
           currentUser.username = profile.username;
           currentUser.displayName = profile.display_name;
           currentUser.avatarUrl = profile.avatar_url;
+          console.log(`[PROFILE_FETCH_SUCCESS] Fetched profile for ${authId}: Username - ${profile.username || 'null'}, DisplayName - ${profile.display_name || 'null'}`);
+        } else {
+          console.log(`[PROFILE_FETCH_NO_PROFILE] No profile found or error for ${authId}.`);
         }
+      } else {
+        console.log(`[PROFILE_FETCH_SKIP] Skipping profile fetch for anonymous user ${socket.id}`);
       }
+
+      // Log current queue state before attempting match
+      logQueueState(chatType, 'BEFORE_MATCH');
 
       const matchedPartner = findMatch(currentUser);
 
@@ -299,22 +330,28 @@ io.on('connection', (socket: Socket) => {
           partnerSocket.join(roomId);
           console.log(`[MATCH_SUCCESS] ${currentUser.id} and ${matchedPartner.id} joined room ${roomId}. Emitting 'partnerFound'.`);
 
+          // Use actual username or fallback to "Stranger"
+          const currentUserDisplayName = currentUser.username || "Stranger";
+          const partnerDisplayName = matchedPartner.username || "Stranger";
+
           socket.emit('partnerFound', {
             partnerId: matchedPartner.id,
             roomId,
             interests: matchedPartner.interests,
-            partnerUsername: matchedPartner.username,
+            partnerUsername: partnerDisplayName,
             partnerDisplayName: matchedPartner.displayName,
             partnerAvatarUrl: matchedPartner.avatarUrl,
+            partnerAuthId: matchedPartner.authId,
           });
           
           partnerSocket.emit('partnerFound', {
             partnerId: currentUser.id,
             roomId,
             interests: currentUser.interests,
-            partnerUsername: currentUser.username,
+            partnerUsername: currentUserDisplayName,
             partnerDisplayName: currentUser.displayName,
             partnerAvatarUrl: currentUser.avatarUrl,
+            partnerAuthId: currentUser.authId,
           });
         } else {
           console.warn(`[MATCH_FAIL_SOCKET_ISSUE] Partner ${matchedPartner.id} socket not found/disconnected. Re-queuing current user ${currentUser.id} and potential partner ${matchedPartner.id}.`);
@@ -328,10 +365,12 @@ io.on('connection', (socket: Socket) => {
           socket.emit('waitingForPartner');
         }
       } else {
+        // No match found, add user to waiting list
         if (!waitingUsers[chatType].some(user => user.id === socket.id)) {
           waitingUsers[chatType].push(currentUser);
         }
-        console.log(`[WAITING_FOR_PARTNER] User ${socket.id} added to ${chatType} waiting list. Emitting 'waitingForPartner'.`);
+        console.log(`[WAITING_FOR_PARTNER] User ${socket.id} added to ${chatType} waiting list. Emitting 'waitingForPartner'. Current queue size: ${waitingUsers[chatType].length}`);
+        logQueueState(chatType, 'AFTER_ADD_TO_QUEUE');
         socket.emit('waitingForPartner');
       }
     } catch (error: any) {
@@ -343,7 +382,7 @@ io.on('connection', (socket: Socket) => {
   socket.on('sendMessage', (payload: unknown) => {
     try {
       const { roomId, message, username } = SendMessagePayloadSchema.parse(payload);
-      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (username: ${username || 'N/A'}) sending message to room ${roomId}: "${message}"`);
+      console.log(`[MESSAGE_RECEIVED_SERVER] User ${socket.id} (username: ${username || 'Stranger'}) sending message to room ${roomId}: "${message}"`);
       const roomDetails = rooms[roomId];
       if (!roomDetails) {
         console.warn(`[MESSAGE_WARN_SEND_FAIL] Room ${roomId} not found for message from ${socket.id}.`);
@@ -424,7 +463,6 @@ io.on('connection', (socket: Socket) => {
 
     const authId = socketToAuthId[socket.id];
     if (authId) {
-      await updateUserOnlineStatus(authId, false);
       delete socketToAuthId[socket.id];
       delete authIdToSocketId[authId];
     }
@@ -482,7 +520,9 @@ io.on('connection', (socket: Socket) => {
 
 server.listen(PORT, () => {
   console.log(`[SERVER_START] Socket.IO server running on port ${PORT}`);
+  if (!supabase) {
+    console.warn('[SERVER_START] Running without Supabase integration - profiles will not be loaded');
+  }
 });
 
 export {};
-    
