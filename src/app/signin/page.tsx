@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button-themed';
@@ -15,67 +15,82 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const router = useRouter();
   const { currentTheme } = useTheme();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Check if user is already authenticated
   useEffect(() => {
-    let mounted = true;
-
     const checkExistingAuth = async () => {
+      if (!mountedRef.current) return;
+
       try {
         console.log('SignIn: Checking existing authentication...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('SignIn: Session error:', sessionError);
-          if (mounted) setInitialLoading(false);
+          if (mountedRef.current) setInitialLoading(false);
           return;
         }
 
-        if (session?.user && mounted) {
+        if (session?.user && mountedRef.current) {
           console.log('SignIn: User already authenticated, checking profile...');
           
-          // Check if user has completed profile setup
-          const { data: profile, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('profile_complete')
-            .eq('id', session.user.id)
-            .single();
+          try {
+            // Check if user has completed profile setup
+            const { data: profile, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('profile_complete')
+              .eq('id', session.user.id)
+              .single();
 
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('SignIn: Profile check error:', profileError);
-            // If can't check profile, assume they need onboarding
+            if (!mountedRef.current) return;
+
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.error('SignIn: Profile check error:', profileError);
+              // If can't check profile, assume they need onboarding
+              router.replace('/onboarding');
+            } else if (profile?.profile_complete) {
+              console.log('SignIn: Profile complete, redirecting to home');
+              router.replace('/');
+            } else {
+              console.log('SignIn: Profile incomplete, redirecting to onboarding');
+              router.replace('/onboarding');
+            }
+            return;
+          } catch (profileError) {
+            console.error('SignIn: Profile check exception:', profileError);
             router.replace('/onboarding');
-          } else if (profile?.profile_complete) {
-            console.log('SignIn: Profile complete, redirecting to home');
-            router.replace('/');
-          } else {
-            console.log('SignIn: Profile incomplete, redirecting to onboarding');
-            router.replace('/onboarding');
+            return;
           }
-          return;
         }
 
-        if (mounted) {
+        if (mountedRef.current) {
           console.log('SignIn: No existing session, showing signin form');
           setInitialLoading(false);
         }
       } catch (error) {
         console.error('SignIn: Error checking auth session:', error);
-        if (mounted) setInitialLoading(false);
+        if (mountedRef.current) setInitialLoading(false);
       }
     };
 
     checkExistingAuth();
-
-    return () => {
-      mounted = false;
-    };
   }, [router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mountedRef.current) return;
+
     setError(null);
     setLoading(true);
 
@@ -86,6 +101,8 @@ export default function SignInPage() {
         email, 
         password 
       });
+
+      if (!mountedRef.current) return;
 
       if (signInError) {
         console.error('SignIn: Signin error:', signInError);
@@ -108,9 +125,10 @@ export default function SignInPage() {
             .eq('id', data.user.id)
             .single();
 
+          if (!mountedRef.current) return;
+
           if (profileError && profileError.code !== 'PGRST116') {
             console.error('SignIn: Profile check error:', profileError);
-            // If can't check profile, assume they need onboarding
             console.log('SignIn: Cannot check profile, redirecting to onboarding');
             router.push('/onboarding');
           } else if (profile?.profile_complete) {
@@ -122,7 +140,6 @@ export default function SignInPage() {
           }
         } catch (profileError) {
           console.error('SignIn: Profile check exception:', profileError);
-          // On error, send to onboarding to be safe
           router.push('/onboarding');
         }
       } else {
@@ -131,15 +148,21 @@ export default function SignInPage() {
       }
     } catch (error: any) {
       console.error('SignIn: Exception during signin:', error);
-      setError('An unexpected error occurred. Please try again.');
+      if (mountedRef.current) {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleOAuthSignIn = async (provider: 'google' | 'discord' | 'spotify') => {
+    if (!mountedRef.current) return;
+
     setError(null);
-    setLoading(true);
+    setOauthLoading(provider);
 
     try {
       console.log(`SignIn: Starting ${provider} OAuth signin`);
@@ -147,20 +170,28 @@ export default function SignInPage() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/onboarding`
+          redirectTo: `${window.location.origin}/onboarding`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         },
       });
 
       if (oauthError) {
         console.error(`SignIn: ${provider} OAuth error:`, oauthError);
-        setError(oauthError.message);
-        setLoading(false);
+        if (mountedRef.current) {
+          setError(oauthError.message);
+          setOauthLoading(null);
+        }
       }
-      // On success, Supabase handles redirection
+      // On success, Supabase handles redirection automatically
     } catch (error: any) {
       console.error(`SignIn: ${provider} OAuth exception:`, error);
-      setError("Failed to sign in with " + provider);
-      setLoading(false);
+      if (mountedRef.current) {
+        setError("Failed to sign in with " + provider);
+        setOauthLoading(null);
+      }
     }
   };
 
@@ -174,7 +205,9 @@ export default function SignInPage() {
               <div className="title-bar-text">Loading...</div>
             </div>
             <div className="window-body p-4">
-              <div className="text-center">Checking authentication status...</div>
+              <div className="text-center">
+                <p className="text-black dark:text-white animate-pulse">Checking authentication status...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -203,7 +236,7 @@ export default function SignInPage() {
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   required 
-                  disabled={loading}
+                  disabled={loading || !!oauthLoading}
                   autoComplete="email"
                   placeholder="Enter your email"
                 />
@@ -216,7 +249,7 @@ export default function SignInPage() {
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
-                  disabled={loading}
+                  disabled={loading || !!oauthLoading}
                   autoComplete="current-password"
                   placeholder="Enter your password"
                 />
@@ -226,7 +259,11 @@ export default function SignInPage() {
                   {error}
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading || !!oauthLoading}
+              >
                 {loading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
@@ -238,14 +275,26 @@ export default function SignInPage() {
             </div>
             
             <div className="flex flex-col gap-2">
-              <Button variant="outline" onClick={() => handleOAuthSignIn('google')} disabled={loading}>
-                Continue with Google
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('google')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
               </Button>
-              <Button variant="outline" onClick={() => handleOAuthSignIn('discord')} disabled={loading}>
-                Continue with Discord
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('discord')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'discord' ? 'Connecting...' : 'Continue with Discord'}
               </Button>
-              <Button variant="outline" onClick={() => handleOAuthSignIn('spotify')} disabled={loading}>
-                Continue with Spotify
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('spotify')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'spotify' ? 'Connecting...' : 'Continue with Spotify'}
               </Button>
             </div>
             

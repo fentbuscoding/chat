@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button-themed';
@@ -16,76 +16,56 @@ export default function SignUpPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const router = useRouter();
   const { currentTheme } = useTheme();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Check if user is already authenticated
   useEffect(() => {
-    let mounted = true;
-
     const checkExistingAuth = async () => {
+      if (!mountedRef.current) return;
+
       try {
         console.log('SignUp: Checking existing authentication...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('SignUp: Session error:', sessionError);
-          if (mounted) setInitialLoading(false);
+          if (mountedRef.current) setInitialLoading(false);
           return;
         }
 
-        if (session?.user && mounted) {
+        if (session?.user && mountedRef.current) {
           console.log('SignUp: User already authenticated, redirecting to home');
           router.replace('/');
           return;
         }
 
-        if (mounted) {
+        if (mountedRef.current) {
           console.log('SignUp: No existing session, showing signup form');
           setInitialLoading(false);
         }
       } catch (error) {
         console.error('SignUp: Error checking auth session:', error);
-        if (mounted) setInitialLoading(false);
+        if (mountedRef.current) setInitialLoading(false);
       }
     };
 
     checkExistingAuth();
-
-    return () => {
-      mounted = false;
-    };
   }, [router]);
-
-  const checkIfUserExists = async (email: string): Promise<boolean> => {
-    try {
-      // Try to trigger a password reset to see if user exists
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://example.com' // Dummy redirect, we just want to check existence
-      });
-
-      if (error) {
-        // If error message indicates user not found, user doesn't exist
-        if (error.message.includes('User not found') || 
-            error.message.includes('Invalid email') ||
-            error.message.includes('not found')) {
-          return false;
-        }
-        // For other errors, assume user might exist to be safe
-        return true;
-      }
-
-      // If no error, user exists
-      return true;
-    } catch (error) {
-      console.error('SignUp: Error checking user existence:', error);
-      // On error, assume user might exist to be safe
-      return true;
-    }
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mountedRef.current) return;
+
     setError(null);
     setMessage(null);
     setLoading(true);
@@ -93,30 +73,15 @@ export default function SignUpPage() {
     try {
       console.log('SignUp: Starting signup process for:', email);
 
-      // Check if user already exists
-      console.log('SignUp: Checking if user exists...');
-      const userExists = await checkIfUserExists(email);
-      
-      if (userExists) {
-        setError("An account with this email already exists. Please sign in instead or use a different email.");
-        setTimeout(() => {
-          console.log('SignUp: Redirecting to signin page');
-          router.push('/signin');
-        }, 3000);
-        setLoading(false);
-        return;
-      }
-
-      console.log('SignUp: User does not exist, proceeding with signup');
-
-      // Proceed with signup
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`, 
+          emailRedirectTo: `${window.location.origin}/onboarding`,
         }
       });
+
+      if (!mountedRef.current) return;
 
       if (signUpError) {
         console.error('SignUp: Signup error:', signUpError);
@@ -126,7 +91,9 @@ export default function SignUpPage() {
             signUpError.message.includes('User already registered')) {
           setError("An account with this email already exists. Redirecting to sign in...");
           setTimeout(() => {
-            router.push('/signin');
+            if (mountedRef.current) {
+              router.push('/signin');
+            }
           }, 2000);
         } else {
           setError(signUpError.message);
@@ -136,7 +103,9 @@ export default function SignUpPage() {
         console.log('SignUp: User exists but unconfirmed');
         setError("An account with this email already exists. Please check your email for confirmation or try signing in.");
         setTimeout(() => {
-          router.push('/signin');
+          if (mountedRef.current) {
+            router.push('/signin');
+          }
         }, 3000);
       } else if (data.user) {
         // Successful signup
@@ -157,16 +126,22 @@ export default function SignUpPage() {
       }
     } catch (error: any) {
       console.error('SignUp: Exception during signup:', error);
-      setError("An unexpected error occurred. Please try again.");
+      if (mountedRef.current) {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleOAuthSignIn = async (provider: 'google' | 'discord' | 'spotify') => {
+    if (!mountedRef.current) return;
+
     setError(null);
     setMessage(null);
-    setLoading(true);
+    setOauthLoading(provider);
     
     try {
       console.log(`SignUp: Starting ${provider} OAuth signup`);
@@ -174,20 +149,28 @@ export default function SignUpPage() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/onboarding`
+          redirectTo: `${window.location.origin}/onboarding`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         },
       });
 
       if (oauthError) {
         console.error(`SignUp: ${provider} OAuth error:`, oauthError);
-        setError(oauthError.message);
-        setLoading(false);
+        if (mountedRef.current) {
+          setError(oauthError.message);
+          setOauthLoading(null);
+        }
       }
-      // On success, Supabase handles redirection
+      // On success, Supabase handles redirection automatically
     } catch (error: any) {
       console.error(`SignUp: ${provider} OAuth exception:`, error);
-      setError("Failed to sign up with " + provider);
-      setLoading(false);
+      if (mountedRef.current) {
+        setError("Failed to sign up with " + provider);
+        setOauthLoading(null);
+      }
     }
   };
 
@@ -201,7 +184,9 @@ export default function SignUpPage() {
               <div className="title-bar-text">Loading...</div>
             </div>
             <div className="window-body p-4">
-              <div className="text-center">Checking authentication status...</div>
+              <div className="text-center">
+                <p className="text-black dark:text-white animate-pulse">Checking authentication status...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -230,7 +215,7 @@ export default function SignUpPage() {
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   required 
-                  disabled={loading}
+                  disabled={loading || !!oauthLoading}
                   autoComplete="email"
                 />
               </div>
@@ -243,7 +228,7 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
                   minLength={6}
-                  disabled={loading}
+                  disabled={loading || !!oauthLoading}
                   autoComplete="new-password"
                 />
               </div>
@@ -257,7 +242,11 @@ export default function SignUpPage() {
                   {message}
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading || !!oauthLoading}
+              >
                 {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
             </form>
@@ -269,14 +258,26 @@ export default function SignUpPage() {
             </div>
             
             <div className="flex flex-col gap-2">
-              <Button variant="outline" onClick={() => handleOAuthSignIn('google')} disabled={loading}>
-                Continue with Google
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('google')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'google' ? 'Connecting...' : 'Continue with Google'}
               </Button>
-              <Button variant="outline" onClick={() => handleOAuthSignIn('discord')} disabled={loading}>
-                Continue with Discord
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('discord')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'discord' ? 'Connecting...' : 'Continue with Discord'}
               </Button>
-              <Button variant="outline" onClick={() => handleOAuthSignIn('spotify')} disabled={loading}>
-                Continue with Spotify
+              <Button 
+                variant="outline" 
+                onClick={() => handleOAuthSignIn('spotify')} 
+                disabled={loading || !!oauthLoading}
+              >
+                {oauthLoading === 'spotify' ? 'Connecting...' : 'Continue with Spotify'}
               </Button>
             </div>
             

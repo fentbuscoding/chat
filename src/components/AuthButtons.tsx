@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -16,15 +16,42 @@ export default function AuthButtons() {
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  
+  // Use refs to prevent unnecessary re-renders and race conditions
+  const initializationRef = useRef(false);
+  const mountedRef = useRef(true);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Initialize auth state
+  // Simplified and more robust auth initialization
   const initializeAuth = useCallback(async () => {
+    if (initializationRef.current || !mountedRef.current) {
+      console.log("AuthButtons: Skipping initialization - already initialized or unmounted");
+      return;
+    }
+
+    initializationRef.current = true;
+    
     try {
-      console.log("AuthButtons: Initializing auth state...");
+      console.log("AuthButtons: Starting auth initialization...");
       
-      // Get current session
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      // Set a safety timeout
+      timeoutRef.current = setTimeout(() => {
+        if (mountedRef.current && authLoading) {
+          console.warn("AuthButtons: Auth loading timeout reached, forcing completion");
+          setAuthLoading(false);
+        }
+      }, 3000);
+
+      // Get current session with error handling
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      if (!mountedRef.current) return;
+
       if (sessionError) {
         console.error("AuthButtons: Session error:", sessionError);
         setUser(null);
@@ -34,83 +61,81 @@ export default function AuthButtons() {
       }
 
       const currentUser = session?.user ?? null;
-      console.log("AuthButtons: Current user from session:", currentUser?.id || 'anonymous');
+      console.log("AuthButtons: Auth check complete. User:", currentUser?.id || 'anonymous');
       
       setUser(currentUser);
 
       if (currentUser) {
-        // Fetch user profile
         try {
-          const { data: profileData, error: profileError } = await supabase
+          // Fetch user profile with timeout
+          const profilePromise = supabase
             .from('user_profiles')
-            .select('username, profile_complete, display_name')
+            .select('username, display_name')
             .eq('id', currentUser.id)
             .single();
+
+          // Add timeout to profile fetch
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 2000);
+          });
+
+          const { data: profileData, error: profileError } = await Promise.race([
+            profilePromise,
+            timeoutPromise
+          ]) as any;
+
+          if (!mountedRef.current) return;
 
           if (profileError && profileError.code !== 'PGRST116') {
             console.error("AuthButtons: Profile fetch error:", profileError);
             setProfileUsername(null);
           } else if (profileData) {
-            console.log("AuthButtons: Profile found:", profileData);
-            // Use display_name if available, fallback to username
             const displayName = profileData.display_name || profileData.username;
             setProfileUsername(displayName);
-            console.log("AuthButtons: Set profile display name:", displayName);
+            console.log("AuthButtons: Profile loaded:", displayName);
           } else {
             console.log("AuthButtons: No profile found");
             setProfileUsername(null);
           }
         } catch (profileError) {
           console.error("AuthButtons: Profile fetch exception:", profileError);
-          setProfileUsername(null);
+          if (mountedRef.current) {
+            setProfileUsername(null);
+          }
         }
       } else {
         setProfileUsername(null);
       }
 
-      setAuthLoading(false);
-      console.log("AuthButtons: Auth initialization complete");
     } catch (error) {
-      console.error("AuthButtons: Init error:", error);
-      setUser(null);
-      setProfileUsername(null);
-      setAuthLoading(false);
-    }
-  }, []);
-
-  // Set up auth listener
-  useEffect(() => {
-    let mounted = true;
-    let timeoutId: NodeJS.Timeout;
-
-    // Add a safety timeout to prevent infinite loading
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && authLoading) {
-        console.warn("AuthButtons: Auth loading timeout reached, forcing completion");
+      console.error("AuthButtons: Initialization error:", error);
+      if (mountedRef.current) {
+        setUser(null);
+        setProfileUsername(null);
+      }
+    } finally {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (mountedRef.current) {
         setAuthLoading(false);
+        console.log("AuthButtons: Auth initialization complete");
       }
-    }, 5000); // 5 second timeout
+    }
+  }, [authLoading]);
 
-    // Initialize auth state immediately
-    const initAuth = async () => {
-      try {
-        await initializeAuth();
-      } catch (error) {
-        console.error("AuthButtons: Error in initAuth:", error);
-        if (mounted) {
-          setAuthLoading(false);
-        }
-      }
-      clearTimeout(safetyTimeout);
-    };
+  // Set up auth listener with better error handling
+  useEffect(() => {
+    mountedRef.current = true;
 
-    initAuth();
+    // Initialize immediately
+    initializeAuth();
 
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+      if (!mountedRef.current) return;
 
-      console.log("AuthButtons: Auth state change:", event, "session:", !!session);
+      console.log("AuthButtons: Auth state change:", event, "session exists:", !!session);
       
       const currentUser = session?.user ?? null;
       setUser(currentUser);
@@ -118,22 +143,26 @@ export default function AuthButtons() {
       const isAuthPage = pathname.startsWith('/signin') || pathname.startsWith('/signup');
 
       if (currentUser) {
-        // User signed in - fetch profile
+        // User signed in - fetch profile with timeout
         try {
-          const { data: profileData, error: profileError } = await supabase
-            .from('user_profiles')
-            .select('username, profile_complete, display_name')
-            .eq('id', currentUser.id)
-            .single();
+          const { data: profileData, error: profileError } = await Promise.race([
+            supabase
+              .from('user_profiles')
+              .select('username, display_name, profile_complete')
+              .eq('id', currentUser.id)
+              .single(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Profile timeout')), 2000))
+          ]) as any;
+
+          if (!mountedRef.current) return;
 
           if (profileError && profileError.code !== 'PGRST116') {
             console.error("AuthButtons: Profile error in auth change:", profileError);
-            if (mounted) setProfileUsername(null);
-          } else if (profileData && mounted) {
-            // Use display_name if available, fallback to username
+            setProfileUsername(null);
+          } else if (profileData) {
             const displayName = profileData.display_name || profileData.username;
             setProfileUsername(displayName);
-            console.log("AuthButtons: Profile updated:", displayName);
+            console.log("AuthButtons: Profile updated via auth change:", displayName);
 
             // Handle navigation for sign-in events
             if (event === 'SIGNED_IN' && isAuthPage) {
@@ -145,7 +174,7 @@ export default function AuthButtons() {
                 router.push('/onboarding');
               }
             }
-          } else if (mounted) {
+          } else if (mountedRef.current) {
             setProfileUsername(null);
             if (event === 'SIGNED_IN' && isAuthPage) {
               console.log("AuthButtons: No profile found, redirecting to onboarding");
@@ -154,37 +183,38 @@ export default function AuthButtons() {
           }
         } catch (error) {
           console.error("AuthButtons: Profile fetch error in auth change:", error);
-          if (mounted) setProfileUsername(null);
+          if (mountedRef.current) setProfileUsername(null);
         }
       } else {
         // User signed out
-        if (mounted) {
+        if (mountedRef.current) {
           setProfileUsername(null);
-          setSigningOut(false); // Reset signing out state
+          setSigningOut(false);
         }
         
-        if (event === 'SIGNED_OUT' && !isAuthPage && mounted) {
+        if (event === 'SIGNED_OUT' && !isAuthPage && mountedRef.current) {
           console.log("AuthButtons: User signed out, redirecting to home");
           router.push('/');
         }
       }
 
-      // Ensure loading state is cleared after auth state change
-      if (mounted) {
+      // Ensure loading state is cleared
+      if (mountedRef.current) {
         setAuthLoading(false);
       }
     });
 
     return () => {
-      mounted = false;
-      clearTimeout(safetyTimeout);
-      if (timeoutId) clearTimeout(timeoutId);
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       authListener.subscription?.unsubscribe();
     };
   }, [router, pathname, initializeAuth]);
 
   const handleSignOut = async () => {
-    if (signingOut) return; // Prevent multiple clicks
+    if (signingOut || !mountedRef.current) return;
     
     setSigningOut(true);
     console.log("AuthButtons: Starting sign out process");
@@ -194,32 +224,34 @@ export default function AuthButtons() {
       
       if (error) {
         console.error("AuthButtons: Sign out error:", error.message);
-        setSigningOut(false);
+        if (mountedRef.current) setSigningOut(false);
       } else {
         console.log("AuthButtons: Sign out successful");
-        // Don't reset signingOut here - let the auth listener handle it
-        // Clear local state immediately for better UX
-        setUser(null);
-        setProfileUsername(null);
-        
-        // Navigate to home
-        router.push('/');
+        if (mountedRef.current) {
+          setUser(null);
+          setProfileUsername(null);
+          router.push('/');
+        }
       }
     } catch (error) {
       console.error("AuthButtons: Sign out exception:", error);
-      setSigningOut(false);
+      if (mountedRef.current) setSigningOut(false);
     }
   };
 
   const handleOpenCustomizer = useCallback(() => {
-    setIsCustomizerOpen(true);
+    if (mountedRef.current) {
+      setIsCustomizerOpen(true);
+    }
   }, []);
 
   const handleCloseCustomizer = useCallback(() => {
-    setIsCustomizerOpen(false);
+    if (mountedRef.current) {
+      setIsCustomizerOpen(false);
+    }
   }, []);
 
-  // Show loading state while initializing (but limit the time)
+  // Show loading state with shorter timeout
   if (authLoading) {
     return <div className="text-xs animate-pulse text-gray-500">Auth...</div>;
   }

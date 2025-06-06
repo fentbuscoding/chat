@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -41,203 +40,294 @@ export default function OnboardingPage() {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null | 'checking'>(null);
   const debouncedUsername = useDebounce(username, 500);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const fetchUserAndProfile = async () => {
+      if (!mountedRef.current) return;
+      
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
+      
+      try {
+        console.log("Onboarding: Checking user session...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Onboarding: Session error:', sessionError);
+          toast({ title: 'Authentication Error', description: 'Please sign in again.', variant: 'destructive' });
+          router.replace('/signin');
+          return;
+        }
+
+        if (!session?.user) {
+          console.log("Onboarding: No user session found, redirecting to signin");
+          router.replace('/signin');
+          return;
+        }
+
+        if (!mountedRef.current) return;
+
         setUser(session.user);
         console.log(`Onboarding: User ID: ${session.user.id}`);
-        const { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('username, display_name, avatar_url, profile_complete')
-          .eq('id', session.user.id)
-          .single();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Onboarding: Error fetching profile from user_profiles:', error);
-          toast({ title: 'Error fetching profile', description: error.message, variant: 'destructive' });
-        } else if (profile) {
-          console.log('Onboarding: Profile found in user_profiles:', profile);
-          if (profile.profile_complete && router.asPath.includes('/onboarding')) {
-            router.replace('/');
-            return;
+        // Fetch existing profile
+        try {
+          const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .select('username, display_name, avatar_url, profile_complete')
+            .eq('id', session.user.id)
+            .single();
+
+          if (!mountedRef.current) return;
+
+          if (error && error.code !== 'PGRST116') {
+            console.error('Onboarding: Error fetching profile:', error);
+            // Continue with empty profile
+          } else if (profile) {
+            console.log('Onboarding: Profile found:', profile);
+            
+            // If profile is complete, redirect to home
+            if (profile.profile_complete) {
+              console.log('Onboarding: Profile already complete, redirecting to home');
+              router.replace('/');
+              return;
+            }
+
+            // Load existing profile data
+            setUsername(profile.username || '');
+            setDisplayName(profile.display_name || '');
+            setAvatarUrl(profile.avatar_url);
+            
+            if (profile.avatar_url) {
+              setAvatarPreview(profile.avatar_url);
+            }
+          } else {
+            console.log('Onboarding: No existing profile found');
           }
-          setUsername(profile.username || '');
-          setDisplayName(profile.display_name || '');
-          setAvatarUrl(profile.avatar_url);
-          if (profile.avatar_url) {
-            setAvatarPreview(profile.avatar_url);
-          }
-        } else {
-          console.log('Onboarding: No existing complete profile found in user_profiles for user or profile is minimal.');
+        } catch (profileError) {
+          console.error('Onboarding: Exception fetching profile:', profileError);
+          // Continue with empty profile
         }
-      } else {
-        router.replace('/signin');
-        return;
+      } catch (error) {
+        console.error('Onboarding: Exception in fetchUserAndProfile:', error);
+        toast({ title: 'Error', description: 'Failed to load profile data.', variant: 'destructive' });
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
+
     fetchUserAndProfile();
   }, [router, toast]);
 
   useEffect(() => {
     const checkUsername = async () => {
-      if (!debouncedUsername || debouncedUsername.length < 3) {
+      if (!debouncedUsername || debouncedUsername.length < 3 || !user || !mountedRef.current) {
         setUsernameAvailable(null);
         return;
       }
-      setUsernameAvailable('checking');
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('username')
-        .eq('username', debouncedUsername)
-        .neq('id', user?.id || '')
-        .maybeSingle(); // Use maybeSingle() instead of single()
 
-      if (error) { // Removed check for error.code !== 'PGRST116' as maybeSingle handles "no row" gracefully
-        console.error('Error checking username in user_profiles:', error);
-        toast({ title: "Username Check Failed", description: error.message, variant: "destructive"});
-        setUsernameAvailable(null); // Indicate error or unknown state
-      } else {
-        setUsernameAvailable(!data); // If data is null (no user found), username is available
+      setUsernameAvailable('checking');
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('username')
+          .eq('username', debouncedUsername)
+          .neq('id', user.id)
+          .maybeSingle();
+
+        if (!mountedRef.current) return;
+
+        if (error) {
+          console.error('Error checking username:', error);
+          toast({ title: "Username Check Failed", description: error.message, variant: "destructive" });
+          setUsernameAvailable(null);
+        } else {
+          setUsernameAvailable(!data); // If data is null, username is available
+        }
+      } catch (error) {
+        console.error('Exception checking username:', error);
+        if (mountedRef.current) {
+          setUsernameAvailable(null);
+        }
       }
     };
 
-    if (user) {
-        checkUsername();
-    }
+    checkUsername();
   }, [debouncedUsername, user, toast]);
 
-
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
-        return;
-      }
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!e.target.files || !e.target.files[0] || !mountedRef.current) return;
+
+    const file = e.target.files[0];
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
+      return;
     }
+    
+    setAvatarFile(file);
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (mountedRef.current) {
+        setAvatarPreview(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user) {
-      toast({ title: 'Authentication Error', description: 'User not found. Please sign in again.', variant: 'destructive'});
+    
+    if (!user || !mountedRef.current) {
+      toast({ title: 'Authentication Error', description: 'User not found. Please sign in again.', variant: 'destructive' });
       return;
     }
+    
     if (!username || username.length < 3) {
-      toast({ title: 'Invalid Username', description: 'Username must be at least 3 characters.', variant: 'destructive'});
+      toast({ title: 'Invalid Username', description: 'Username must be at least 3 characters.', variant: 'destructive' });
       return;
     }
+    
     if (!displayName) {
-        toast({ title: 'Display Name Required', description: 'Please enter a display name.', variant: 'destructive'});
-        return;
+      toast({ title: 'Display Name Required', description: 'Please enter a display name.', variant: 'destructive' });
+      return;
     }
+    
     if (usernameAvailable === false) {
-        toast({ title: 'Username Taken', description: 'Please choose a different username.', variant: 'destructive'});
-        return;
+      toast({ title: 'Username Taken', description: 'Please choose a different username.', variant: 'destructive' });
+      return;
     }
-     if (usernameAvailable === 'checking') {
-        toast({ title: 'Username Check Pending', description: 'Please wait for username availability check.', variant: 'default'});
-        return;
+    
+    if (usernameAvailable === 'checking') {
+      toast({ title: 'Username Check Pending', description: 'Please wait for username availability check.', variant: 'default' });
+      return;
     }
 
     setSaving(true);
     let finalAvatarUrlToSave = avatarUrl;
 
-    if (avatarFile) {
-      const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const newAvatarStoragePath = `public/${user.id}/${fileName}`;
+    try {
+      // Upload avatar if provided
+      if (avatarFile) {
+        console.log('Onboarding: Uploading avatar...');
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const newAvatarStoragePath = `public/${user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(newAvatarStoragePath, avatarFile, { upsert: true });
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(newAvatarStoragePath, avatarFile, { upsert: true });
 
-      if (uploadError) {
-        toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
-        setSaving(false);
-        return;
+        if (uploadError) {
+          console.error('Onboarding: Avatar upload error:', uploadError);
+          toast({ title: 'Avatar Upload Failed', description: uploadError.message, variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+        
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newAvatarStoragePath);
+        if (!urlData || !urlData.publicUrl) {
+          toast({ title: 'Avatar URL Failed', description: 'Could not get public URL for avatar.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+        finalAvatarUrlToSave = urlData.publicUrl;
+        console.log('Onboarding: Avatar uploaded successfully');
       }
-      
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(newAvatarStoragePath);
-      if (!urlData || !urlData.publicUrl) {
-        toast({ title: 'Avatar URL Failed', description: 'Could not get public URL for avatar.', variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-      finalAvatarUrlToSave = urlData.publicUrl;
-    }
 
-    const { data: existingUserRow, error: checkError } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle();
+      // Check if user row exists
+      const { data: existingUserRow, error: checkError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (checkError && checkError.code !== 'PGRST116') {
-        console.error("Onboarding: Error checking for existing user row in user_profiles:", checkError);
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error("Onboarding: Error checking for existing user row:", checkError);
         toast({ title: 'Profile Setup Error', description: `Could not verify profile: ${checkError.message}`, variant: 'destructive' });
         setSaving(false);
         return;
-    }
-    
-    if (!existingUserRow) {
-      console.log(`Onboarding: User row for ${user.id} not found in user_profiles. Attempting client-side insert fallback.`);
-      const { error: insertError } = await supabase
-        .from('user_profiles')
-        .insert({ id: user.id, username: username }); 
-      
-      if (insertError) {
-        console.error("Onboarding: Client-side fallback insertError to user_profiles:", insertError);
-        toast({ title: 'Profile Setup Failed', description: `Could not create initial profile entry: ${insertError.message}`, variant: 'destructive' });
-        setSaving(false);
-        return;
       }
-      console.log(`Onboarding: Client-side fallback - initial user row for ${user.id} inserted successfully into user_profiles.`);
+      
+      // Create initial row if needed
+      if (!existingUserRow) {
+        console.log(`Onboarding: Creating initial user row for ${user.id}`);
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({ id: user.id, username: username }); 
+        
+        if (insertError) {
+          console.error("Onboarding: Insert error:", insertError);
+          toast({ title: 'Profile Setup Failed', description: `Could not create initial profile: ${insertError.message}`, variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+        console.log(`Onboarding: Initial user row created successfully`);
+      }
+
+      // Update profile
+      const profileDataToUpsert: UserProfile = {
+        id: user.id,
+        username,
+        display_name: displayName,
+        avatar_url: finalAvatarUrlToSave,
+        profile_complete: true,
+      };
+
+      console.log("Onboarding: Updating profile data:", profileDataToUpsert);
+
+      const { error: upsertError } = await supabase
+        .from('user_profiles')
+        .upsert(profileDataToUpsert, { onConflict: 'id' })
+        .select()
+        .single(); 
+
+      if (upsertError) {
+        console.error("Onboarding: Upsert error:", upsertError);
+        toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
+      } else {
+        console.log("Onboarding: Profile updated successfully");
+        toast({ title: 'Profile Updated!', description: 'Your profile has been set up.' });
+        
+        // Small delay before redirect to ensure toast is visible
+        setTimeout(() => {
+          if (mountedRef.current) {
+            router.push('/');
+          }
+        }, 500);
+      }
+    } catch (error: any) {
+      console.error("Onboarding: Exception during save:", error);
+      toast({ title: 'Error', description: 'An unexpected error occurred.', variant: 'destructive' });
+    } finally {
+      if (mountedRef.current) {
+        setSaving(false);
+      }
     }
-
-    const profileDataToUpsert: UserProfile = {
-      id: user.id,
-      username,
-      display_name: displayName,
-      avatar_url: finalAvatarUrlToSave,
-      profile_complete: true,
-    };
-
-    console.log("Onboarding: Attempting to upsert profile data to user_profiles:", profileDataToUpsert);
-
-    const { error: upsertError } = await supabase
-      .from('user_profiles')
-      .upsert(profileDataToUpsert, {
-        onConflict: 'id', 
-      })
-      .select() 
-      .single(); 
-
-    if (upsertError) {
-      toast({ title: 'Profile Update Failed', description: upsertError.message, variant: 'destructive' });
-      console.error("Onboarding: Upsert Error to user_profiles:", upsertError);
-    } else {
-      toast({ title: 'Profile Updated!', description: 'Your profile has been set up.' });
-      router.push('/'); 
-      router.refresh(); 
-    }
-    setSaving(false);
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <p>Loading onboarding...</p>
+        <div className="window w-full max-w-lg">
+          <div className="title-bar">
+            <div className="title-bar-text">Loading Profile Setup</div>
+          </div>
+          <div className="window-body p-4 text-center">
+            <p className="text-black dark:text-white animate-pulse">Loading onboarding...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -262,7 +352,7 @@ export default function OnboardingPage() {
                     </svg>
                   )}
                 </span>
-                <Button type="button" onClick={() => fileInputRef.current?.click()}>
+                <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={saving}>
                   Change
                 </Button>
                 <input
@@ -288,15 +378,16 @@ export default function OnboardingPage() {
                   required
                   minLength={3}
                   maxLength={20}
+                  disabled={saving}
                   className={cn(
-                    usernameAvailable === true && username.length >=3 && 'border-green-500 focus:border-green-500',
-                    usernameAvailable === false && username.length >=3 && 'border-red-500 focus:border-red-500'
+                    usernameAvailable === true && username.length >= 3 && 'border-green-500 focus:border-green-500',
+                    usernameAvailable === false && username.length >= 3 && 'border-red-500 focus:border-red-500'
                   )}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm pointer-events-none">
                   {usernameAvailable === 'checking' && <span className="text-gray-500 animate-pulse">Checking...</span>}
-                  {usernameAvailable === true && username.length >=3 && <span className="text-green-500">✔️ Available</span>}
-                  {usernameAvailable === false && username.length >=3 && <span className="text-red-500">❌ Taken</span>}
+                  {usernameAvailable === true && username.length >= 3 && <span className="text-green-500">✔️ Available</span>}
+                  {usernameAvailable === false && username.length >= 3 && <span className="text-red-500">❌ Taken</span>}
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-1">3-20 characters. Letters, numbers, and underscores only.</p>
@@ -311,11 +402,20 @@ export default function OnboardingPage() {
                 onChange={(e) => setDisplayName(e.target.value.slice(0, 30))}
                 required
                 maxLength={30}
+                disabled={saving}
               />
-               <p className="text-xs text-gray-500 mt-1">1-30 characters. This will be shown in chats if not anonymous.</p>
+              <p className="text-xs text-gray-500 mt-1">1-30 characters. This will be shown in chats if not anonymous.</p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={saving || usernameAvailable === 'checking' || (usernameAvailable === false && username.length >=3) }>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={
+                saving || 
+                usernameAvailable === 'checking' || 
+                (usernameAvailable === false && username.length >= 3)
+              }
+            >
               {saving ? 'Saving...' : 'Save Profile & Continue'}
             </Button>
           </form>
@@ -324,5 +424,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-
-    

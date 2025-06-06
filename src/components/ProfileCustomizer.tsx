@@ -1,14 +1,17 @@
 // src/components/ProfileCustomizer.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button-themed';
 import { Input } from '@/components/ui/input-themed';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/components/theme-provider';
 import { supabase } from '@/lib/supabase';
 import { sanitizeCSS, getDefaultProfileCSS } from '@/lib/SafeCSS';
+import { useDebounce } from '@/hooks/use-debounce';
 import { cn } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ProfileCustomizerProps {
   isOpen: boolean;
@@ -22,11 +25,29 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
   const [customCSS, setCustomCSS] = useState('');
   const [bio, setBio] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null | 'checking'>(null);
+  const [originalUsername, setOriginalUsername] = useState('');
+
   const { toast } = useToast();
   const { currentTheme } = useTheme();
+  
+  const debouncedUsername = useDebounce(username, 500);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -34,13 +55,58 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
     }
   }, [isOpen]);
 
+  // Username availability check
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (!debouncedUsername || debouncedUsername.length < 3 || !currentUser || !mountedRef.current) {
+        setUsernameAvailable(null);
+        return;
+      }
+
+      // If username is the same as original, it's available
+      if (debouncedUsername === originalUsername) {
+        setUsernameAvailable(true);
+        return;
+      }
+
+      setUsernameAvailable('checking');
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('username')
+          .eq('username', debouncedUsername)
+          .neq('id', currentUser.id)
+          .maybeSingle();
+
+        if (!mountedRef.current) return;
+
+        if (error) {
+          console.error('Error checking username availability:', error);
+          setUsernameAvailable(null);
+        } else {
+          setUsernameAvailable(!data); // If data is null, username is available
+        }
+      } catch (error) {
+        console.error('Exception checking username:', error);
+        if (mountedRef.current) {
+          setUsernameAvailable(null);
+        }
+      }
+    };
+
+    checkUsername();
+  }, [debouncedUsername, currentUser, originalUsername]);
+
   const loadCurrentProfile = async () => {
+    if (!mountedRef.current) return;
+    
     setLoading(true);
     try {
       console.log('ProfileCustomizer: Getting current user...');
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (userError) {
+      if (userError || !user) {
         console.error('ProfileCustomizer: Auth error:', userError);
         toast({
           title: "Authentication Error",
@@ -51,66 +117,175 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
         return;
       }
 
-      if (!user) {
-        console.error('ProfileCustomizer: No authenticated user found');
-        toast({
-          title: "Authentication Error",
-          description: "Please sign in to customize your profile",
-          variant: "destructive"
-        });
-        onClose();
-        return;
-      }
+      if (!mountedRef.current) return;
 
       console.log('ProfileCustomizer: Loading profile for user:', user.id);
       setCurrentUser(user);
 
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('profile_card_css, bio, display_name, username')
+        .select('profile_card_css, bio, display_name, username, avatar_url')
         .eq('id', user.id)
         .single();
 
+      if (!mountedRef.current) return;
+
       if (error && error.code !== 'PGRST116') {
         console.error('ProfileCustomizer: Error loading profile:', error);
-        console.log('ProfileCustomizer: Profile not found, using empty values');
+        // Initialize with empty values
         setCustomCSS('');
         setBio('');
         setDisplayName('');
+        setUsername('');
+        setOriginalUsername('');
+        setAvatarUrl(null);
+        setAvatarPreview(null);
       } else if (data) {
         console.log('ProfileCustomizer: Profile data loaded:', data);
         setCustomCSS(data.profile_card_css || '');
         setBio(data.bio || '');
         setDisplayName(data.display_name || '');
+        setUsername(data.username || '');
+        setOriginalUsername(data.username || '');
+        setAvatarUrl(data.avatar_url);
+        
+        if (data.avatar_url) {
+          setAvatarPreview(data.avatar_url);
+        }
       } else {
         console.log('ProfileCustomizer: No existing profile data found');
         setCustomCSS('');
         setBio('');
         setDisplayName('');
+        setUsername('');
+        setOriginalUsername('');
+        setAvatarUrl(null);
+        setAvatarPreview(null);
       }
     } catch (error) {
       console.error('ProfileCustomizer: Exception loading profile:', error);
-      setCustomCSS('');
-      setBio('');
-      setDisplayName('');
+      if (mountedRef.current) {
+        setCustomCSS('');
+        setBio('');
+        setDisplayName('');
+        setUsername('');
+        setOriginalUsername('');
+        setAvatarUrl(null);
+        setAvatarPreview(null);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !mountedRef.current) return;
+
+    const file = e.target.files[0];
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
+      return;
+    }
+    
+    setAvatarFile(file);
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (mountedRef.current) {
+        setAvatarPreview(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
-    if (saving) {
-      console.log('ProfileCustomizer: Save already in progress, ignoring');
+    if (saving || !mountedRef.current) {
+      console.log('ProfileCustomizer: Save already in progress or component unmounted');
+      return;
+    }
+
+    if (!currentUser) {
+      toast({
+        title: "Authentication Error",
+        description: "No user found - please refresh and try again",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!username || username.length < 3) {
+      toast({
+        title: "Invalid Username",
+        description: "Username must be at least 3 characters long",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (usernameAvailable === false) {
+      toast({
+        title: "Username Taken",
+        description: "Please choose a different username",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (usernameAvailable === 'checking') {
+      toast({
+        title: "Username Check Pending",
+        description: "Please wait for username availability check",
+        variant: "default"
+      });
       return;
     }
 
     setSaving(true);
+    
     try {
-      if (!currentUser) {
-        throw new Error('No user found - please refresh and try again');
-      }
-
       console.log('ProfileCustomizer: Starting save process for user:', currentUser.id);
+
+      let finalAvatarUrl = avatarUrl;
+
+      // Upload avatar if a new file was selected
+      if (avatarFile) {
+        console.log('ProfileCustomizer: Uploading new avatar...');
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const avatarStoragePath = `public/${currentUser.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(avatarStoragePath, avatarFile, { upsert: true });
+
+        if (uploadError) {
+          console.error('ProfileCustomizer: Avatar upload error:', uploadError);
+          toast({
+            title: "Avatar Upload Failed",
+            description: uploadError.message,
+            variant: "destructive"
+          });
+          setSaving(false);
+          return;
+        }
+        
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(avatarStoragePath);
+        if (!urlData || !urlData.publicUrl) {
+          toast({
+            title: "Avatar URL Failed",
+            description: "Could not get public URL for avatar",
+            variant: "destructive"
+          });
+          setSaving(false);
+          return;
+        }
+        
+        finalAvatarUrl = urlData.publicUrl;
+        console.log('ProfileCustomizer: Avatar uploaded successfully');
+      }
 
       // Sanitize CSS before saving
       const sanitizedCSS = sanitizeCSS(customCSS);
@@ -120,18 +295,18 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
       const profileData = {
         profile_card_css: sanitizedCSS,
         bio: bio.trim(),
-        display_name: displayName.trim() || null
+        display_name: displayName.trim() || null,
+        username: username.trim(),
+        avatar_url: finalAvatarUrl
       };
 
       console.log('ProfileCustomizer: Attempting to save profile data:', profileData);
 
-      // First, try to update the existing profile
-      const { data: updateResult, error: updateError } = await supabase
+      // Try to update the existing profile
+      const { error: updateError } = await supabase
         .from('user_profiles')
         .update(profileData)
-        .eq('id', currentUser.id)
-        .select()
-        .single();
+        .eq('id', currentUser.id);
 
       if (updateError) {
         console.error('ProfileCustomizer: Update error:', updateError);
@@ -143,28 +318,28 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
           const insertData = {
             id: currentUser.id,
             ...profileData,
-            username: currentUser.email?.split('@')[0] || 'user',
             profile_complete: false
           };
 
-          const { data: insertResult, error: insertError } = await supabase
+          const { error: insertError } = await supabase
             .from('user_profiles')
-            .insert(insertData)
-            .select()
-            .single();
+            .insert(insertData);
 
           if (insertError) {
             console.error('ProfileCustomizer: Insert error:', insertError);
             throw new Error(`Failed to create profile: ${insertError.message}`);
           }
 
-          console.log('ProfileCustomizer: Profile created successfully:', insertResult);
+          console.log('ProfileCustomizer: Profile created successfully');
         } else {
           throw new Error(`Failed to update profile: ${updateError.message}`);
         }
       } else {
-        console.log('ProfileCustomizer: Profile updated successfully:', updateResult);
+        console.log('ProfileCustomizer: Profile updated successfully');
       }
+
+      // Update original username for future checks
+      setOriginalUsername(username);
 
       toast({
         title: "Success",
@@ -173,7 +348,9 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
       });
 
       setTimeout(() => {
-        onClose();
+        if (mountedRef.current) {
+          onClose();
+        }
       }, 500);
 
     } catch (error: any) {
@@ -184,7 +361,9 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
         variant: "destructive"
       });
     } finally {
-      setSaving(false);
+      if (mountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 
@@ -231,10 +410,78 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
           isTheme98 ? 'p-2' : 'p-6'
         )}>
           {loading ? (
-            <div className="text-center py-8">Loading profile data...</div>
+            <div className="text-center py-8">
+              <p className="text-black dark:text-white animate-pulse">Loading profile data...</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
               <div className="space-y-4 overflow-y-auto">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Profile Picture
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <span className="inline-block h-16 w-16 rounded-full overflow-hidden bg-gray-100">
+                      {avatarPreview ? (
+                        <Image 
+                          src={avatarPreview} 
+                          alt="Avatar preview" 
+                          width={64} 
+                          height={64} 
+                          className="object-cover h-full w-full" 
+                        />
+                      ) : (
+                        <svg className="h-full w-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      )}
+                    </span>
+                    <Button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={saving}
+                      variant="outline"
+                    >
+                      Change Avatar
+                    </Button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarChange}
+                      accept="image/png, image/jpeg, image/gif"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20))}
+                      placeholder="Your username"
+                      maxLength={20}
+                      minLength={3}
+                      disabled={saving}
+                      className={cn(
+                        usernameAvailable === true && username.length >= 3 && 'border-green-500 focus:border-green-500',
+                        usernameAvailable === false && username.length >= 3 && 'border-red-500 focus:border-red-500'
+                      )}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm pointer-events-none">
+                      {usernameAvailable === 'checking' && <span className="text-gray-500 animate-pulse">Checking...</span>}
+                      {usernameAvailable === true && username.length >= 3 && <span className="text-green-500">✔️ Available</span>}
+                      {usernameAvailable === false && username.length >= 3 && <span className="text-red-500">❌ Taken</span>}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    3-20 characters. Letters, numbers, and underscores only.
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Display Name
@@ -300,11 +547,17 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     variant="outline"
                     disabled={saving}
                   >
-                    Reset to Default
+                    Reset CSS
                   </Button>
                   <Button 
                     onClick={handleSave} 
-                    disabled={saving}
+                    disabled={
+                      saving || 
+                      usernameAvailable === 'checking' || 
+                      (usernameAvailable === false && username.length >= 3) ||
+                      !username ||
+                      username.length < 3
+                    }
                     className="flex-1"
                   >
                     {saving ? 'Saving...' : 'Save Changes'}
@@ -333,6 +586,8 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     customCSS={customCSS}
                     bio={bio}
                     displayName={displayName}
+                    username={username}
+                    avatarPreview={avatarPreview}
                     currentUser={currentUser}
                   />
                 </div>
@@ -349,6 +604,8 @@ interface ProfilePreviewProps {
   customCSS: string;
   bio: string;
   displayName: string;
+  username: string;
+  avatarPreview: string | null;
   currentUser: any;
 }
 
@@ -356,6 +613,8 @@ const ProfilePreview: React.FC<ProfilePreviewProps> = ({
   customCSS, 
   bio, 
   displayName,
+  username,
+  avatarPreview,
   currentUser
 }) => {
   const defaultCSS = `
@@ -410,14 +669,18 @@ const ProfilePreview: React.FC<ProfilePreviewProps> = ({
     <>
       <style dangerouslySetInnerHTML={{ __html: finalCSS }} />
       <div className="profile-card-container">
-        <div className="profile-avatar"></div>
+        {avatarPreview ? (
+          <img src={avatarPreview} alt="Profile Avatar" className="profile-avatar" />
+        ) : (
+          <div className="profile-avatar"></div>
+        )}
         
         <div className="profile-display-name">
           {displayName || 'Display Name'}
         </div>
         
         <div className="profile-username">
-          @{currentUser?.email?.split('@')[0] || 'username'}
+          @{username || currentUser?.email?.split('@')[0] || 'username'}
         </div>
         
         {bio && (
