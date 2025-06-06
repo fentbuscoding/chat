@@ -43,7 +43,7 @@ export default function AuthButtons() {
         try {
           const { data: profileData, error: profileError } = await supabase
             .from('user_profiles')
-            .select('username, profile_complete')
+            .select('username, profile_complete, display_name')
             .eq('id', currentUser.id)
             .single();
 
@@ -52,7 +52,10 @@ export default function AuthButtons() {
             setProfileUsername(null);
           } else if (profileData) {
             console.log("AuthButtons: Profile found:", profileData);
-            setProfileUsername(profileData.username);
+            // Use display_name if available, fallback to username
+            const displayName = profileData.display_name || profileData.username;
+            setProfileUsername(displayName);
+            console.log("AuthButtons: Set profile display name:", displayName);
           } else {
             console.log("AuthButtons: No profile found");
             setProfileUsername(null);
@@ -78,9 +81,30 @@ export default function AuthButtons() {
   // Set up auth listener
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    // Add a safety timeout to prevent infinite loading
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && authLoading) {
+        console.warn("AuthButtons: Auth loading timeout reached, forcing completion");
+        setAuthLoading(false);
+      }
+    }, 5000); // 5 second timeout
 
     // Initialize auth state immediately
-    initializeAuth();
+    const initAuth = async () => {
+      try {
+        await initializeAuth();
+      } catch (error) {
+        console.error("AuthButtons: Error in initAuth:", error);
+        if (mounted) {
+          setAuthLoading(false);
+        }
+      }
+      clearTimeout(safetyTimeout);
+    };
+
+    initAuth();
 
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -98,7 +122,7 @@ export default function AuthButtons() {
         try {
           const { data: profileData, error: profileError } = await supabase
             .from('user_profiles')
-            .select('username, profile_complete')
+            .select('username, profile_complete, display_name')
             .eq('id', currentUser.id)
             .single();
 
@@ -106,8 +130,10 @@ export default function AuthButtons() {
             console.error("AuthButtons: Profile error in auth change:", profileError);
             if (mounted) setProfileUsername(null);
           } else if (profileData && mounted) {
-            setProfileUsername(profileData.username);
-            console.log("AuthButtons: Profile updated:", profileData);
+            // Use display_name if available, fallback to username
+            const displayName = profileData.display_name || profileData.username;
+            setProfileUsername(displayName);
+            console.log("AuthButtons: Profile updated:", displayName);
 
             // Handle navigation for sign-in events
             if (event === 'SIGNED_IN' && isAuthPage) {
@@ -142,10 +168,17 @@ export default function AuthButtons() {
           router.push('/');
         }
       }
+
+      // Ensure loading state is cleared after auth state change
+      if (mounted) {
+        setAuthLoading(false);
+      }
     });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
+      if (timeoutId) clearTimeout(timeoutId);
       authListener.subscription?.unsubscribe();
     };
   }, [router, pathname, initializeAuth]);
@@ -186,7 +219,7 @@ export default function AuthButtons() {
     setIsCustomizerOpen(false);
   }, []);
 
-  // Show loading state while initializing
+  // Show loading state while initializing (but limit the time)
   if (authLoading) {
     return <div className="text-xs animate-pulse text-gray-500">Auth...</div>;
   }
