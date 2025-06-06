@@ -27,6 +27,7 @@ const SMILE_EMOJI_FILENAME = 'smile.png';
 const EMOJI_BASE_URL_PICKER = "/emotes/";
 
 const INPUT_AREA_HEIGHT = 60; // px
+const INPUT_AREA_HEIGHT_MOBILE = 70; // px - slightly taller for mobile
 const LOG_PREFIX = "ChatPageClientContent";
 
 // Favicon Constants
@@ -50,8 +51,8 @@ interface Message {
   text: string;
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
-  senderUsername?: string; // For partner's username OR current user's display name
-  senderAuthId?: string; // For clickable usernames
+  senderUsername?: string;
+  senderAuthId?: string;
 }
 
 interface EmoteData {
@@ -111,8 +112,9 @@ interface RowProps {
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
   ownDisplayName: string;
-  ownAuthId: string | null; // Add own auth ID
+  ownAuthId: string | null;
   onUsernameClick: (authId: string) => void;
+  isMobile: boolean;
 }
 
 const Row = React.memo(({ 
@@ -121,8 +123,9 @@ const Row = React.memo(({
   previousMessageSender, 
   pickerEmojiFilenames, 
   ownDisplayName,
-  ownAuthId, // Accept own auth ID
-  onUsernameClick
+  ownAuthId,
+  onUsernameClick,
+  isMobile
 }: RowProps) => {
   if (message.sender === 'system') {
     return (
@@ -150,17 +153,14 @@ const Row = React.memo(({
     : [message.text]
   ), [message.text, theme, pickerEmojiFilenames]);
 
-  // Use senderUsername for partner, and ownDisplayName for 'me'
   const displayName = message.sender === 'me' ? ownDisplayName : (message.senderUsername || "Stranger");
-  
-  // Fix: Make username clickable for both own messages (if authenticated) and partner messages (if they have authId)
   const authIdToUse = message.sender === 'me' ? ownAuthId : message.senderAuthId;
   const isClickable = authIdToUse && authIdToUse !== 'anonymous' && authIdToUse !== null;
 
   const UsernameComponent = ({ children, className }: { children: React.ReactNode, className: string }) => {
     if (isClickable && authIdToUse) {
       return (
-        <a
+        <button
           onClick={(e) => {
             e.preventDefault();
             onUsernameClick(authIdToUse);
@@ -168,14 +168,13 @@ const Row = React.memo(({
           className={cn(
             className,
             "hover:underline cursor-pointer transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-current focus:ring-offset-1",
-            "no-underline" // Remove default underline, add on hover only
+            "no-underline bg-transparent border-none p-0 text-left",
+            isMobile && "touch-manipulation" // Better touch handling on mobile
           )}
-          href="#"
-          role="button"
-          tabIndex={0}
+          type="button"
         >
           {children}
-        </a>
+        </button>
       );
     }
     return <span className={className}>{children}</span>;
@@ -189,7 +188,7 @@ const Row = React.memo(({
           aria-hidden="true"
         ></div>
       )}
-      <div className="mb-1 break-words">
+      <div className={cn("mb-1 break-words", isMobile && "text-sm leading-relaxed")}>
         {message.sender === 'me' && (
           <>
             <UsernameComponent className="text-blue-600 font-bold mr-1">
@@ -212,17 +211,18 @@ const Row = React.memo(({
 });
 Row.displayName = 'Row';
 
-
 const ChatPageClientContent: React.FC = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { currentTheme } = useTheme();
-  const pathname = usePathname(); // Not used currently, but available
+  const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   const socketRef = useRef<Socket | null>(null);
   const roomIdRef = useRef<string | null>(null);
-  const userIdRef = useRef<string | null>(null); // For Supabase auth user ID
+  const userIdRef = useRef<string | null>(null);
   const autoSearchDoneRef = useRef(false);
   const prevIsFindingPartnerRef = useRef(false);
   const prevIsPartnerConnectedRef = useRef(false);
@@ -235,6 +235,7 @@ const ChatPageClientContent: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const successTransitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const successTransitionEndTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -267,21 +268,75 @@ const ChatPageClientContent: React.FC = () => {
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null);
   const [isScrollEnabled, setIsScrollEnabled] = useState(true);
 
-  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null); // Actual username from DB
-
-  // Store partner's auth ID for profile card
+  const [ownProfileUsername, setOwnProfileUsername] = useState<string | null>(null);
   const [partnerAuthId, setPartnerAuthId] = useState<string | null>(null);
 
   const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
-  const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
-  const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
+  
+  // Responsive chat window style
+  const chatWindowStyle = useMemo(() => {
+    if (isMobile) {
+      return { 
+        width: '100%', 
+        height: `${viewportHeight}px`,
+        maxWidth: '100vw',
+        maxHeight: '100vh'
+      };
+    }
+    return { width: '600px', height: '600px' };
+  }, [isMobile, viewportHeight]);
+
+  const currentInputAreaHeight = isMobile ? INPUT_AREA_HEIGHT_MOBILE : INPUT_AREA_HEIGHT;
+  const messagesContainerComputedHeight = useMemo(() => 
+    `calc(100% - ${currentInputAreaHeight}px)`, 
+    [currentInputAreaHeight]
+  );
 
   const ownDisplayUsername = useMemo(() => {
-    // For authenticated users, show their profile username or "You" 
-    // For anonymous users, show "You"
     return ownProfileUsername || "You";
   }, [ownProfileUsername]);
+
+  // Handle mobile detection and viewport changes
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768; // md breakpoint
+      setIsMobile(mobile);
+      
+      if (mobile) {
+        // Use visual viewport if available (better for mobile keyboards)
+        const height = window.visualViewport?.height || window.innerHeight;
+        setViewportHeight(height);
+      } else {
+        setViewportHeight(window.innerHeight);
+      }
+    };
+
+    const handleResize = () => {
+      checkMobile();
+    };
+
+    const handleVisualViewportChange = () => {
+      if (isMobile && window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', handleResize);
+    
+    // Listen for visual viewport changes (keyboard open/close)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
+      }
+    };
+  }, [isMobile]);
 
   // Handle profile card functionality
   const handleUsernameClick = useCallback((authId: string) => {
@@ -310,8 +365,6 @@ const ChatPageClientContent: React.FC = () => {
       return [...prevMessages, newMessageItem];
     });
   }, []);
-
-  // ... (rest of the useEffect hooks remain the same until the socket connection part)
 
   useEffect(() => {
     console.log(`${LOG_PREFIX}: isPartnerConnected state changed to: ${isPartnerConnected}`);
@@ -346,7 +399,6 @@ const ChatPageClientContent: React.FC = () => {
     const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
     console.log(`${LOG_PREFIX}: attemptAutoSearch called. Socket connected: ${!!currentSocket?.connected}, Auth loading: ${isAuthLoading}, Auto search done: ${autoSearchDoneRef.current}, Partner connected: ${isPartnerConnected}, Finding partner: ${isFindingPartner}, Room ID: ${roomIdRef.current}`);
     
-    // Auto-search can proceed regardless of auth loading state
     if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
       console.log(`${LOG_PREFIX}: Conditions met for auto search. Emitting 'findPartner'. Payload:`, { 
         chatType: 'text', 
@@ -392,7 +444,6 @@ const ChatPageClientContent: React.FC = () => {
             setOwnProfileUsername(null);
           } else if (profile) {
             console.log(`${LOG_PREFIX}: Fetched own profile:`, profile);
-            // Use display_name if available, fallback to username
             const displayUsername = profile.display_name || profile.username;
             setOwnProfileUsername(displayUsername);
             console.log(`${LOG_PREFIX}: Set own display username to: ${displayUsername}`);
@@ -411,14 +462,13 @@ const ChatPageClientContent: React.FC = () => {
       }
       
       console.log(`${LOG_PREFIX}: Auth loading complete. Setting isAuthLoading to false.`);
-      setIsAuthLoading(false); // Set auth loading to false after all auth operations
+      setIsAuthLoading(false);
     };
     
     fetchOwnProfile();
   }, [isMounted]);
 
-  // ... (favicon and system message effects remain the same)
-
+  // Favicon and system message effects (keeping same logic)
   useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
     if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
@@ -520,13 +570,12 @@ const ChatPageClientContent: React.FC = () => {
       setRoomId(null); 
       setIsPartnerTyping(false);
       setPartnerInterests([]);
-      setPartnerAuthId(null); // Clear partner auth ID
+      setPartnerAuthId(null);
 
       if (currentSocket.connected) {
         currentSocket.emit('leaveChat', { roomId: currentRoomId });
       }
 
-      // Immediately try to find a new partner
       console.log(`${LOG_PREFIX}: Re-emitting 'findPartner' after skip for ${currentSocket.id}. AuthID: ${userIdRef.current}`);
       setIsFindingPartner(true); 
       setIsSelfDisconnectedRecently(true); 
@@ -562,7 +611,7 @@ const ChatPageClientContent: React.FC = () => {
     }, 200);
   }, [isPartnerConnected, isFindingPartner, searchParams, toast, addMessageToList]);
 
-  // Effect for socket connection management - Only run once when component mounts
+  // Socket connection management
   useEffect(() => {
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL;
     if (!socketServerUrl) {
@@ -572,7 +621,6 @@ const ChatPageClientContent: React.FC = () => {
       return;
     }
 
-    // Prevent creating multiple sockets
     if (socketRef.current) {
       console.log(`${LOG_PREFIX}: Socket already exists, skipping creation.`);
       return;
@@ -594,13 +642,10 @@ const ChatPageClientContent: React.FC = () => {
       console.log(`%cSOCKET CONNECTED: ${socketToClean.id}`, 'color: orange; font-weight: bold;');
       setSocketError(false);
       setIsSocketConnected(true);
-      // Reset auto search flag when reconnecting
       autoSearchDoneRef.current = false;
-      // Add a small delay to ensure socket is fully established before auto-search
       setTimeout(() => {
         if (socketToClean.connected && !autoSearchDoneRef.current) {
           console.log(`${LOG_PREFIX}: Socket connected and stable. Attempting auto search.`);
-          // Call attemptAutoSearch directly here instead of relying on useEffect
           const currentSocket = socketRef.current;
           const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
           if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
@@ -618,20 +663,24 @@ const ChatPageClientContent: React.FC = () => {
         }
       }, 100);
     };
+
     const onPartnerFound = ({ partnerId: pId, roomId: rId, interests: pInterests, partnerUsername, partnerDisplayName, partnerAvatarUrl, partnerAuthId }: { partnerId: string, roomId: string, interests: string[], partnerUsername?: string, partnerDisplayName?: string, partnerAvatarUrl?: string, partnerAuthId?: string }) => {
       console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerFound`, 'color: green; font-weight: bold;', { partnerIdFromServer: pId, rId, partnerUsername, pInterests, partnerDisplayName, partnerAvatarUrl, partnerAuthId });
       playSound("Match.wav");
       setMessages([]);
       setRoomId(rId); 
       setPartnerInterests(pInterests || []);
-      setPartnerAuthId(partnerAuthId || null); // Store partner's auth ID
+      setPartnerAuthId(partnerAuthId || null);
       setIsFindingPartner(false);
       setIsPartnerConnected(true); 
-      setIsSelfDisconnectedRecently(false); setIsPartnerLeftRecently(false);
+      setIsSelfDisconnectedRecently(false); 
+      setIsPartnerLeftRecently(false);
     };
+
     const onWaitingForPartner = () => {
       if (socketToClean.connected) console.log(`${LOG_PREFIX}: Client %cSOCKET EVENT: waitingForPartner`, 'color: blue; font-weight: bold;', `for ${socketToClean.id}`);
     };
+
     const onFindPartnerCooldown = () => {
       if (socketToClean.connected) {
         console.log(`${LOG_PREFIX}: Cooldown for ${socketToClean.id}`);
@@ -639,13 +688,13 @@ const ChatPageClientContent: React.FC = () => {
         setIsFindingPartner(false);
       }
     };
+
     const onReceiveMessage = ({ senderId, message: receivedMessage, senderUsername, senderAuthId }: { senderId: string, message: string, senderUsername?: string, senderAuthId?: string }) => {
       console.log(`${LOG_PREFIX}: %c[[CLIENT RECEIVE MESSAGE]]`, 'color: purple; font-size: 1.2em; font-weight: bold;',
         `RAW_PAYLOAD:`, { senderId, message: receivedMessage, senderUsername, senderAuthId },
         `CURRENT_ROOM_ID_REF: ${roomIdRef.current}`
       );
       
-      // Store the sender's auth ID for clickable usernames
       if (senderAuthId) {
         setPartnerAuthId(senderAuthId);
       }
@@ -653,6 +702,7 @@ const ChatPageClientContent: React.FC = () => {
       addMessageToList(receivedMessage, 'partner', senderUsername, senderAuthId, `partner-${Math.random().toString(36).substring(2,7)}`);
       setIsPartnerTyping(false);
     };
+
     const onPartnerLeft = () => {
       if (socketToClean.connected) {
         console.log(`${LOG_PREFIX}: %cSOCKET EVENT: partnerLeft`, 'color: red; font-weight: bold;', `Room: ${roomIdRef.current}, Socket: ${socketToClean.id}`);
@@ -661,15 +711,15 @@ const ChatPageClientContent: React.FC = () => {
         setIsPartnerTyping(false);
         setRoomId(null); 
         setPartnerInterests([]);
-        setPartnerAuthId(null); // Clear partner auth ID
+        setPartnerAuthId(null);
         setIsPartnerLeftRecently(true);
         setIsSelfDisconnectedRecently(false);
       }
     };
+
     const onDisconnectHandler = (reason: string) => {
       console.warn(`${LOG_PREFIX}: Socket ${socketToClean.id} disconnected. Reason: ${reason}`);
       setIsSocketConnected(false);
-      // Only set socket error for unexpected disconnections
       if (reason !== 'io client disconnect') {
         setSocketError(true);
       }
@@ -677,17 +727,19 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(false); 
       setIsPartnerTyping(false); 
       setRoomId(null);
-      setPartnerAuthId(null); // Clear partner auth ID
-      // Reset auto search flag so it can retry when reconnecting
+      setPartnerAuthId(null);
       autoSearchDoneRef.current = false;
     };
+
     const onConnectError = (err: Error) => {
         console.error(`${LOG_PREFIX}: Socket ${socketToClean.id} connection error: ${String(err)}`, err);
         setSocketError(true);
         setIsSocketConnected(false);
         toast({ title: "Connection Error", description: `Could not connect to chat: ${String(err)}`, variant: "destructive" });
-        setIsFindingPartner(false); setIsPartnerTyping(false);
+        setIsFindingPartner(false); 
+        setIsPartnerTyping(false);
     };
+
     const onPartnerTypingStart = () => setIsPartnerTyping(true);
     const onPartnerTypingStop = () => setIsPartnerTyping(false);
 
@@ -706,7 +758,6 @@ const ChatPageClientContent: React.FC = () => {
     return () => {
       console.log(`${LOG_PREFIX}: Cleanup for socket effect. Socket to clean ID: ${socketToClean?.id}. Current socketRef ID: ${socketRef.current?.id}`);
       
-      // Disconnect gracefully without leaving chat (to prevent unnecessary server cleanup)
       socketToClean.removeAllListeners();
       socketToClean.disconnect();
       console.log(`${LOG_PREFIX}: Disconnected socket ${socketToClean.id} in cleanup.`);
@@ -716,16 +767,14 @@ const ChatPageClientContent: React.FC = () => {
         console.log(`${LOG_PREFIX}: Set socketRef.current to null because it matched the socket being cleaned.`);
       }
 
-      // Clear any pending timeouts
       if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
       if (successTransitionEndTimeoutRef.current) clearTimeout(successTransitionEndTimeoutRef.current);
       if (skippedFaviconTimeoutRef.current) clearTimeout(skippedFaviconTimeoutRef.current);
       if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
       if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
-      changeFavicon(FAVICON_DEFAULT, true); // Reset favicon on unmount
+      changeFavicon(FAVICON_DEFAULT, true);
     };
-  }, []); // Empty dependency array - only run once on mount 
-
+  }, []);
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -747,7 +796,9 @@ const ChatPageClientContent: React.FC = () => {
     }
   }, [effectivePageTheme, toast]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isPartnerTyping]);
+  useEffect(() => { 
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); 
+  }, [messages, isPartnerTyping]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -769,7 +820,6 @@ const ChatPageClientContent: React.FC = () => {
     }
     return () => { if (interval) clearInterval(interval); };
   }, [isPartnerTyping]);
-
 
   const stopLocalTyping = useCallback(() => {
     if (localTypingTimeoutRef.current) clearTimeout(localTypingTimeoutRef.current);
@@ -809,7 +859,6 @@ const ChatPageClientContent: React.FC = () => {
     const currentSocket = socketRef.current;
     const currentRoomId = roomIdRef.current;
 
-    // Determine what username to send - use display username for authenticated users, null for anonymous
     const usernameToSend = userIdRef.current ? ownProfileUsername : null;
 
     console.log(`${LOG_PREFIX}: Attempting send. Msg: "${trimmedMessage}", Socket Connected: ${!!currentSocket?.connected}, RoomId: ${currentRoomId}, Partner Connected State: ${isPartnerConnected}, Username to send: ${usernameToSend}, User Auth ID: ${userIdRef.current || 'anonymous'}`);
@@ -831,14 +880,31 @@ const ChatPageClientContent: React.FC = () => {
     currentSocket.emit('sendMessage', {
       roomId: currentRoomId,
       message: trimmedMessage,
-      username: usernameToSend, // Send username only if authenticated, null for anonymous
-      authId: userIdRef.current, // Send auth ID for server-side username resolution
+      username: usernameToSend,
+      authId: userIdRef.current,
     });
 
     addMessageToList(trimmedMessage, 'me'); 
     setNewMessage('');
     stopLocalTyping();
-  }, [newMessage, isPartnerConnected, addMessageToList, stopLocalTyping, ownProfileUsername, toast]);
+    
+    // Scroll to bottom after sending on mobile
+    if (isMobile) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [newMessage, isPartnerConnected, addMessageToList, stopLocalTyping, ownProfileUsername, toast, isMobile]);
+
+  // Handle input focus on mobile to prevent viewport issues
+  const handleInputFocus = useCallback(() => {
+    if (isMobile && inputRef.current) {
+      // Slight delay to ensure the viewport has adjusted
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    }
+  }, [isMobile]);
 
   const handleEmojiIconHover = useCallback(() => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
@@ -848,19 +914,20 @@ const ChatPageClientContent: React.FC = () => {
       setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${STATIC_DISPLAY_EMOJI_FILENAMES[randomIndex]}`);
     }, 300);
   }, []);
+
   const stopEmojiCycle = useCallback(() => {
     if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
     hoverIntervalRef.current = null;
     setCurrentEmojiIconUrl(`${EMOJI_BASE_URL_DISPLAY}${SMILE_EMOJI_FILENAME}`);
   }, []);
+
   const toggleEmojiPicker = useCallback(() => setIsEmojiPickerOpen(prev => !prev), []);
 
-
   const findOrDisconnectText = useMemo(() => {
-    if (isPartnerConnected) return 'Disconnect';
-    if (isFindingPartner) return 'Stop Searching';
-    return 'Find Partner';
-  }, [isPartnerConnected, isFindingPartner]);
+    if (isPartnerConnected) return isMobile ? 'Skip' : 'Disconnect';
+    if (isFindingPartner) return isMobile ? 'Stop' : 'Stop Searching';
+    return isMobile ? 'Find' : 'Find Partner';
+  }, [isPartnerConnected, isFindingPartner, isMobile]);
 
   const mainButtonDisabled = useMemo(() => !isSocketConnected || socketError || isProcessingFindOrDisconnect.current, [isSocketConnected, socketError]);
   const inputAndSendDisabled = useMemo(() => !isSocketConnected || !isPartnerConnected || isFindingPartner || socketError, [isSocketConnected, isPartnerConnected, isFindingPartner, socketError]);
@@ -869,18 +936,64 @@ const ChatPageClientContent: React.FC = () => {
 
   return (
     <>
-      <HomeButton />
-      <div className="flex flex-col items-center justify-center h-full p-4 overflow-auto">
-        <div className={cn('window flex flex-col relative', effectivePageTheme === 'theme-7' ? 'glass' : '')} style={chatWindowStyle}>
-          {effectivePageTheme === 'theme-7' && <ConditionalGoldfishImage /> }
-          <div className={cn("title-bar", effectivePageTheme === 'theme-7' ? 'text-black' : '')}>
-            <div className="flex items-center flex-grow"><div className="title-bar-text">Text Chat</div></div>
+      {/* Hide HomeButton on mobile to save space */}
+      {!isMobile && <HomeButton />}
+      
+      <div className={cn(
+        "flex flex-col items-center justify-center overflow-hidden",
+        isMobile ? "h-screen w-screen p-0" : "h-full p-4"
+      )}>
+        <div className={cn(
+          'window flex flex-col relative',
+          effectivePageTheme === 'theme-7' ? 'glass' : '',
+          isMobile ? 'h-full w-full' : ''
+        )} style={chatWindowStyle}>
+          {effectivePageTheme === 'theme-7' && !isMobile && <ConditionalGoldfishImage />}
+          
+          <div className={cn(
+            "title-bar",
+            effectivePageTheme === 'theme-7' ? 'text-black' : '',
+            isMobile && "text-sm h-8 min-h-8"
+          )}>
+            <div className="flex items-center flex-grow">
+              <div className="title-bar-text">
+                {isMobile ? 'TinChat' : 'Text Chat'}
+              </div>
+            </div>
+            {/* Add online status or connection indicator on mobile */}
+            {isMobile && (
+              <div className="flex items-center text-xs mr-2">
+                <div className={cn(
+                  "w-2 h-2 rounded-full mr-1",
+                  isSocketConnected ? "bg-green-500" : "bg-red-500"
+                )} />
+                {isPartnerConnected ? 'Connected' : isFindingPartner ? 'Searching...' : 'Offline'}
+              </div>
+            )}
           </div>
-          <div className={cn('window-body window-body-content flex-grow', effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5')}>
-            <div className={cn("flex-grow overflow-y-auto", effectivePageTheme === 'theme-7' ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' : 'sunken-panel tree-view p-1')} style={{ height: messagesContainerComputedHeight, overflowY: isScrollEnabled ? 'auto' : 'hidden' }}>
+          
+          <div className={cn(
+            'window-body window-body-content flex-grow',
+            effectivePageTheme === 'theme-7' ? 'glass-body-padding' : 'p-0.5',
+            isMobile && 'p-1'
+          )}>
+            <div className={cn(
+              "flex-grow overflow-y-auto overscroll-contain",
+              effectivePageTheme === 'theme-7' 
+                ? 'border p-2 bg-white bg-opacity-20 dark:bg-gray-700 dark:bg-opacity-20' 
+                : 'sunken-panel tree-view p-1',
+              isMobile && 'p-2'
+            )} 
+            style={{ 
+              height: messagesContainerComputedHeight, 
+              overflowY: isScrollEnabled ? 'auto' : 'hidden',
+              WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+            }}>
               <div>
                 {isAuthLoading && messages.length === 0 && (
-                  <div className="text-center text-xs italic p-2 text-gray-500 dark:text-gray-400">Initializing authentication...</div>
+                  <div className="text-center text-xs italic p-2 text-gray-500 dark:text-gray-400">
+                    Initializing authentication...
+                  </div>
                 )}
                 {messages.map((msg, index) => (
                   <Row 
@@ -892,41 +1005,132 @@ const ChatPageClientContent: React.FC = () => {
                     ownDisplayName={ownDisplayUsername}
                     ownAuthId={userIdRef.current}
                     onUsernameClick={handleUsernameClick}
+                    isMobile={isMobile}
                   />
                 ))}
                 {isPartnerTyping && (
-                  <div className={cn("text-xs italic text-left pl-1 py-0.5", effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400')}>
+                  <div className={cn(
+                    "text-xs italic text-left pl-1 py-0.5",
+                    effectivePageTheme === 'theme-7' ? 'theme-7-text-shadow text-gray-100' : 'text-gray-500 dark:text-gray-400'
+                  )}>
                     {messages.find(m => m.sender === 'partner')?.senderUsername || 'Stranger'} is typing{typingDots}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
-            <div className={cn("p-2 flex-shrink-0", effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar')} style={{ height: `${INPUT_AREA_HEIGHT}px` }}>
-              <div className="flex items-center w-full">
-                <Button onClick={handleFindOrDisconnectPartner} disabled={mainButtonDisabled} className={cn('mr-1', effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1')} aria-label={findOrDisconnectText}>
+            
+            <div className={cn(
+              "flex-shrink-0",
+              effectivePageTheme === 'theme-7' ? 'input-area border-t dark:border-gray-600' : 'input-area status-bar',
+              isMobile ? "p-2" : "p-2"
+            )} 
+            style={{ 
+              height: `${currentInputAreaHeight}px`,
+              paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : undefined
+            }}>
+              <div className="flex items-center w-full gap-1">
+                <Button 
+                  onClick={handleFindOrDisconnectPartner} 
+                  disabled={mainButtonDisabled} 
+                  className={cn(
+                    effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1',
+                    isMobile ? 'text-xs px-2 py-1 min-w-0' : 'mr-1'
+                  )} 
+                  aria-label={findOrDisconnectText}
+                >
                   {findOrDisconnectText}
                 </Button>
-                <Input type="text" value={newMessage} onChange={handleInputChange} onKeyPress={(e) => e.key === 'Enter' && !inputAndSendDisabled && handleSendMessage()} placeholder="Type a message..." className="flex-1 w-full px-1 py-1" disabled={inputAndSendDisabled} aria-label="Chat message input" />
-                {effectivePageTheme === 'theme-98' && (
-                  <div className="relative ml-1 flex-shrink-0">
-                    <img id="emoji-icon-trigger" src={currentEmojiIconUrl} alt="Emoji" className="w-4 h-4 cursor-pointer inline-block" onMouseEnter={handleEmojiIconHover} onMouseLeave={stopEmojiCycle} onClick={toggleEmojiPicker} data-ai-hint="emoji icon" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && toggleEmojiPicker()} role="button" aria-haspopup="true" aria-expanded={isEmojiPickerOpen} />
+                
+                <Input 
+                  ref={inputRef}
+                  type="text" 
+                  value={newMessage} 
+                  onChange={handleInputChange} 
+                  onFocus={handleInputFocus}
+                  onKeyPress={(e) => e.key === 'Enter' && !inputAndSendDisabled && handleSendMessage()} 
+                  placeholder={isMobile ? "Type message..." : "Type a message..."} 
+                  className={cn(
+                    "flex-1 w-full",
+                    isMobile ? "text-base px-2 py-1" : "px-1 py-1" // Prevent zoom on iOS
+                  )} 
+                  disabled={inputAndSendDisabled} 
+                  aria-label="Chat message input"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                />
+                
+                {effectivePageTheme === 'theme-98' && !isMobile && (
+                  <div className="relative flex-shrink-0">
+                    <img 
+                      id="emoji-icon-trigger" 
+                      src={currentEmojiIconUrl} 
+                      alt="Emoji" 
+                      className="w-4 h-4 cursor-pointer inline-block ml-1" 
+                      onMouseEnter={handleEmojiIconHover} 
+                      onMouseLeave={stopEmojiCycle} 
+                      onClick={toggleEmojiPicker} 
+                      data-ai-hint="emoji icon" 
+                      tabIndex={0} 
+                      onKeyDown={(e) => e.key === 'Enter' && toggleEmojiPicker()} 
+                      role="button" 
+                      aria-haspopup="true" 
+                      aria-expanded={isEmojiPickerOpen} 
+                    />
                     {isEmojiPickerOpen && (
-                      <div ref={emojiPickerRef} className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window" style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }} role="dialog" aria-label="Emoji picker">
-                        {emojisLoading ? <p className="text-center w-full text-xs">Loading emojis...</p> : pickerEmojiFilenames.length > 0 ? (
+                      <div 
+                        ref={emojiPickerRef} 
+                        className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-silver border border-raised z-30 window" 
+                        style={{ boxShadow: 'inset 1px 1px #fff, inset -1px -1px gray, 1px 1px gray' }} 
+                        role="dialog" 
+                        aria-label="Emoji picker"
+                      >
+                        {emojisLoading ? (
+                          <p className="text-center w-full text-xs">Loading emojis...</p>
+                        ) : pickerEmojiFilenames.length > 0 ? (
                           <div className="h-32 overflow-y-auto grid grid-cols-4 gap-1" role="grid">
                             {pickerEmojiFilenames.map((filename) => {
                               const shortcode = filename.split('.')[0];
-                              return <img key={filename} src={`${EMOJI_BASE_URL_PICKER}${filename}`} alt={shortcode} className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5" onClick={() => { setNewMessage(prev => `${prev} :${shortcode}: `); setIsEmojiPickerOpen(false); }} data-ai-hint="emoji symbol" role="gridcell" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && (() => { setNewMessage(prev => `${prev} :${shortcode}: `); setIsEmojiPickerOpen(false); })()} />;
+                              return (
+                                <img 
+                                  key={filename} 
+                                  src={`${EMOJI_BASE_URL_PICKER}${filename}`} 
+                                  alt={shortcode} 
+                                  className="max-w-6 max-h-6 object-contain cursor-pointer hover:bg-navy hover:p-0.5" 
+                                  onClick={() => { 
+                                    setNewMessage(prev => `${prev} :${shortcode}: `); 
+                                    setIsEmojiPickerOpen(false); 
+                                  }} 
+                                  data-ai-hint="emoji symbol" 
+                                  role="gridcell" 
+                                  tabIndex={0} 
+                                  onKeyDown={(e) => e.key === 'Enter' && (() => { 
+                                    setNewMessage(prev => `${prev} :${shortcode}: `); 
+                                    setIsEmojiPickerOpen(false); 
+                                  })()} 
+                                />
+                              );
                             })}
                           </div>
-                        ) : <p className="text-center w-full text-xs">No emojis found.</p>}
+                        ) : (
+                          <p className="text-center w-full text-xs">No emojis found.</p>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-                <Button onClick={handleSendMessage} disabled={inputAndSendDisabled || !newMessage.trim()} className={cn('ml-1', effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1')} aria-label="Send message">
-                  Send
+                
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={inputAndSendDisabled || !newMessage.trim()} 
+                  className={cn(
+                    effectivePageTheme === 'theme-7' ? 'glass-button-styled' : 'px-1 py-1',
+                    isMobile ? 'text-xs px-2 py-1 min-w-0' : 'ml-1'
+                  )} 
+                  aria-label="Send message"
+                >
+                  {isMobile ? '→' : 'Send'}
                 </Button>
               </div>
             </div>
@@ -946,4 +1150,5 @@ const ChatPageClientContent: React.FC = () => {
     </>
   );
 };
+
 export default ChatPageClientContent;
