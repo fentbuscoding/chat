@@ -76,8 +76,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
           .from('user_profiles')
           .select('username')
           .eq('username', debouncedUsername)
-          .neq('id', currentUser.id)
-          .maybeSingle();
+          .neq('id', currentUser.id);
 
         if (!mountedRef.current) return;
 
@@ -85,7 +84,8 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
           console.error('Error checking username availability:', error);
           setUsernameAvailable(null);
         } else {
-          setUsernameAvailable(!data); // If data is null, username is available
+          // Username is available if no rows are returned
+          setUsernameAvailable(!data || data.length === 0);
         }
       } catch (error) {
         console.error('Exception checking username:', error);
@@ -122,15 +122,15 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
       console.log('ProfileCustomizer: Loading profile for user:', user.id);
       setCurrentUser(user);
 
+      // Use regular select without .single() to avoid PGRST116 error
       const { data, error } = await supabase
         .from('user_profiles')
         .select('profile_card_css, bio, display_name, username, avatar_url')
-        .eq('id', user.id)
-        .single();
+        .eq('id', user.id);
 
       if (!mountedRef.current) return;
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('ProfileCustomizer: Error loading profile:', error);
         // Initialize with empty values
         setCustomCSS('');
@@ -140,17 +140,18 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
         setOriginalUsername('');
         setAvatarUrl(null);
         setAvatarPreview(null);
-      } else if (data) {
-        console.log('ProfileCustomizer: Profile data loaded:', data);
-        setCustomCSS(data.profile_card_css || '');
-        setBio(data.bio || '');
-        setDisplayName(data.display_name || '');
-        setUsername(data.username || '');
-        setOriginalUsername(data.username || '');
-        setAvatarUrl(data.avatar_url);
+      } else if (data && data.length > 0) {
+        const profile = data[0];
+        console.log('ProfileCustomizer: Profile data loaded:', profile);
+        setCustomCSS(profile.profile_card_css || '');
+        setBio(profile.bio || '');
+        setDisplayName(profile.display_name || '');
+        setUsername(profile.username || '');
+        setOriginalUsername(profile.username || '');
+        setAvatarUrl(profile.avatar_url);
         
-        if (data.avatar_url) {
-          setAvatarPreview(data.avatar_url);
+        if (profile.avatar_url) {
+          setAvatarPreview(profile.avatar_url);
         }
       } else {
         console.log('ProfileCustomizer: No existing profile data found');
@@ -165,6 +166,11 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
     } catch (error) {
       console.error('ProfileCustomizer: Exception loading profile:', error);
       if (mountedRef.current) {
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive"
+        });
         setCustomCSS('');
         setBio('');
         setDisplayName('');
@@ -185,8 +191,22 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
 
     const file = e.target.files[0];
     
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({ 
+        title: "Invalid File", 
+        description: "Please select an image file.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Image too large", description: "Please select an image smaller than 2MB.", variant: "destructive" });
+      toast({ 
+        title: "Image too large", 
+        description: "Please select an image smaller than 2MB.", 
+        variant: "destructive" 
+      });
       return;
     }
     
@@ -197,6 +217,13 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
       if (mountedRef.current) {
         setAvatarPreview(reader.result as string);
       }
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Failed to read image file",
+        variant: "destructive"
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -302,40 +329,45 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
 
       console.log('ProfileCustomizer: Attempting to save profile data:', profileData);
 
-      // Try to update the existing profile
-      const { error: updateError } = await supabase
+      // Check if profile exists first
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .update(profileData)
+        .select('id')
         .eq('id', currentUser.id);
 
-      if (updateError) {
-        console.error('ProfileCustomizer: Update error:', updateError);
-        
-        if (updateError.code === 'PGRST116') {
-          // No rows found, try to insert
-          console.log('ProfileCustomizer: No existing profile found, attempting insert');
-          
-          const insertData = {
-            id: currentUser.id,
-            ...profileData,
-            profile_complete: false
-          };
+      if (existingProfile && existingProfile.length > 0) {
+        // Update existing profile
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update(profileData)
+          .eq('id', currentUser.id);
 
-          const { error: insertError } = await supabase
-            .from('user_profiles')
-            .insert(insertData);
-
-          if (insertError) {
-            console.error('ProfileCustomizer: Insert error:', insertError);
-            throw new Error(`Failed to create profile: ${insertError.message}`);
-          }
-
-          console.log('ProfileCustomizer: Profile created successfully');
-        } else {
+        if (updateError) {
+          console.error('ProfileCustomizer: Update error:', updateError);
           throw new Error(`Failed to update profile: ${updateError.message}`);
         }
-      } else {
+
         console.log('ProfileCustomizer: Profile updated successfully');
+      } else {
+        // Insert new profile
+        console.log('ProfileCustomizer: No existing profile found, creating new one');
+        
+        const insertData = {
+          id: currentUser.id,
+          ...profileData,
+          profile_complete: true
+        };
+
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert(insertData);
+
+        if (insertError) {
+          console.error('ProfileCustomizer: Insert error:', insertError);
+          throw new Error(`Failed to create profile: ${insertError.message}`);
+        }
+
+        console.log('ProfileCustomizer: Profile created successfully');
       }
 
       // Update original username for future checks
@@ -377,6 +409,12 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
       return;
     }
     onClose();
+  };
+
+  const removeAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setAvatarUrl(null);
   };
 
   if (!isOpen) return null;
@@ -436,27 +474,44 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                         </svg>
                       )}
                     </span>
-                    <Button 
-                      type="button" 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={saving}
-                      variant="outline"
-                    >
-                      Change Avatar
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="button" 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={saving}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Change Avatar
+                      </Button>
+                      {avatarPreview && (
+                        <Button 
+                          type="button" 
+                          onClick={removeAvatar}
+                          disabled={saving}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                     <input
                       type="file"
                       ref={fileInputRef}
                       onChange={handleAvatarChange}
-                      accept="image/png, image/jpeg, image/gif"
+                      accept="image/png, image/jpeg, image/gif, image/webp"
                       className="hidden"
                     />
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Recommended: Square images, max 2MB
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Username
+                    Username <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Input
@@ -546,6 +601,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                     onClick={handleReset} 
                     variant="outline"
                     disabled={saving}
+                    size="sm"
                   >
                     Reset CSS
                   </Button>
@@ -565,7 +621,7 @@ export const ProfileCustomizer: React.FC<ProfileCustomizerProps> = ({
                 </div>
 
                 {saving && (
-                  <div className="text-xs text-gray-500 text-center">
+                  <div className="text-xs text-gray-500 text-center animate-pulse">
                     Please wait while we save your changes...
                   </div>
                 )}
@@ -672,7 +728,11 @@ const ProfilePreview: React.FC<ProfilePreviewProps> = ({
         {avatarPreview ? (
           <img src={avatarPreview} alt="Profile Avatar" className="profile-avatar" />
         ) : (
-          <div className="profile-avatar"></div>
+          <div className="profile-avatar bg-gray-300 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
         )}
         
         <div className="profile-display-name">

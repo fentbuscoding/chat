@@ -133,19 +133,33 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 
     try {
       console.log('Fetching profile for userId:', userId);
+      
+      // First, try to get the profile data
       const { data, error: fetchError } = await supabase
         .from('user_profiles')
         .select('id, username, display_name, avatar_url, bio, profile_card_css')
-        .eq('id', userId)
-        .single();
+        .eq('id', userId);
 
       if (fetchError) {
         console.error('Profile fetch error:', fetchError);
         throw fetchError;
       }
 
-      console.log('Profile data fetched:', data);
-      setProfileData(data);
+      console.log('Profile query result:', data);
+
+      // Check if we got any results
+      if (!data || data.length === 0) {
+        console.log('No profile found for user:', userId);
+        // Create a basic profile with just the user ID
+        setProfileData({
+          id: userId,
+          username: 'Unknown User',
+          display_name: 'Unknown User'
+        });
+      } else {
+        console.log('Profile data fetched:', data[0]);
+        setProfileData(data[0]);
+      }
     } catch (err) {
       console.error('Error fetching profile:', err);
       setError('Failed to load profile');

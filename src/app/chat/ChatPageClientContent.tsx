@@ -51,6 +51,7 @@ interface Message {
   sender: 'me' | 'partner' | 'system';
   timestamp: Date;
   senderUsername?: string; // For partner's username OR current user's display name
+  senderAuthId?: string; // For clickable usernames
 }
 
 interface EmoteData {
@@ -110,7 +111,7 @@ interface RowProps {
   previousMessageSender?: Message['sender'];
   pickerEmojiFilenames: string[];
   ownDisplayName: string;
-  partnerAuthId: string | null;
+  ownAuthId: string | null; // Add own auth ID
   onUsernameClick: (authId: string) => void;
 }
 
@@ -120,7 +121,7 @@ const Row = React.memo(({
   previousMessageSender, 
   pickerEmojiFilenames, 
   ownDisplayName,
-  partnerAuthId,
+  ownAuthId, // Accept own auth ID
   onUsernameClick
 }: RowProps) => {
   if (message.sender === 'system') {
@@ -152,16 +153,17 @@ const Row = React.memo(({
   // Use senderUsername for partner, and ownDisplayName for 'me'
   const displayName = message.sender === 'me' ? ownDisplayName : (message.senderUsername || "Stranger");
   
-  // Check if username should be clickable (partner with authId AND not anonymous)
-  const isClickable = message.sender === 'partner' && partnerAuthId && partnerAuthId !== 'anonymous' && partnerAuthId !== null;
+  // Fix: Make username clickable for both own messages (if authenticated) and partner messages (if they have authId)
+  const authIdToUse = message.sender === 'me' ? ownAuthId : message.senderAuthId;
+  const isClickable = authIdToUse && authIdToUse !== 'anonymous' && authIdToUse !== null;
 
   const UsernameComponent = ({ children, className }: { children: React.ReactNode, className: string }) => {
-    if (isClickable) {
+    if (isClickable && authIdToUse) {
       return (
         <a
           onClick={(e) => {
             e.preventDefault();
-            onUsernameClick(partnerAuthId);
+            onUsernameClick(authIdToUse);
           }}
           className={cn(
             className,
@@ -294,6 +296,22 @@ const ChatPageClientContent: React.FC = () => {
     setProfileCardUserId(null);
   }, []);
 
+  // Modified addMessageToList to include senderAuthId
+  const addMessageToList = useCallback((text: string, sender: Message['sender'], senderUsername?: string, senderAuthId?: string, idSuffix?: string) => {
+    setMessages((prevMessages) => {
+      const newMessageItem: Message = {
+        id: `${Date.now()}-${idSuffix || Math.random().toString(36).substring(2, 7)}`,
+        text,
+        sender,
+        timestamp: new Date(),
+        senderUsername: sender === 'partner' ? senderUsername : undefined,
+        senderAuthId: sender === 'partner' ? senderAuthId : undefined,
+      };
+      return [...prevMessages, newMessageItem];
+    });
+  }, []);
+
+  // ... (rest of the useEffect hooks remain the same until the socket connection part)
 
   useEffect(() => {
     console.log(`${LOG_PREFIX}: isPartnerConnected state changed to: ${isPartnerConnected}`);
@@ -321,19 +339,6 @@ const ChatPageClientContent: React.FC = () => {
         document.head.appendChild(existingLink);
     }
     existingLink.href = newFaviconHref;
-  }, []);
-
-  const addMessageToList = useCallback((text: string, sender: Message['sender'], senderUsername?: string, idSuffix?: string) => {
-    setMessages((prevMessages) => {
-      const newMessageItem: Message = {
-        id: `${Date.now()}-${idSuffix || Math.random().toString(36).substring(2, 7)}`,
-        text,
-        sender,
-        timestamp: new Date(),
-        senderUsername: sender === 'partner' ? senderUsername : undefined,
-      };
-      return [...prevMessages, newMessageItem];
-    });
   }, []);
 
   const attemptAutoSearch = useCallback(() => {
@@ -412,15 +417,7 @@ const ChatPageClientContent: React.FC = () => {
     fetchOwnProfile();
   }, [isMounted]);
 
-  // Remove the separate auto-search useEffect since it's now handled in onConnect
-  // useEffect(() => {
-  //   console.log(`${LOG_PREFIX}: useEffect for auto-search trigger. Socket connected: ${!!socketRef.current?.connected}`);
-  //   if (socketRef.current?.connected) {
-  //     console.log(`${LOG_PREFIX}: Socket connected. Attempting auto search immediately.`);
-  //     attemptAutoSearch();
-  //   }
-  // }, [attemptAutoSearch]);
-
+  // ... (favicon and system message effects remain the same)
 
   useEffect(() => {
     if (successTransitionIntervalRef.current) clearInterval(successTransitionIntervalRef.current);
@@ -497,7 +494,6 @@ const ChatPageClientContent: React.FC = () => {
     prevIsPartnerLeftRecentlyRef.current = isPartnerLeftRecently;
   }, [isPartnerConnected, isFindingPartner, socketError, isSelfDisconnectedRecently, isPartnerLeftRecently, partnerInterests, interests, changeFavicon, messages]);
 
-
   const handleFindOrDisconnectPartner = useCallback(() => {
     const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
     console.log(`${LOG_PREFIX}: handleFindOrDisconnectPartner called. isPartnerConnected=${isPartnerConnected}, roomIdRef.current=${roomIdRef.current}, isFindingPartner=${isFindingPartner}`);
@@ -518,7 +514,7 @@ const ChatPageClientContent: React.FC = () => {
 
     if (isPartnerConnected && currentRoomId) { 
       console.log(`${LOG_PREFIX}: User ${currentSocket.id} is skipping partner in room ${currentRoomId}.`);
-      addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, 'self-disconnect-skip');
+      addMessageToList(SYS_MSG_YOU_DISCONNECTED, 'system', undefined, undefined, 'self-disconnect-skip');
       
       setIsPartnerConnected(false);
       setRoomId(null); 
@@ -654,7 +650,7 @@ const ChatPageClientContent: React.FC = () => {
         setPartnerAuthId(senderAuthId);
       }
       
-      addMessageToList(receivedMessage, 'partner', senderUsername, `partner-${Math.random().toString(36).substring(2,7)}`);
+      addMessageToList(receivedMessage, 'partner', senderUsername, senderAuthId, `partner-${Math.random().toString(36).substring(2,7)}`);
       setIsPartnerTyping(false);
     };
     const onPartnerLeft = () => {
@@ -894,7 +890,7 @@ const ChatPageClientContent: React.FC = () => {
                     previousMessageSender={index > 0 ? messages[index-1]?.sender : undefined} 
                     pickerEmojiFilenames={pickerEmojiFilenames} 
                     ownDisplayName={ownDisplayUsername}
-                    partnerAuthId={partnerAuthId}
+                    ownAuthId={userIdRef.current}
                     onUsernameClick={handleUsernameClick}
                   />
                 ))}
