@@ -158,16 +158,22 @@ const Row = React.memo(({
   const UsernameComponent = ({ children, className }: { children: React.ReactNode, className: string }) => {
     if (isClickable) {
       return (
-        <button
-          onClick={() => onUsernameClick(partnerAuthId)}
+        <a
+          onClick={(e) => {
+            e.preventDefault();
+            onUsernameClick(partnerAuthId);
+          }}
           className={cn(
             className,
-            "hover:underline cursor-pointer transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-current focus:ring-offset-1"
+            "hover:underline cursor-pointer transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-current focus:ring-offset-1",
+            "no-underline" // Remove default underline, add on hover only
           )}
-          type="button"
+          href="#"
+          role="button"
+          tabIndex={0}
         >
           {children}
-        </button>
+        </a>
       );
     }
     return <span className={className}>{children}</span>;

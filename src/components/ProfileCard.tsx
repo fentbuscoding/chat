@@ -4,8 +4,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button-themed';
+import { useTheme } from '@/components/theme-provider';
 import { supabase } from '@/lib/supabase';
 import { sanitizeCSS } from '@/lib/SafeCSS';
+import { cn } from '@/lib/utils';
 
 interface ProfileData {
   id: string;
@@ -83,6 +85,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const { currentTheme } = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -129,6 +132,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
     setError(null);
 
     try {
+      console.log('Fetching profile for userId:', userId);
       const { data, error: fetchError } = await supabase
         .from('user_profiles')
         .select('id, username, display_name, avatar_url, bio, profile_card_css')
@@ -136,9 +140,11 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
         .single();
 
       if (fetchError) {
+        console.error('Profile fetch error:', fetchError);
         throw fetchError;
       }
 
+      console.log('Profile data fetched:', data);
       setProfileData(data);
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -150,19 +156,35 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 
   if (!isOpen) return null;
 
+  const isTheme98 = currentTheme === 'theme-98';
+
   const renderProfileContent = () => {
     if (loading) {
       return (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-white">Loading profile...</div>
+        <div className={cn(
+          "flex items-center justify-center",
+          isTheme98 ? "window-body p-4" : "h-64"
+        )}>
+          <div className={cn(
+            isTheme98 ? "" : "text-white"
+          )}>
+            Loading profile...
+          </div>
         </div>
       );
     }
 
     if (error || !profileData) {
       return (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-white">{error || 'Profile not found'}</div>
+        <div className={cn(
+          "flex items-center justify-center",
+          isTheme98 ? "window-body p-4" : "h-64"
+        )}>
+          <div className={cn(
+            isTheme98 ? "" : "text-white"
+          )}>
+            {error || 'Profile not found'}
+          </div>
         </div>
       );
     }
@@ -171,6 +193,56 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
     const customCSS = profileData.profile_card_css || '';
     const sanitizedCSS = sanitizeCSS(customCSS);
     const finalCSS = DEFAULT_PROFILE_CSS + '\n' + sanitizedCSS;
+
+    if (isTheme98) {
+      return (
+        <div className="window">
+          <div className="title-bar">
+            <div className="title-bar-text">Profile - @{profileData.username}</div>
+            <div className="title-bar-controls">
+              <Button
+                onClick={onClose}
+                className="title-bar-control"
+                aria-label="Close profile"
+              >
+                <X size={12} />
+              </Button>
+            </div>
+          </div>
+          <div className="window-body">
+            <style dangerouslySetInnerHTML={{ __html: finalCSS }} />
+            <div className="profile-card-container">
+              {profileData.avatar_url && (
+                <img 
+                  src={profileData.avatar_url} 
+                  alt="Profile Avatar"
+                  className="profile-avatar"
+                />
+              )}
+              
+              {profileData.display_name && (
+                <div className="profile-display-name">
+                  {profileData.display_name}
+                </div>
+              )}
+              
+              <div className="profile-username">
+                @{profileData.username}
+              </div>
+              
+              {profileData.bio && (
+                <>
+                  <div className="profile-divider"></div>
+                  <div className="profile-bio">
+                    {profileData.bio}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <>
@@ -211,16 +283,20 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div 
         ref={modalRef}
-        className="relative bg-transparent max-w-md w-full mx-4"
+        className={cn(
+          "relative max-w-md w-full mx-4",
+          isTheme98 ? "" : "bg-transparent"
+        )}
       >
-        {/* Close button */}
-        <Button
-          onClick={onClose}
-          className="absolute -top-2 -right-2 z-10 w-8 h-8 p-0 rounded-full bg-gray-800 hover:bg-gray-700 text-white"
-          aria-label="Close profile"
-        >
-          <X size={16} />
-        </Button>
+        {!isTheme98 && (
+          <Button
+            onClick={onClose}
+            className="absolute -top-2 -right-2 z-10 w-8 h-8 p-0 rounded-full bg-gray-800 hover:bg-gray-700 text-white"
+            aria-label="Close profile"
+          >
+            <X size={16} />
+          </Button>
+        )}
         
         {renderProfileContent()}
       </div>

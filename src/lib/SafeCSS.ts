@@ -236,3 +236,10 @@ export function getDefaultProfileCSS(): string {
 }
   `.trim();
 }
+
+/**
+ * Check if CSS rule is valid
+ */
+function isValidCSSRule(rule: string): boolean {
+  return rule.trim().length > 0;
+}
