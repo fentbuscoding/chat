@@ -5,11 +5,15 @@ import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button-themed';
 import { usePathname, useRouter } from 'next/navigation';
+import { Settings } from 'lucide-react';
+import { ProfileCustomizer } from '@/components/ProfileCustomizer';
+// import { useToast } from '@/hooks/use-toast'; // Uncomment if you want to use toast for errors
 
 export default function AuthButtons() {
   const [user, setUser] = useState<User | null | undefined>(undefined); // undefined means initial unknown state
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Start true until initial auth state is known
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   // const { toast } = useToast(); // Uncomment for toast notifications
@@ -80,21 +84,65 @@ export default function AuthButtons() {
     return () => {
       authListener.subscription?.unsubscribe();
     };
-  }, [router, pathname]); // Ensure pathname is a dependency
+  }, [router, pathname]);
 
-  if (loading) {
-    return <div className="text-xs animate-pulse text-gray-500">Loading...</div>;
+  const handleSignOut = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("AuthButtons: Error signing out:", error.message);
+      // toast({ title: "Sign Out Error", description: error.message, variant: "destructive" });
+      setLoading(false); // Reset loading state if sign out itself fails
+    }
+    // On successful signOut, the onAuthStateChange listener will:
+    // 1. Set user to null.
+    // 2. Set profileUsername to null.
+    // 3. Redirect if necessary.
+    // 4. Set loading to false.
+  };
+
+  const handleOpenCustomizer = () => {
+    setIsCustomizerOpen(true);
+  };
+
+  const handleCloseCustomizer = () => {
+    setIsCustomizerOpen(false);
+  };
+
+  // Initial loading state before first auth event is processed
+  if (user === undefined) {
+    return <div className="text-xs animate-pulse text-gray-500">Auth...</div>;
   }
 
   if (user) {
     const displayName = profileUsername || user.email;
     return (
-      <div className="flex items-center space-x-2">
-        <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={displayName ?? undefined}>
-            {displayName}
-        </span>
-        <Button onClick={async () => { setLoading(true); await supabase.auth.signOut(); /* State update handled by listener */ }} className="text-xs p-1" variant="outline">Sign Out</Button>
-      </div>
+      <>
+        <div className="flex items-center space-x-2">
+          <Button 
+            onClick={handleOpenCustomizer}
+            className="text-xs p-1 w-8 h-8" 
+            variant="outline"
+            disabled={loading}
+            title="Customize Profile"
+            aria-label="Customize Profile"
+          >
+            <Settings size={14} />
+          </Button>
+          <span className="text-xs hidden sm:inline truncate max-w-[100px] sm:max-w-[150px]" title={displayName ?? undefined}>
+              {displayName}
+          </span>
+          <Button onClick={handleSignOut} className="text-xs p-1" variant="outline" disabled={loading}>
+            {loading ? 'Signing Out...' : 'Sign Out'}
+          </Button>
+        </div>
+
+        {/* Profile Customizer Modal */}
+        <ProfileCustomizer 
+          isOpen={isCustomizerOpen} 
+          onClose={handleCloseCustomizer} 
+        />
+      </>
     );
   }
 
