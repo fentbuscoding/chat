@@ -331,9 +331,11 @@ io.on('connection', (socket: Socket) => {
           partnerSocket.join(roomId);
           console.log(`[MATCH_SUCCESS] ${currentUser.id} and ${matchedPartner.id} joined room ${roomId}. Emitting 'partnerFound'.`);
 
+          // In server/index.ts, replace lines around 335-336 with:
+
           // Use display_name if available, fallback to username, then to "Stranger"
-          const currentUserDisplayName = currentUser.display_name || currentUser.username || "Stranger";
-          const partnerDisplayName = matchedPartner.display_name || matchedPartner.username || "Stranger";
+          const currentUserDisplayName = currentUser.displayName || currentUser.username || "Stranger";
+          const partnerDisplayName = matchedPartner.displayName || matchedPartner.username || "Stranger";
 
           console.log(`[MATCH_SUCCESS_USERNAMES] Current user display name: "${currentUserDisplayName}", Partner display name: "${partnerDisplayName}"`);
 
@@ -346,7 +348,7 @@ io.on('connection', (socket: Socket) => {
             partnerAvatarUrl: matchedPartner.avatarUrl,
             partnerAuthId: matchedPartner.authId,
           });
-          
+
           partnerSocket.emit('partnerFound', {
             partnerId: currentUser.id,
             roomId,
