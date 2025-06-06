@@ -263,6 +263,8 @@ const ChatPageClientContent: React.FC = () => {
 
   // Store partner's auth ID for profile card
   const [partnerAuthId, setPartnerAuthId] = useState<string | null>(null);
+
+  const interests = useMemo(() => searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [], [searchParams]);
   const effectivePageTheme = useMemo(() => (isMounted ? currentTheme : 'theme-98'), [isMounted, currentTheme]);
   const chatWindowStyle = useMemo(() => ({ width: '600px', height: '600px' }), []);
   const messagesContainerComputedHeight = useMemo(() => `calc(100% - ${INPUT_AREA_HEIGHT}px)`, []);
@@ -313,19 +315,20 @@ const ChatPageClientContent: React.FC = () => {
 
   const attemptAutoSearch = useCallback(() => {
     const currentSocket = socketRef.current;
+    const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
     console.log(`${LOG_PREFIX}: attemptAutoSearch called. Socket connected: ${!!currentSocket?.connected}, Auth loading: ${isAuthLoading}, Auto search done: ${autoSearchDoneRef.current}, Partner connected: ${isPartnerConnected}, Finding partner: ${isFindingPartner}, Room ID: ${roomIdRef.current}`);
     
     // Auto-search can proceed regardless of auth loading state
     if (currentSocket?.connected && !autoSearchDoneRef.current && !isPartnerConnected && !isFindingPartner && !roomIdRef.current) {
       console.log(`${LOG_PREFIX}: Conditions met for auto search. Emitting 'findPartner'. Payload:`, { 
         chatType: 'text', 
-        interests, 
+        interests: currentInterests, 
         authId: userIdRef.current 
       });
       setIsFindingPartner(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+      currentSocket.emit('findPartner', { chatType: 'text', interests: currentInterests, authId: userIdRef.current });
       autoSearchDoneRef.current = true;
     } else {
       let reason = "";
@@ -336,7 +339,7 @@ const ChatPageClientContent: React.FC = () => {
       if (roomIdRef.current) reason += "Already in a room. ";
       if (reason) console.log(`${LOG_PREFIX}: Auto-search conditions not met: ${reason}`);
     }
-  }, [isPartnerConnected, isFindingPartner, interests]);
+  }, [isPartnerConnected, isFindingPartner, searchParams]);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -470,6 +473,7 @@ const ChatPageClientContent: React.FC = () => {
 
 
   const handleFindOrDisconnectPartner = useCallback(() => {
+    const currentInterests = searchParams.get('interests')?.split(',').filter(i => i.trim() !== '') || [];
     console.log(`${LOG_PREFIX}: handleFindOrDisconnectPartner called. isPartnerConnected=${isPartnerConnected}, roomIdRef.current=${roomIdRef.current}, isFindingPartner=${isFindingPartner}`);
     if (isProcessingFindOrDisconnect.current) {
       console.log(`${LOG_PREFIX}: Find/disconnect action already in progress.`);
@@ -507,7 +511,7 @@ const ChatPageClientContent: React.FC = () => {
       setIsPartnerLeftRecently(false);
 
       if (currentSocket.connected) {
-        currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+        currentSocket.emit('findPartner', { chatType: 'text', interests: currentInterests, authId: userIdRef.current });
       } else {
         toast({ title: "Connection Issue", description: "Cannot find new partner, connection lost.", variant: "destructive" });
         setSocketError(true);
@@ -528,13 +532,13 @@ const ChatPageClientContent: React.FC = () => {
       setIsFindingPartner(true);
       setIsSelfDisconnectedRecently(false);
       setIsPartnerLeftRecently(false);
-      currentSocket.emit('findPartner', { chatType: 'text', interests, authId: userIdRef.current });
+      currentSocket.emit('findPartner', { chatType: 'text', interests: currentInterests, authId: userIdRef.current });
     }
     
     setTimeout(() => {
       isProcessingFindOrDisconnect.current = false;
     }, 200);
-  }, [isPartnerConnected, isFindingPartner, interests, toast, addMessageToList]);
+  }, [isPartnerConnected, isFindingPartner, searchParams, toast, addMessageToList]);
 
   // Effect for socket connection management - Only run once when component mounts
   useEffect(() => {
