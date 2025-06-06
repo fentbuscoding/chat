@@ -300,7 +300,7 @@ const VideoChatPageClientContent: React.FC = () => {
       setHasCameraPermission(true); return localStreamRef.current;
     }
     if (typeof navigator.mediaDevices?.getUserMedia !== 'function') {
-      setHasCameraPermission(false); toast({ variant: 'destructive', title: 'Unsupported Browser', description: 'Camera access (getUserMedia) is not supported.' }); return null;
+      setHasCameraPermission(false); toast({ title: 'Unsupported Browser', description: 'Camera access (getUserMedia) is not supported.' }); return null;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -309,7 +309,7 @@ const VideoChatPageClientContent: React.FC = () => {
       return stream;
     } catch (error) {
       console.error(`${LOG_PREFIX}: Error accessing camera:`, error); setHasCameraPermission(false);
-      toast({ variant: 'destructive', title: 'Camera Access Denied', description: 'Please enable camera permissions.' }); return null;
+      toast({ title: 'Camera Access Denied', description: 'Please enable camera permissions.' }); return null;
     }
   }, [toast]);
 
